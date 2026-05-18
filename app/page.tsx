@@ -159,26 +159,27 @@ function IconCheck() {
 }
 
 /**
- * GizkuLogo — lingkaran hijau dengan monogram "G" putih.
- * Ini adalah logo asli sebelum perubahan ke smiley face.
+ * GizkuLogo — identik dengan logo di halaman login:
+ * lingkaran hijau #2ECC71 + senyum + garis horizontal + centang.
  */
 function GizkuLogo({ size = 36 }: { size?: number }) {
+  const scale = size / 32
   return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-hidden="true">
-      <circle cx="18" cy="18" r="18" fill="#2ECC71"/>
-      {/* Letter G */}
-      <text
-        x="18"
-        y="24"
-        textAnchor="middle"
-        fill="white"
-        fontSize="18"
-        fontWeight="800"
-        fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
-        letterSpacing="-0.5"
-      >
-        G
-      </text>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="16" cy="16" r="16" fill="#2ECC71"/>
+      {/* Senyum */}
+      <path d="M8 16 Q8 23 16 23 Q24 23 24 16" stroke="white" strokeWidth={2 / scale} strokeLinecap="round" fill="none"/>
+      {/* Garis horizontal */}
+      <line x1="8" y1="16" x2="24" y2="16" stroke="white" strokeWidth={2 / scale} strokeLinecap="round"/>
+      {/* Centang */}
+      <polyline points="12,11 15,14.5 20.5,9" stroke="white" strokeWidth={2.2 / scale} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   )
 }
@@ -355,7 +356,7 @@ export default function LandingPage() {
 
         /*
          * gk-hero-note: teks kecil di bawah tombol CTA.
-         * Sebelumnya #9CA3AF (kontras rendah). Sekarang #6B7280 (kontras WCAG AA).
+         * Warna #6B7280 (kontras WCAG AA ~4.6:1 di atas putih).
          * Konten diambil dari DB meta.cta_note via backoffice Admin → Landing Page Editor.
          */
         .gk-hero-note {
