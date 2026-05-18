@@ -15,7 +15,16 @@ type U = {
   adminResetBy?: string | null
 }
 
-export default function UserActions({ user, globalLimit }: { user: U; globalLimit: number }) {
+export default function UserActions({
+  user,
+  globalLimit,
+  mobileCard = false,
+}: {
+  user: U
+  globalLimit: number
+  /** Saat true, render sebagai full-width button strip di mobile card */
+  mobileCard?: boolean
+}) {
   const [showEdit, setShowEdit]       = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [activeTab, setActiveTab]     = useState<'config' | 'reset'>('config')
@@ -112,42 +121,92 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
 
   return (
     <>
-      {/* ── Tombol Aksi ── */}
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => setShowHistory(true)}
-          title="Riwayat analisa makanan"
-          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#BFDBFE] text-[#3B82F6] hover:bg-[#EFF6FF] transition"
-        >
-          Riwayat
-        </button>
-        <button
-          onClick={() => { setActiveTab('config'); setShowEdit(true) }}
-          title="Edit konfigurasi user"
-          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition"
-        >
-          Edit
-        </button>
-      </div>
+      {/* ══════════════════════════════════════════
+          TRIGGER BUTTONS
+          - Desktop (mobileCard=false): tombol kecil inline
+          - Mobile card (mobileCard=true): full-width strip
+          ══════════════════════════════════════════ */}
+      {mobileCard ? (
+        // Mobile card: dua tombol full-width di footer card
+        <div className="flex w-full divide-x divide-[#F3F4F6]">
+          <button
+            onClick={() => setShowHistory(true)}
+            className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-[#3B82F6] hover:bg-[#EFF6FF] transition-colors min-h-[48px]"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 3h18v18H3z" rx="2"/>
+              <path d="M16 8H8M16 12H8M11 16H8"/>
+            </svg>
+            Riwayat
+          </button>
+          <button
+            onClick={() => { setActiveTab('config'); setShowEdit(true) }}
+            className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors min-h-[48px]"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Edit
+          </button>
+        </div>
+      ) : (
+        // Desktop: tombol kecil inline seperti semula
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowHistory(true)}
+            title="Riwayat analisa makanan"
+            className="text-xs px-2.5 py-1.5 rounded-lg border border-[#BFDBFE] text-[#3B82F6] hover:bg-[#EFF6FF] transition min-h-[36px]"
+          >
+            Riwayat
+          </button>
+          <button
+            onClick={() => { setActiveTab('config'); setShowEdit(true) }}
+            title="Edit konfigurasi user"
+            className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[36px]"
+          >
+            Edit
+          </button>
+        </div>
+      )}
 
-      {/* ── Popup Edit User ── */}
+      {/* ══════════════════════════════════════════
+          MODAL EDIT USER
+          ══════════════════════════════════════════ */}
       {showEdit && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
           onClick={e => { if (e.target === e.currentTarget) closeEdit() }}
         >
-          <div className="bg-white ring-1 ring-[#E5E7EB] rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+          {/*
+            Di mobile: sheet dari bawah (rounded-t-2xl, max-h-[90dvh])
+            Di desktop: modal tengah (rounded-2xl, max-w-sm)
+          */}
+          <div className="bg-white ring-1 ring-[#E5E7EB] shadow-xl w-full max-w-sm
+            rounded-t-2xl sm:rounded-2xl
+            max-h-[90dvh] overflow-y-auto"
+          >
+            {/* Drag handle di mobile */}
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 bg-[#E5E7EB] rounded-full" />
+            </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-5 pb-0">
+            <div className="flex items-center justify-between px-6 pt-4 sm:pt-5 pb-0">
               <div>
                 <h2 className="text-base font-semibold text-[#111827]">Edit User</h2>
                 <p className="text-xs text-[#6B7280] mt-0.5">@{user.username}</p>
               </div>
               <button
                 onClick={closeEdit}
-                className="text-[#6B7280] hover:text-[#111827] text-lg leading-none transition"
-              >✕</button>
+                className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[#F3F4F6] text-[#6B7280] hover:text-[#111827] transition"
+                aria-label="Tutup"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
             </div>
 
             {/* Tabs */}
@@ -178,7 +237,6 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
             {/* Tab: Konfigurasi */}
             {activeTab === 'config' && (
               <div className="p-6 space-y-5">
-                {/* Status badge */}
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-[#6B7280]">Status saat ini:</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -190,7 +248,6 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                   </span>
                 </div>
 
-                {/* Edit Limit Harian */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-[#111827]">Limit Harian (foto/hari)</label>
                   <div className="flex gap-2">
@@ -199,14 +256,14 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                       value={limit}
                       onChange={e => setLimit(e.target.value)}
                       placeholder={`Default global: ${globalLimit}`}
-                      className="flex-1 border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm bg-white text-[#111827]
+                      className="flex-1 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-base bg-white text-[#111827]
                         placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
                     />
                     {limit && (
                       <button
                         onClick={() => setLimit('')}
                         title="Reset ke global"
-                        className="text-xs border border-[#E5E7EB] px-2.5 rounded-xl hover:bg-[#F3F4F6] text-[#6B7280] transition"
+                        className="text-xs border border-[#E5E7EB] px-3 rounded-xl hover:bg-[#F3F4F6] text-[#6B7280] transition min-h-[44px]"
                       >↺</button>
                     )}
                   </div>
@@ -220,7 +277,7 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                     isActive: user.isActive,
                   })}
                   disabled={loading === 'update_user'}
-                  className="w-full bg-[#2ECC71] text-white py-2 rounded-xl text-sm font-medium hover:bg-[#28B765] transition disabled:opacity-50"
+                  className="w-full bg-[#2ECC71] text-white py-3 rounded-xl text-sm font-medium hover:bg-[#28B765] transition disabled:opacity-50 min-h-[48px]"
                 >
                   {loading === 'update_user' ? 'Menyimpan…' : 'Simpan Perubahan'}
                 </button>
@@ -232,7 +289,7 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                     isActive: !user.isActive,
                   })}
                   disabled={loading === 'update_user'}
-                  className={`w-full py-2 rounded-xl text-sm font-medium border transition disabled:opacity-50 ${
+                  className={`w-full py-3 rounded-xl text-sm font-medium border transition disabled:opacity-50 min-h-[48px] ${
                     user.isActive
                       ? 'text-orange-600 border-orange-200 hover:bg-orange-50'
                       : 'text-[#2ECC71] border-[#BBF7D0] hover:bg-[#F0FDF4]'
@@ -246,7 +303,7 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                   <button
                     onClick={deleteUser}
                     disabled={loading === 'delete'}
-                    className="w-full py-2 rounded-xl text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                    className="w-full py-3 rounded-xl text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50 min-h-[48px]"
                   >
                     {loading === 'delete' ? 'Menghapus…' : 'Hapus User Permanen'}
                   </button>
@@ -257,8 +314,6 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
             {/* Tab: Reset Password */}
             {activeTab === 'reset' && (
               <div className="p-6 space-y-4">
-
-                {/* Audit Trail */}
                 <div className="bg-[#F9FAFB] rounded-xl p-3.5 space-y-2 text-xs">
                   <p className="font-medium text-[#111827] text-sm">Riwayat Password</p>
                   <div className="flex justify-between text-[#6B7280]">
@@ -300,7 +355,7 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                     <p className="text-xs text-[#6B7280]">User @{user.username} wajib mengganti password saat login berikutnya.</p>
                     <button
                       onClick={closeEdit}
-                      className="mt-2 text-xs px-4 py-1.5 rounded-lg bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB] transition"
+                      className="mt-2 text-xs px-4 py-2 rounded-lg bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB] transition min-h-[40px]"
                     >Tutup</button>
                   </div>
                 ) : (
@@ -313,13 +368,14 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                           value={newPassword}
                           onChange={e => setNewPassword(e.target.value)}
                           placeholder="Min. 6 karakter"
-                          className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2 pr-10 text-sm bg-white text-[#111827]
+                          className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 pr-10 text-base bg-white text-[#111827]
                             placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent transition"
                         />
                         <button
                           type="button"
                           onClick={() => setShowNewPwd(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] text-xs transition"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] transition w-8 h-8 flex items-center justify-center"
+                          aria-label={showNewPwd ? 'Sembunyikan password' : 'Tampilkan password'}
                           tabIndex={-1}
                         >
                           {showNewPwd ? '🙈' : '👁'}
@@ -335,7 +391,7 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                           value={confirmPassword}
                           onChange={e => setConfirmPassword(e.target.value)}
                           placeholder="Ulangi password baru"
-                          className={`w-full border rounded-xl px-3 py-2 pr-10 text-sm bg-white text-[#111827]
+                          className={`w-full border rounded-xl px-3 py-2.5 pr-10 text-base bg-white text-[#111827]
                             placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 transition ${
                             pwdMismatch
                               ? 'border-red-300 focus:ring-red-200'
@@ -345,7 +401,8 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                         <button
                           type="button"
                           onClick={() => setShowConfirmPwd(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] text-xs transition"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] transition w-8 h-8 flex items-center justify-center"
+                          aria-label={showConfirmPwd ? 'Sembunyikan password' : 'Tampilkan password'}
                           tabIndex={-1}
                         >
                           {showConfirmPwd ? '🙈' : '👁'}
@@ -356,7 +413,6 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                       )}
                     </div>
 
-                    {/* Info box */}
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
                       <p className="font-medium">⚠ Perhatian</p>
                       <p>Setelah direset, user akan dipaksa mengganti password saat login berikutnya. Beritahu user password sementara ini secara langsung.</p>
@@ -365,7 +421,7 @@ export default function UserActions({ user, globalLimit }: { user: U; globalLimi
                     <button
                       onClick={handleResetPassword}
                       disabled={loading === 'reset_password' || pwdMismatch || newPassword.length < 6}
-                      className="w-full py-2 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-full py-3 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px]"
                     >
                       {loading === 'reset_password' ? 'Mereset…' : '🔑 Reset Password User'}
                     </button>

@@ -43,11 +43,19 @@ export default async function UsersPage() {
 
   return (
     <div className="space-y-6 w-full">
-      <h1 className="text-2xl font-bold text-[#111827]">Manajemen User</h1>
-      <p className="text-sm text-[#6B7280] -mt-4">
-        Limit global: <strong className="text-[#111827]">{globalLimit} foto/hari</strong>
-      </p>
-      <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl overflow-x-auto shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
+      <div>
+        <h1 className="text-2xl font-bold text-[#111827]">Manajemen User</h1>
+        <p className="text-sm text-[#6B7280] mt-1">
+          Limit global: <strong className="text-[#111827]">{globalLimit} foto/hari</strong>
+          <span className="ml-2 text-[#9CA3AF]">·</span>
+          <span className="ml-2">{usersWithStats.length} user</span>
+        </p>
+      </div>
+
+      {/* ════════════════════════════════════════
+          DESKTOP VIEW — tabel lengkap (md ke atas)
+          ════════════════════════════════════════ */}
+      <div className="hidden md:block bg-white ring-1 ring-[#E5E7EB] rounded-xl overflow-x-auto shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
         <table className="w-full text-sm">
           <thead className="bg-[#F9FAFB] text-[#6B7280] text-xs uppercase tracking-wide">
             <tr>
@@ -104,7 +112,6 @@ export default async function UsersPage() {
                     : <span className="italic text-xs text-[#9CA3AF]">Belum pernah</span>
                   }
                 </td>
-                {/* Kolom audit trail password */}
                 <td className="px-4 py-3 whitespace-nowrap min-w-[160px]">
                   {u.passwordChangedAt ? (
                     <div className="space-y-1">
@@ -128,6 +135,114 @@ export default async function UsersPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* ════════════════════════════════════════
+          MOBILE VIEW — card list (di bawah md)
+          ════════════════════════════════════════ */}
+      <div className="md:hidden space-y-3">
+        {usersWithStats.length === 0 && (
+          <div className="text-center py-12 text-[#9CA3AF] text-sm">
+            <div className="text-4xl mb-3">👤</div>
+            <p>Belum ada user terdaftar</p>
+          </div>
+        )}
+
+        {usersWithStats.map(u => (
+          <div
+            key={u.id}
+            className="bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-[0_1px_4px_rgba(16,24,40,0.04)] overflow-hidden"
+          >
+            {/* Card Header — username + status */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#F3F4F6]">
+              <div className="flex items-center gap-2 min-w-0">
+                {/* Avatar inisial */}
+                <div className="w-9 h-9 rounded-full bg-[#D4F5E4] flex items-center justify-center shrink-0">
+                  <span className="text-sm font-semibold text-[#1F9D57] uppercase">
+                    {u.username.charAt(0)}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-[#111827] text-sm truncate max-w-[160px]">
+                      {u.username}
+                    </span>
+                    {u.mustChangePassword && (
+                      <span
+                        title="User wajib ganti password"
+                        className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                      >⚠</span>
+                    )}
+                  </div>
+                  {u.email && (
+                    <p className="text-xs text-[#6B7280] truncate max-w-[200px]">{u.email}</p>
+                  )}
+                </div>
+              </div>
+              <span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${
+                u.isActive
+                  ? 'bg-[#D4F5E4] text-[#1F9D57]'
+                  : 'bg-[#F3F4F6] text-[#6B7280]'
+              }`}>
+                {u.isActive ? 'Aktif' : 'Nonaktif'}
+              </span>
+            </div>
+
+            {/* Card Stats — grid 2 kolom */}
+            <div className="grid grid-cols-2 divide-x divide-[#F3F4F6] border-b border-[#F3F4F6]">
+              <div className="px-4 py-3">
+                <p className="text-xs text-[#9CA3AF] mb-0.5">Total Meal</p>
+                <p className="text-base font-bold tabular-nums text-[#111827]">{u.totalMeals}</p>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-[#9CA3AF] mb-0.5">Hari Ini</p>
+                <p className="text-base font-bold tabular-nums text-[#111827]">{u.todayUsage}</p>
+              </div>
+            </div>
+
+            {/* Card Detail — info sekunder */}
+            <div className="px-4 py-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#9CA3AF]">Limit/Hari</span>
+                <span className="text-[#111827] font-medium tabular-nums">
+                  {u.dailyLimit
+                    ? `${u.dailyLimit} foto`
+                    : <span className="italic text-[#9CA3AF]">{globalLimit} (global)</span>
+                  }
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#9CA3AF]">Bergabung</span>
+                <span className="text-[#6B7280]">{fmtDateTime(u.createdAt)}</span>
+              </div>
+              {u.lastLoginAt && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#9CA3AF]">Last Login</span>
+                  <span className="text-[#6B7280]">{fmtDateTime(u.lastLoginAt)}</span>
+                </div>
+              )}
+              {u.passwordChangedAt && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#9CA3AF]">Pwd diubah</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#6B7280]">{fmtDate(u.passwordChangedAt)}</span>
+                    {u.passwordChangedBy === 'admin' && (
+                      <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">Admin</span>
+                    )}
+                    {u.passwordChangedBy === 'user' && (
+                      <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">User</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Card Actions — full width buttons */}
+            <div className="flex border-t border-[#F3F4F6]">
+              <UserActions user={u} globalLimit={globalLimit} mobileCard />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
