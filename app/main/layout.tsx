@@ -96,9 +96,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [router])
 
   const initApp = useCallback(async (token: string, userStr: string) => {
-    // ── Intercept: admin-reset password wajib diganti dulu ──
-    const mustChange = localStorage.getItem('nl_must_change_password')
-    if (mustChange === 'true' && !pathname.includes('force-change-password')) {
+    // FIX: Baca mustChangePassword dari dua sumber:
+    // 1. nl_must_change_password di localStorage (di-set saat login)
+    // 2. Fallback: parse nl_user dan cek field mustChangePassword
+    //    (guard tambahan jika flag di localStorage belum di-set)
+    const mustChangeFlagLS = localStorage.getItem('nl_must_change_password')
+    let mustChange = mustChangeFlagLS === 'true'
+
+    if (!mustChange) {
+      try {
+        const parsedUser = JSON.parse(userStr)
+        if (parsedUser?.mustChangePassword === true) {
+          // Sinkronkan ke localStorage agar konsisten
+          localStorage.setItem('nl_must_change_password', 'true')
+          mustChange = true
+        }
+      } catch { /* fail-open */ }
+    }
+
+    // Intercept: jika wajib ganti password dan belum di halaman tersebut
+    if (mustChange && !pathname.includes('force-change-password')) {
       router.replace('/main/force-change-password')
       return
     }

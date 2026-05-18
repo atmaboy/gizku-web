@@ -114,12 +114,16 @@ export default function LoginPage() {
       localStorage.setItem('nl_token', data.token)
       localStorage.setItem('nl_user', JSON.stringify(data.user))
 
-      // Jika admin pernah reset password, arahkan ke force-change-password
+      // FIX: Simpan flag nl_must_change_password ke localStorage SEBELUM redirect
+      // agar force-change-password/page.tsx bisa membacanya dengan benar
       if (data.user?.mustChangePassword) {
+        localStorage.setItem('nl_must_change_password', 'true')
         router.replace('/main/force-change-password')
         return
       }
 
+      // Pastikan flag dibersihkan jika user normal login (tidak perlu ganti password)
+      localStorage.removeItem('nl_must_change_password')
       router.replace('/main/catat')
     } catch {
       setError('Tidak dapat terhubung ke server')
