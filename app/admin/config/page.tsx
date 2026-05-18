@@ -55,7 +55,7 @@ export default function ConfigPage() {
     }
   }
 
-  const inputCls = "w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
+  const inputCls = "w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-base bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-5 shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
@@ -68,7 +68,7 @@ export default function ConfigPage() {
     <button
       onClick={onClick}
       disabled={disabled}
-      className="bg-[#2ECC71] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#28B765] transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+      className="w-full sm:w-auto bg-[#2ECC71] text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-[#28B765] active:bg-[#1F9D57] transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-h-[44px]"
     >
       {children}
     </button>
@@ -80,7 +80,7 @@ export default function ConfigPage() {
 
       {/* Limit Harian */}
       <Section title="Batas Analisa Harian">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="number" value={limit} onChange={e => setLimit(e.target.value)} min={1} max={9999}
             className={inputCls}
@@ -96,7 +96,7 @@ export default function ConfigPage() {
 
       {/* API Key */}
       <Section title="Anthropic API Key">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-ant-..."
             className={inputCls}
@@ -112,7 +112,7 @@ export default function ConfigPage() {
 
       {/* Model AI */}
       <Section title="Model AI (Claude)">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <select
             value={aiModel}
             onChange={e => setAiModel(e.target.value)}
@@ -141,7 +141,7 @@ export default function ConfigPage() {
 
       {/* Password */}
       <Section title="Password Admin">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="Min. 8 karakter"
             className={inputCls}
@@ -161,7 +161,7 @@ export default function ConfigPage() {
           <button
             type="button" onClick={() => setMEnabled(!mEnabled)}
             role="switch" aria-checked={mEnabled}
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 min-h-[44px]"
           >
             <div className={`w-10 h-6 rounded-full transition-colors relative ${mEnabled ? 'bg-[#2ECC71]' : 'bg-[#E5E7EB]'}`}>
               <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${mEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
