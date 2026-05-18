@@ -18,13 +18,20 @@ type LandingRow = {
 
 type LandingData = Record<string, LandingRow[]>
 
+const DEFAULT_CTA_NOTE = 'Gratis · Tidak perlu kartu kredit · Langsung bisa dipakai'
+
 const DEFAULTS: LandingData = {
   hero: [{
     id: 0, section: 'hero', slug: 'hero-main',
     title: 'Makan Cerdas. Hidup Lebih Baik.',
     subtitle: 'AI Nutrition Companion yang membuat pelacakan kalori jadi mudah, informatif, dan personal.',
     body: null,
-    meta: { cta_label: 'Mulai Sekarang', cta_url_guest: '/login', cta_url_auth: '/main/catat' },
+    meta: {
+      cta_label: 'Mulai Sekarang',
+      cta_note: DEFAULT_CTA_NOTE,
+      cta_url_guest: '/login',
+      cta_url_auth: '/main/catat',
+    },
     isActive: true, sortOrder: 0,
   }],
   how_it_works: [
@@ -45,9 +52,14 @@ const DEFAULTS: LandingData = {
   cta: [{
     id: 10, section: 'cta', slug: 'cta-bottom',
     title: 'Mulai Perjalanan Sehatmu Hari Ini',
-    subtitle: 'Gratis. Tanpa kartu kredit. Langsung pakai.',
+    subtitle: 'Bergabung sekarang dan mulai pahami apa yang kamu makan setiap hari.',
     body: null,
-    meta: { cta_label: 'Mulai Sekarang', cta_url_guest: '/login', cta_url_auth: '/main/catat' },
+    meta: {
+      cta_label: 'Mulai Sekarang',
+      cta_note: DEFAULT_CTA_NOTE,
+      cta_url_guest: '/login',
+      cta_url_auth: '/main/catat',
+    },
     isActive: true, sortOrder: 0,
   }],
 }
@@ -146,13 +158,27 @@ function IconCheck() {
   )
 }
 
+/**
+ * GizkuLogo — lingkaran hijau dengan monogram "G" putih.
+ * Ini adalah logo asli sebelum perubahan ke smiley face.
+ */
 function GizkuLogo({ size = 36 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-hidden="true">
       <circle cx="18" cy="18" r="18" fill="#2ECC71"/>
-      <circle cx="13" cy="15" r="1.5" fill="white"/>
-      <circle cx="23" cy="15" r="1.5" fill="white"/>
-      <path d="M12 20 Q18 25 24 20" stroke="white" strokeWidth="2.2" strokeLinecap="round" fill="none"/>
+      {/* Letter G */}
+      <text
+        x="18"
+        y="24"
+        textAnchor="middle"
+        fill="white"
+        fontSize="18"
+        fontWeight="800"
+        fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
+        letterSpacing="-0.5"
+      >
+        G
+      </text>
     </svg>
   )
 }
@@ -160,6 +186,13 @@ function GizkuLogo({ size = 36 }: { size?: number }) {
 const STEP_ICONS = [<IconCamera key="cam" />, <IconCpu key="cpu" />, <IconTrendingUp key="trend" />]
 const FEATURE_ICONS = [<IconZap key="zap" />, <IconTarget key="target" />, <IconLeaf key="leaf" />]
 const STAT_ICONS = [<IconUsers key="users" />, <IconUtensilsCrossed key="food" />, <IconActivitySquare key="activity" />]
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Safely extract a string value from a meta object */
+function metaStr(meta: Record<string, unknown> | null | undefined, key: string, fallback = ''): string {
+  return (meta?.[key] as string) ?? fallback
+}
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
@@ -193,15 +226,11 @@ export default function LandingPage() {
       .catch(() => { /* use DEFAULTS */ })
   }, [])
 
-  function ctaUrl(meta: Record<string, unknown> | null) {
+  function ctaUrl(meta: Record<string, unknown> | null | undefined) {
     if (!meta) return isLoggedIn ? '/main/catat' : '/login'
     return isLoggedIn
-      ? (meta.cta_url_auth as string) ?? '/main/catat'
-      : (meta.cta_url_guest as string) ?? '/login'
-  }
-
-  function ctaLabel(meta: Record<string, unknown> | null, fallback = 'Mulai Sekarang') {
-    return (meta?.cta_label as string) ?? fallback
+      ? metaStr(meta, 'cta_url_auth', '/main/catat')
+      : metaStr(meta, 'cta_url_guest', '/login')
   }
 
   const hero     = content.hero?.[0]
@@ -210,9 +239,13 @@ export default function LandingPage() {
   const stats    = content.stats ?? []
   const cta      = content.cta?.[0]
 
-  // Render CTA label: show logged-in variant only after hydration to avoid mismatch
-  const heroCTALabel  = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : ctaLabel(hero?.meta ?? null)
-  const bottomCTALabel = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : ctaLabel(cta?.meta ?? null)
+  // CTA labels — show logged-in variant only after hydration to avoid mismatch
+  const heroCTALabel   = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : metaStr(hero?.meta, 'cta_label', 'Mulai Sekarang')
+  const bottomCTALabel = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : metaStr(cta?.meta, 'cta_label', 'Mulai Sekarang')
+
+  // cta_note — read from DB meta (set via backoffice), fallback to DEFAULT_CTA_NOTE
+  const heroNote   = metaStr(hero?.meta, 'cta_note', DEFAULT_CTA_NOTE)
+  const bottomNote = metaStr(cta?.meta,  'cta_note', DEFAULT_CTA_NOTE)
 
   return (
     <>
@@ -319,8 +352,18 @@ export default function LandingPage() {
         }
         .gk-btn-hero:hover { background: #27AE60; transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 28px rgba(46,204,113,0.48); }
         .gk-btn-hero:active { transform: translateY(0) scale(1); }
-        .gk-hero-note { font-size: 13px; color: #9CA3AF; }
-        .gk-hero-note b { color: #6B7280; font-weight: 600; }
+
+        /*
+         * gk-hero-note: teks kecil di bawah tombol CTA.
+         * Sebelumnya #9CA3AF (kontras rendah). Sekarang #6B7280 (kontras WCAG AA).
+         * Konten diambil dari DB meta.cta_note via backoffice Admin → Landing Page Editor.
+         */
+        .gk-hero-note {
+          font-size: 13px;
+          color: #6B7280;
+          line-height: 1.6;
+        }
+        .gk-hero-note b { color: #374151; font-weight: 600; }
 
         /* ── APP PREVIEW CARD ── */
         .gk-preview-wrap {
@@ -580,14 +623,15 @@ export default function LandingPage() {
             <div className="gk-hero-cta-group">
               <button
                 className="gk-btn-hero"
-                onClick={() => router.push(ctaUrl(hero?.meta ?? null))}
+                onClick={() => router.push(ctaUrl(hero?.meta))}
                 aria-label={heroCTALabel}
               >
                 {heroCTALabel} →
               </button>
-              <p className="gk-hero-note">
-                <b>Gratis</b> · Tidak perlu kartu kredit · Langsung bisa dipakai
-              </p>
+              {/* heroNote dibaca dari DB (meta.cta_note). Edit via Admin → Landing Page Editor → Hero → "Catatan di bawah tombol" */}
+              {heroNote && (
+                <p className="gk-hero-note">{heroNote}</p>
+              )}
             </div>
 
             {/* App UI Preview */}
@@ -752,11 +796,15 @@ export default function LandingPage() {
             </div>
             <button
               className="gk-btn-hero"
-              onClick={() => router.push(ctaUrl(cta?.meta ?? null))}
+              onClick={() => router.push(ctaUrl(cta?.meta))}
               aria-label={bottomCTALabel}
             >
               {bottomCTALabel} →
             </button>
+            {/* bottomNote dibaca dari DB (meta.cta_note). Edit via Admin → Landing Page Editor → CTA → "Catatan di bawah tombol" */}
+            {bottomNote && (
+              <p className="gk-hero-note" style={{ marginTop: 14 }}>{bottomNote}</p>
+            )}
           </div>
         </section>
 
