@@ -199,7 +199,7 @@ function NutritionRing({ size = 120 }: { size?: number }) {
   )
 }
 
-/* ─── Phone Mockup ───────────────────────────────────────── */
+/* ─── Phone Mockup (SVG fallback) ────────────────────────── */
 function PhoneMockup() {
   const W = 200, H = 380
   const scale = W / 390
@@ -269,6 +269,30 @@ function PhoneMockup() {
   )
 }
 
+/* ─── Hero Visual: gambar dari backoffice atau SVG fallback ── */
+function HeroVisual({ imageUrl }: { imageUrl?: string }) {
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt="Screenshot aplikasi Gizku"
+        width={260}
+        height={480}
+        loading="eager"
+        decoding="async"
+        style={{
+          borderRadius: 28,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+          maxWidth: '100%',
+          height: 'auto',
+          display: 'block',
+        }}
+      />
+    )
+  }
+  return <PhoneMockup />
+}
+
 /* ─── Meta helpers ───────────────────────────────────────── */
 function metaStr(meta: Record<string, unknown> | null | undefined, key: string, fallback: string): string {
   if (!meta) return fallback
@@ -276,15 +300,6 @@ function metaStr(meta: Record<string, unknown> | null | undefined, key: string, 
   return typeof v === 'string' && v.trim() ? v : fallback
 }
 
-/**
- * Membaca array dari meta.
- *
- * @param allowEmpty - Jika true, array kosong [] dihormati dan dikembalikan apa adanya
- *                     (tidak fallback ke default). Gunakan ini ketika admin ingin
- *                     menyembunyikan checklist dengan mengosongkan field-nya.
- *                     Jika false (default), array kosong dianggap "belum diisi"
- *                     dan fallback digunakan.
- */
 function metaList(
   meta: Record<string, unknown> | null | undefined,
   key: string,
@@ -356,10 +371,11 @@ export default function HomePage() {
   const heroNote   = metaStr(hero?.meta, 'cta_note', DEFAULT_CTA_NOTE)
   const bottomNote = metaStr(cta?.meta,  'cta_note', DEFAULT_CTA_NOTE)
 
-  // Hero: allowEmpty=true → admin bisa sembunyikan checklist dengan mengosongkan field
-  // CTA bottom: allowEmpty=false (default) → tetap tampilkan fallback jika kosong
   const heroPerks   = metaList(hero?.meta, 'benefit_list', DEFAULT_PERKS, true)
   const bottomPerks = metaList(cta?.meta,  'benefit_list', DEFAULT_PERKS)
+
+  // Gambar hero: ambil dari meta.hero_image_url, fallback ke SVG PhoneMockup
+  const heroImageUrl = metaStr(hero?.meta, 'hero_image_url', '')
 
   return (
     <>
@@ -428,7 +444,7 @@ export default function HomePage() {
           max-width: 520px; line-height: 1.7; margin-bottom: 28px;
         }
 
-        /* PERK LIST — dipakai di hero dan CTA bottom */
+        /* PERK LIST */
         .gk-perk-list {
           display: flex; flex-direction: column; align-items: center; gap: 8px;
           margin-bottom: 28px;
@@ -601,7 +617,6 @@ export default function HomePage() {
             {hero?.subtitle ?? 'Cukup foto, AI Gizku langsung kenali makanan & hitung kalori, protein, lemak, karbo secara akurat.'}
           </p>
 
-          {/* benefit_list dari backoffice — kosong = tidak dirender */}
           <PerkList perks={heroPerks} />
 
           <div className="gk-hero-cta-group">
@@ -614,8 +629,10 @@ export default function HomePage() {
             </button>
             {heroNote && <p className="gk-hero-note">{heroNote}</p>}
           </div>
+
+          {/* ── Hero Visual: custom image atau SVG fallback ── */}
           <div className="gk-hero-phone" aria-hidden="true">
-            <PhoneMockup />
+            <HeroVisual imageUrl={heroImageUrl || undefined} />
           </div>
         </section>
 
@@ -692,7 +709,6 @@ export default function HomePage() {
               {cta?.subtitle ?? 'Bergabung sekarang dan mulai pahami apa yang kamu makan setiap hari.'}
             </p>
 
-            {/* benefit_list CTA dari backoffice */}
             <PerkList perks={bottomPerks} />
 
             <button
