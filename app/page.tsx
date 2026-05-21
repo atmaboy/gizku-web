@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 /* ─── Types ─────────────────────────────────────────────── */
 type ContentRow = {
@@ -216,7 +217,6 @@ function PhoneMockup() {
       <rect x={W-29} y="24" width={10} height="5" rx="1" fill="#2ECC71"/>
       {/* App header */}
       <rect x="8" y="38" width={W-16} height="28" fill="white"/>
-      <GizkuLogo size={18 * scale * (1/scale)} />
       <circle cx="20" cy="52" r={9} fill="#2ECC71"/>
       <text x="34" y="56" fontSize={10} fontWeight="700" fill="#111827" fontFamily="system-ui">Gizku</text>
       <text x={W-14} y="56" fontSize={8} fill="#6B7280" fontFamily="system-ui" textAnchor="end">Hari ini</text>
@@ -327,15 +327,12 @@ export default function HomePage() {
   const stats    = content.stats ?? []
   const cta      = content.cta?.[0]
 
-  // CTA labels — show logged-in variant only after hydration to avoid mismatch
   const heroCTALabel   = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : metaStr(hero?.meta, 'cta_label', 'Mulai Sekarang')
   const bottomCTALabel = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : metaStr(cta?.meta, 'cta_label', 'Mulai Sekarang')
 
-  // cta_note — read from DB meta (set via backoffice), fallback to DEFAULT_CTA_NOTE
   const heroNote   = metaStr(hero?.meta, 'cta_note', DEFAULT_CTA_NOTE)
   const bottomNote = metaStr(cta?.meta,  'cta_note', DEFAULT_CTA_NOTE)
 
-  // benefit_list — dibaca dari DB meta (set via backoffice), fallback ke default 3 item
   const ctaPerks: string[] = (() => {
     const raw = cta?.meta?.benefit_list
     if (Array.isArray(raw) && raw.length > 0) return raw as string[]
@@ -422,11 +419,6 @@ export default function HomePage() {
         }
         .gk-btn-hero:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(46,204,113,0.45); }
         .gk-btn-hero:active { transform: translateY(0); opacity: 0.9; }
-
-        /*
-         * gk-hero-note — teks kecil abu-abu di bawah tombol CTA.
-         * Konten diambil dari DB meta.cta_note via backoffice Admin → Landing Page Editor.
-         */
         .gk-hero-note {
           font-size: 13px; color: #9CA3AF; letter-spacing: 0.01em;
         }
@@ -559,10 +551,10 @@ export default function HomePage() {
 
         {/* ── NAV ── */}
         <nav className="gk-nav" role="navigation" aria-label="Navigasi utama">
-          <a href="/" className="gk-logo" aria-label="Gizku beranda">
+          <Link href="/" className="gk-logo" aria-label="Gizku beranda">
             <GizkuLogo size={32} />
             <span className="gk-logo-text">Gizku</span>
-          </a>
+          </Link>
           <div className="gk-nav-links">
             <button className="gk-btn-nav-ghost" onClick={() => router.push('/login')}>Masuk</button>
             <button className="gk-btn-nav-primary" onClick={() => router.push('/login')}>Buka Aplikasi</button>
@@ -686,7 +678,6 @@ export default function HomePage() {
             >
               {bottomCTALabel} →
             </button>
-            {/* bottomNote dibaca dari DB (meta.cta_note). Edit via Admin → Landing Page Editor → CTA → "Catatan di bawah tombol" */}
             {bottomNote && (
               <p className="gk-hero-note" style={{ marginTop: 14 }}>{bottomNote}</p>
             )}
