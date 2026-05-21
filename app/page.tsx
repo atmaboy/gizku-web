@@ -544,14 +544,16 @@ export default function HomePage() {
         .gk-hero-cta-group {
           display: flex; flex-direction: column; align-items: center;
           gap: 10px; margin-bottom: 16px;
+          width: 100%;
         }
         .gk-btn-hero {
-          display: inline-flex; align-items: center; gap: 8px;
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           padding: 16px 36px; border-radius: 100px; font-size: 17px; font-weight: 800;
           color: #fff; background: #2ECC71; border: none; cursor: pointer;
           box-shadow: 0 4px 24px rgba(46,204,113,0.40);
           transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
           letter-spacing: -0.01em;
+          white-space: nowrap;
         }
         .gk-btn-hero:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(46,204,113,0.45); }
         .gk-btn-hero:active { transform: translateY(0); opacity: 0.9; }
@@ -661,6 +663,12 @@ export default function HomePage() {
           .gk-hero-phone { margin-top: 36px; }
           .gk-perk-list { align-items: flex-start; padding-left: 8px; }
           .gk-user-name { display: none; }
+
+          /* Fix: button always full-width on mobile so text never clips */
+          .gk-btn-hero {
+            width: 100%;
+            max-width: 360px;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
