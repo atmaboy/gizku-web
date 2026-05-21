@@ -276,10 +276,26 @@ function metaStr(meta: Record<string, unknown> | null | undefined, key: string, 
   return typeof v === 'string' && v.trim() ? v : fallback
 }
 
-function metaList(meta: Record<string, unknown> | null | undefined, key: string, fallback: string[]): string[] {
+/**
+ * Membaca array dari meta.
+ *
+ * @param allowEmpty - Jika true, array kosong [] dihormati dan dikembalikan apa adanya
+ *                     (tidak fallback ke default). Gunakan ini ketika admin ingin
+ *                     menyembunyikan checklist dengan mengosongkan field-nya.
+ *                     Jika false (default), array kosong dianggap "belum diisi"
+ *                     dan fallback digunakan.
+ */
+function metaList(
+  meta: Record<string, unknown> | null | undefined,
+  key: string,
+  fallback: string[],
+  allowEmpty = false,
+): string[] {
   if (!meta) return fallback
   const v = meta[key]
-  if (Array.isArray(v) && v.length > 0) return v as string[]
+  if (!Array.isArray(v)) return fallback
+  if (v.length === 0 && allowEmpty) return []
+  if (v.length > 0) return v as string[]
   return fallback
 }
 
@@ -307,7 +323,6 @@ export default function HomePage() {
 
   useEffect(() => {
     setHydrated(true)
-    // Fix: correct API endpoint is /api/landing-content
     fetch('/api/landing-content')
       .then(r => r.json())
       .then((j: { data?: SectionMap }) => { if (j.data) setContent(j.data) })
@@ -341,8 +356,9 @@ export default function HomePage() {
   const heroNote   = metaStr(hero?.meta, 'cta_note', DEFAULT_CTA_NOTE)
   const bottomNote = metaStr(cta?.meta,  'cta_note', DEFAULT_CTA_NOTE)
 
-  // benefit_list dibaca dari masing-masing section (hero & cta)
-  const heroPerks   = metaList(hero?.meta, 'benefit_list', DEFAULT_PERKS)
+  // Hero: allowEmpty=true → admin bisa sembunyikan checklist dengan mengosongkan field
+  // CTA bottom: allowEmpty=false (default) → tetap tampilkan fallback jika kosong
+  const heroPerks   = metaList(hero?.meta, 'benefit_list', DEFAULT_PERKS, true)
   const bottomPerks = metaList(cta?.meta,  'benefit_list', DEFAULT_PERKS)
 
   return (
@@ -585,7 +601,7 @@ export default function HomePage() {
             {hero?.subtitle ?? 'Cukup foto, AI Gizku langsung kenali makanan & hitung kalori, protein, lemak, karbo secara akurat.'}
           </p>
 
-          {/* benefit_list dari backoffice — tampil di atas tombol */}
+          {/* benefit_list dari backoffice — kosong = tidak dirender */}
           <PerkList perks={heroPerks} />
 
           <div className="gk-hero-cta-group">
