@@ -74,16 +74,51 @@ const FALLBACK: SectionMap = {
 }
 
 /* ─── SVG helpers ────────────────────────────────────────── */
+/**
+ * GizkuLogo — lingkaran hijau + ikon mangkuk & sendok
+ * Konsisten dengan components/GizkuLogo.tsx dan halaman login.
+ */
 function GizkuLogo({ size = 36 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Gizku logo">
-      <circle cx="20" cy="20" r="20" fill="#2ECC71"/>
-      <g transform="translate(7,7) scale(0.65)">
-        <circle cx="13" cy="11" r="9" fill="white" opacity="0.95"/>
-        <path d="M13 6 C13 6 13 11 13 11 L17.5 8.5" stroke="#2ECC71" strokeWidth="2.2" strokeLinecap="round" fill="none"/>
-        <path d="M8 20 Q13 28 18 20" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-        <circle cx="13" cy="11" r="2" fill="#2ECC71"/>
-      </g>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Gizku"
+      role="img"
+    >
+      {/* Lingkaran hijau solid */}
+      <circle cx="16" cy="16" r="16" fill="#2ECC71" />
+
+      {/* Mangkuk — setengah lingkaran bawah */}
+      <path
+        d="M8 16 Q8 23 16 23 Q24 23 24 16"
+        stroke="white"
+        strokeWidth="2"
+        strokeLinecap="round"
+        fill="none"
+      />
+
+      {/* Garis atas mangkuk */}
+      <line
+        x1="8" y1="16"
+        x2="24" y2="16"
+        stroke="white"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+
+      {/* Sendok */}
+      <polyline
+        points="12,11 15,14.5 20.5,9"
+        stroke="white"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
     </svg>
   )
 }
@@ -213,6 +248,10 @@ function PhoneMockup() {
       <rect x={W-29} y="24" width={10} height="5" rx="1" fill="#2ECC71"/>
       <rect x="8" y="38" width={W-16} height="28" fill="white"/>
       <circle cx="20" cy="52" r={9} fill="#2ECC71"/>
+      {/* Bowl icon in phone mockup nav */}
+      <path d="M16 52 Q16 56 20 56 Q24 56 24 52" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
+      <line x1="16" y1="52" x2="24" y2="52" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+      <polyline points="17.5,49.5 19,51 21.5,48.5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
       <text x="34" y="56" fontSize={10} fontWeight="700" fill="#111827" fontFamily="system-ui">Gizku</text>
       <text x={W-14} y="56" fontSize={8} fill="#6B7280" fontFamily="system-ui" textAnchor="end">Hari ini</text>
       <rect x="8" y="66" width={W-16} height="90" fill="url(#foodGrad)"/>
@@ -374,7 +413,6 @@ export default function HomePage() {
   const heroPerks   = metaList(hero?.meta, 'benefit_list', DEFAULT_PERKS, true)
   const bottomPerks = metaList(cta?.meta,  'benefit_list', DEFAULT_PERKS)
 
-  // Gambar hero: ambil dari meta.hero_image_url, fallback ke SVG PhoneMockup
   const heroImageUrl = metaStr(hero?.meta, 'hero_image_url', '')
 
   return (
@@ -630,7 +668,6 @@ export default function HomePage() {
             {heroNote && <p className="gk-hero-note">{heroNote}</p>}
           </div>
 
-          {/* ── Hero Visual: custom image atau SVG fallback ── */}
           <div className="gk-hero-phone" aria-hidden="true">
             <HeroVisual imageUrl={heroImageUrl || undefined} />
           </div>
