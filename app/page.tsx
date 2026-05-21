@@ -74,10 +74,6 @@ const FALLBACK: SectionMap = {
 }
 
 /* ─── SVG helpers ────────────────────────────────────────── */
-/**
- * GizkuLogo — lingkaran hijau + ikon mangkuk & sendok
- * Konsisten dengan components/GizkuLogo.tsx dan halaman login.
- */
 function GizkuLogo({ size = 36 }: { size?: number }) {
   return (
     <svg
@@ -89,10 +85,7 @@ function GizkuLogo({ size = 36 }: { size?: number }) {
       aria-label="Gizku"
       role="img"
     >
-      {/* Lingkaran hijau solid */}
       <circle cx="16" cy="16" r="16" fill="#2ECC71" />
-
-      {/* Mangkuk — setengah lingkaran bawah */}
       <path
         d="M8 16 Q8 23 16 23 Q24 23 24 16"
         stroke="white"
@@ -100,8 +93,6 @@ function GizkuLogo({ size = 36 }: { size?: number }) {
         strokeLinecap="round"
         fill="none"
       />
-
-      {/* Garis atas mangkuk */}
       <line
         x1="8" y1="16"
         x2="24" y2="16"
@@ -109,8 +100,6 @@ function GizkuLogo({ size = 36 }: { size?: number }) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-
-      {/* Sendok */}
       <polyline
         points="12,11 15,14.5 20.5,9"
         stroke="white"
@@ -248,7 +237,6 @@ function PhoneMockup() {
       <rect x={W-29} y="24" width={10} height="5" rx="1" fill="#2ECC71"/>
       <rect x="8" y="38" width={W-16} height="28" fill="white"/>
       <circle cx="20" cy="52" r={9} fill="#2ECC71"/>
-      {/* Bowl icon in phone mockup nav */}
       <path d="M16 52 Q16 56 20 56 Q24 56 24 52" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
       <line x1="16" y1="52" x2="24" y2="52" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
       <polyline points="17.5,49.5 19,51 21.5,48.5" stroke="white" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
@@ -368,12 +356,29 @@ function PerkList({ perks }: { perks: string[] }) {
   )
 }
 
+/* ─── User Avatar (initials) ─────────────────────────────── */
+function UserAvatar({ username }: { username: string }) {
+  const initials = username.slice(0, 2).toUpperCase()
+  return (
+    <Link
+      href="/main/catat"
+      className="gk-user-avatar"
+      aria-label={`Profil ${username} — buka aplikasi`}
+      title={username}
+    >
+      <span className="gk-user-initials">{initials}</span>
+      <span className="gk-user-name">{username}</span>
+    </Link>
+  )
+}
+
 /* ─── Page Component ─────────────────────────────────────── */
 export default function HomePage() {
   const router = useRouter()
   const [content, setContent]   = useState<SectionMap>(FALLBACK)
   const [hydrated, setHydrated] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [username, setUsername] = useState<string>('')
 
   useEffect(() => {
     setHydrated(true)
@@ -387,7 +392,12 @@ export default function HomePage() {
     if (!hydrated) return
     fetch('/api/auth/me')
       .then(r => r.json())
-      .then((j: { loggedIn?: boolean }) => setIsLoggedIn(!!j.loggedIn))
+      .then((j: { loggedIn?: boolean; user?: { username?: string } }) => {
+        if (j.loggedIn) {
+          setIsLoggedIn(true)
+          setUsername(j.user?.username ?? '')
+        }
+      })
       .catch(() => {})
   }, [hydrated])
 
@@ -435,18 +445,46 @@ export default function HomePage() {
         .gk-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
         .gk-logo-text { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
         .gk-nav-links { display: flex; align-items: center; gap: 8px; }
-        .gk-btn-nav-ghost {
-          padding: 8px 16px; border-radius: 100px; font-size: 14px; font-weight: 600;
-          color: #374151; background: transparent; border: none; cursor: pointer;
-          transition: background 0.15s;
-        }
-        .gk-btn-nav-ghost:hover { background: #F3F4F6; }
+
+        /* Nav CTA — guest */
         .gk-btn-nav-primary {
-          padding: 10px 20px; border-radius: 100px; font-size: 14px; font-weight: 700;
+          padding: 10px 22px; border-radius: 100px; font-size: 14px; font-weight: 700;
           color: #fff; background: #2ECC71; border: none; cursor: pointer;
-          transition: opacity 0.15s, transform 0.15s;
+          transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s;
+          box-shadow: 0 2px 12px rgba(46,204,113,0.30);
+          white-space: nowrap;
         }
-        .gk-btn-nav-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+        .gk-btn-nav-primary:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 18px rgba(46,204,113,0.40); }
+        .gk-btn-nav-primary:active { transform: translateY(0); opacity: 0.95; }
+
+        /* Nav — user avatar (logged in) */
+        .gk-user-avatar {
+          display: flex; align-items: center; gap: 10px;
+          padding: 6px 14px 6px 6px;
+          border-radius: 100px;
+          background: #F0FDF4;
+          border: 1.5px solid #BBF7D0;
+          text-decoration: none;
+          color: #15803D;
+          font-weight: 700;
+          font-size: 14px;
+          transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+          cursor: pointer;
+        }
+        .gk-user-avatar:hover { background: #DCFCE7; box-shadow: 0 2px 10px rgba(46,204,113,0.18); transform: translateY(-1px); }
+        .gk-user-initials {
+          width: 32px; height: 32px; border-radius: 50%;
+          background: #2ECC71; color: #fff;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 800; letter-spacing: 0.02em;
+          flex-shrink: 0;
+        }
+        .gk-user-name {
+          max-width: 120px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
 
         /* HERO */
         .gk-hero {
@@ -616,6 +654,7 @@ export default function HomePage() {
           .gk-stat:last-child { border-bottom: none; }
           .gk-hero-phone { margin-top: 36px; }
           .gk-perk-list { align-items: flex-start; padding-left: 8px; }
+          .gk-user-name { display: none; }
         }
         @media (prefers-reduced-motion: reduce) {
           *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
@@ -631,8 +670,17 @@ export default function HomePage() {
             <span className="gk-logo-text">Gizku</span>
           </Link>
           <div className="gk-nav-links">
-            <button className="gk-btn-nav-ghost" onClick={() => router.push('/login')}>Masuk</button>
-            <button className="gk-btn-nav-primary" onClick={() => router.push('/login')}>Buka Aplikasi</button>
+            {hydrated && isLoggedIn && username ? (
+              <UserAvatar username={username} />
+            ) : (
+              <button
+                className="gk-btn-nav-primary"
+                onClick={() => router.push('/login')}
+                aria-label="Buka Aplikasi Gizku"
+              >
+                Buka Aplikasi
+              </button>
+            )}
           </div>
         </nav>
 
