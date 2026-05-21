@@ -23,6 +23,7 @@ type EditRow = Partial<ContentRow> & {
   benefitList: string
   ctaUrlGuest: string
   ctaUrlAuth: string
+  heroImageUrl: string
 }
 
 const SECTION_LABELS: Record<string, { label: string; color: string; bg: string }> = {
@@ -68,7 +69,8 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
 }
 
 const SECTIONS = Object.keys(SECTION_LABELS)
-const CTA_SECTIONS = ['hero', 'cta']
+const CTA_SECTIONS  = ['hero', 'cta']
+const HERO_SECTIONS = ['hero']
 
 function toEditRow(row?: ContentRow): EditRow {
   const meta = row?.meta ?? {}
@@ -87,25 +89,41 @@ function toEditRow(row?: ContentRow): EditRow {
     benefitList: Array.isArray(meta.benefit_list)
       ? (meta.benefit_list as string[]).join('\n')
       : 'Gratis selamanya\nTanpa kartu kredit\nLangsung bisa dipakai',
-    ctaUrlGuest: (meta.cta_url_guest as string) ?? '/login',
-    ctaUrlAuth:  (meta.cta_url_auth  as string) ?? '/main/catat',
+    ctaUrlGuest:  (meta.cta_url_guest  as string) ?? '/login',
+    ctaUrlAuth:   (meta.cta_url_auth   as string) ?? '/main/catat',
+    heroImageUrl: (meta.hero_image_url as string) ?? '',
   }
 }
 
-function syncCtaIntoMeta(row: EditRow): string {
-  if (!CTA_SECTIONS.includes(row.section ?? '')) return row.metaRaw
+function syncMetaFields(row: EditRow): string {
+  const isCTA  = CTA_SECTIONS.includes(row.section ?? '')
+  const isHero = HERO_SECTIONS.includes(row.section ?? '')
+  if (!isCTA && !isHero) return row.metaRaw
   try {
     const base: Record<string, unknown> = row.metaRaw.trim() === '' || row.metaRaw.trim() === '{}'
       ? {}
       : JSON.parse(row.metaRaw)
-    base.cta_label     = row.ctaLabel
-    base.cta_note      = row.ctaNote
-    base.benefit_list  = row.benefitList
-      .split('\n')
-      .map((s: string) => s.trim())
-      .filter(Boolean)
-    base.cta_url_guest = row.ctaUrlGuest
-    base.cta_url_auth  = row.ctaUrlAuth
+
+    if (isCTA) {
+      base.cta_label     = row.ctaLabel
+      base.cta_note      = row.ctaNote
+      base.benefit_list  = row.benefitList
+        .split('\n')
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+      base.cta_url_guest = row.ctaUrlGuest
+      base.cta_url_auth  = row.ctaUrlAuth
+    }
+
+    if (isHero) {
+      const url = row.heroImageUrl.trim()
+      if (url) {
+        base.hero_image_url = url
+      } else {
+        delete base.hero_image_url
+      }
+    }
+
     return JSON.stringify(base, null, 2)
   } catch {
     return row.metaRaw
@@ -146,6 +164,7 @@ export default function LandingEditorPage() {
   const [toast, setToast]         = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const [jsonErr, setJsonErr]     = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [imgPreviewErr, setImgPreviewErr] = useState(false)
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type })
@@ -167,7 +186,6 @@ export default function LandingEditorPage() {
 
   useEffect(() => { fetchRows() }, [fetchRows])
 
-  // Lock body scroll saat modal terbuka
   useEffect(() => {
     if (showForm || deleteConfirm !== null) {
       document.body.style.overflow = 'hidden'
@@ -180,12 +198,14 @@ export default function LandingEditorPage() {
   function openNew() {
     setEditRow(toEditRow())
     setJsonErr('')
+    setImgPreviewErr(false)
     setShowForm(true)
   }
 
   function openEdit(row: ContentRow) {
     setEditRow(toEditRow(row))
     setJsonErr('')
+    setImgPreviewErr(false)
     setShowForm(true)
   }
 
@@ -193,15 +213,17 @@ export default function LandingEditorPage() {
     setShowForm(false)
     setEditRow(null)
     setJsonErr('')
+    setImgPreviewErr(false)
   }
 
   function updateField<K extends keyof EditRow>(key: K, value: EditRow[K]) {
     setEditRow(prev => prev ? { ...prev, [key]: value } : prev)
+    if (key === 'heroImageUrl') setImgPreviewErr(false)
   }
 
   async function handleSave() {
     if (!editRow) return
-    const finalMetaRaw = syncCtaIntoMeta(editRow)
+    const finalMetaRaw = syncMetaFields(editRow)
     let parsedMeta: Record<string, unknown> | null = null
     try {
       const raw = finalMetaRaw.trim()
@@ -284,12 +306,13 @@ export default function LandingEditorPage() {
     return acc
   }, {})
 
-  const isCTASection = CTA_SECTIONS.includes(editRow?.section ?? '')
+  const isCTASection  = CTA_SECTIONS.includes(editRow?.section ?? '')
+  const isHeroSection = HERO_SECTIONS.includes(editRow?.section ?? '')
 
   return (
     <div className="space-y-6 max-w-5xl">
 
-      {/* ══ Toast — responsive: full-width di mobile, fixed kanan di desktop ══ */}
+      {/* Toast */}
       {toast && (
         <div
           role="alert"
@@ -297,12 +320,7 @@ export default function LandingEditorPage() {
           style={{
             background: toast.type === 'ok' ? '#059669' : '#DC2626',
             animation: 'slideInRight 0.25s ease',
-            // Mobile: full width di bawah header; Desktop: pojok kanan atas
-            top: 16,
-            right: 16,
-            left: 16,
-            maxWidth: 360,
-            marginInline: 'auto',
+            top: 16, right: 16, left: 16, maxWidth: 360, marginInline: 'auto',
           }}
         >
           {toast.type === 'ok'
@@ -314,21 +332,12 @@ export default function LandingEditorPage() {
       )}
 
       <style>{`
-        @keyframes slideInRight {
-          from { opacity: 0; transform: translateY(-8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes slideInRight { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
 
-      {/* ══ Page Header
-          Mobile : ikon+judul satu baris, tombol di baris berikutnya (full width)
-          Desktop: judul kiri, tombol kanan (satu baris)
-      ══ */}
+      {/* Page Header */}
       <div className="space-y-3 sm:space-y-0 sm:flex sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -342,8 +351,6 @@ export default function LandingEditorPage() {
           </div>
           <p className="text-sm text-[#6B7280] ml-10">Kelola konten yang tampil di halaman utama Gizku.</p>
         </div>
-
-        {/* Tombol aksi — stack di mobile, row di desktop */}
         <div className="flex gap-2 sm:shrink-0">
           <a
             href="/" target="_blank" rel="noopener noreferrer"
@@ -351,8 +358,7 @@ export default function LandingEditorPage() {
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
+              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
             Preview
           </a>
@@ -369,7 +375,7 @@ export default function LandingEditorPage() {
         </div>
       </div>
 
-      {/* ══ Stats bar ══ */}
+      {/* Stats bar */}
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {SECTIONS.map(s => {
           const info  = SECTION_LABELS[s]
@@ -395,7 +401,7 @@ export default function LandingEditorPage() {
         })}
       </div>
 
-      {/* ══ Filter tabs ══ */}
+      {/* Filter tabs */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-[#9CA3AF] font-medium mr-1">Filter:</span>
         {['all', ...SECTIONS].map(s => (
@@ -404,9 +410,7 @@ export default function LandingEditorPage() {
             onClick={() => setFilterSection(s)}
             className="text-xs px-3 py-1.5 rounded-full font-medium transition-all min-h-[32px]"
             style={{
-              background: filterSection === s
-                ? (s === 'all' ? '#111827' : SECTION_LABELS[s]?.color)
-                : '#F3F4F6',
+              background: filterSection === s ? (s === 'all' ? '#111827' : SECTION_LABELS[s]?.color) : '#F3F4F6',
               color: filterSection === s ? '#fff' : '#6B7280',
               boxShadow: filterSection === s ? '0 1px 4px rgba(0,0,0,0.15)' : 'none',
             }}
@@ -415,19 +419,15 @@ export default function LandingEditorPage() {
           </button>
         ))}
         {filterSection !== 'all' && (
-          <button
-            onClick={() => setFilterSection('all')}
-            className="text-xs text-[#9CA3AF] hover:text-[#374151] ml-1 underline transition-colors"
-          >
+          <button onClick={() => setFilterSection('all')} className="text-xs text-[#9CA3AF] hover:text-[#374151] ml-1 underline transition-colors">
             Reset
           </button>
         )}
       </div>
 
-      {/* ══ Content list ══ */}
+      {/* Content list */}
       <div className="bg-white ring-1 ring-[#E5E7EB] rounded-2xl overflow-hidden shadow-[0_1px_6px_rgba(16,24,40,0.06)]">
 
-        {/* Loading skeleton */}
         {loading && (
           <div className="p-6 space-y-3 animate-pulse">
             {[1,2,3].map(i => (
@@ -441,7 +441,6 @@ export default function LandingEditorPage() {
           </div>
         )}
 
-        {/* Empty state */}
         {!loading && displayed.length === 0 && (
           <div className="py-16 text-center" style={{ animation: 'fadeIn 0.3s ease' }}>
             <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: '#F3F4F6' }}>
@@ -461,7 +460,7 @@ export default function LandingEditorPage() {
 
         {!loading && displayed.length > 0 && (
           <>
-            {/* Desktop: tabel 6 kolom */}
+            {/* Desktop table */}
             <div className="hidden sm:block">
               <table className="w-full text-sm">
                 <thead>
@@ -488,6 +487,13 @@ export default function LandingEditorPage() {
                       <td className="px-5 py-3.5 max-w-[220px]">
                         <p className="font-medium text-[#111827] text-sm truncate">{row.title}</p>
                         {row.subtitle && <p className="text-xs text-[#9CA3AF] truncate mt-0.5">{row.subtitle}</p>}
+                        {/* Tampilkan indikator jika ada hero image */}
+                        {row.section === 'hero' && typeof row.meta?.hero_image_url === 'string' && row.meta.hero_image_url && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-[#6366F1] bg-[#EEF2FF] px-1.5 py-0.5 rounded mt-1 font-medium">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            Custom Image
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-center">
                         <span className="text-xs font-semibold tabular-nums text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded">{row.sortOrder}</span>
@@ -537,48 +543,35 @@ export default function LandingEditorPage() {
               </table>
             </div>
 
-            {/* Mobile: card list */}
+            {/* Mobile card list */}
             <ul className="sm:hidden divide-y divide-[#F3F4F6]">
               {displayed.map((row, i) => (
-                <li
-                  key={row.id}
-                  className="p-4 space-y-3"
-                  style={{ animation: `slideUp ${0.1 + i * 0.04}s ease both` }}
-                >
-                  {/* Row 1: badge section + slug + sort order */}
+                <li key={row.id} className="p-4 space-y-3" style={{ animation: `slideUp ${0.1 + i * 0.04}s ease both` }}>
                   <div className="flex items-center gap-2 flex-wrap">
                     <SectionBadge section={row.section} />
                     <span className="font-mono text-xs text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded">{row.slug}</span>
-                    <span className="ml-auto text-xs font-semibold tabular-nums text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded">
-                      #{row.sortOrder}
-                    </span>
+                    <span className="ml-auto text-xs font-semibold tabular-nums text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded">#{row.sortOrder}</span>
                   </div>
-
-                  {/* Row 2: title + subtitle */}
                   <div>
                     <p className="font-semibold text-sm text-[#111827] leading-snug">{row.title}</p>
-                    {row.subtitle && (
-                      <p className="text-xs text-[#9CA3AF] mt-0.5 line-clamp-2">{row.subtitle}</p>
+                    {row.subtitle && <p className="text-xs text-[#9CA3AF] mt-0.5 line-clamp-2">{row.subtitle}</p>}
+                    {row.section === 'hero' && typeof row.meta?.hero_image_url === 'string' && row.meta.hero_image_url && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-[#6366F1] bg-[#EEF2FF] px-1.5 py-0.5 rounded mt-1 font-medium">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        Custom Image
+                      </span>
                     )}
                   </div>
-
-                  {/* Row 3: status toggle + aksi */}
                   <div className="flex items-center gap-2">
-                    {/* Status toggle */}
                     <button
                       onClick={() => handleToggle(row)}
                       className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-full font-semibold transition-all min-h-[36px]"
-                      style={{
-                        background: row.isActive ? '#D1FAE5' : '#F3F4F6',
-                        color:      row.isActive ? '#059669' : '#9CA3AF',
-                      }}
+                      style={{ background: row.isActive ? '#D1FAE5' : '#F3F4F6', color: row.isActive ? '#059669' : '#9CA3AF' }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: row.isActive ? '#10B981' : '#D1D5DB' }} />
                       {row.isActive ? 'Aktif' : 'Nonaktif'}
                     </button>
-
                     <div className="flex gap-2 ml-auto">
-                      {/* Edit */}
                       <button
                         onClick={() => openEdit(row)}
                         className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-[#E5E7EB] text-[#374151] bg-white hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition-colors font-medium min-h-[44px]"
@@ -589,7 +582,6 @@ export default function LandingEditorPage() {
                         </svg>
                         Edit
                       </button>
-                      {/* Delete */}
                       <button
                         onClick={() => setDeleteConfirm(row.id)}
                         disabled={deleting === row.id}
@@ -611,37 +603,24 @@ export default function LandingEditorPage() {
         )}
       </div>
 
-      {/* ══ Delete Confirm Dialog ─ sudah oke mobile (max-w 400, p-4) ══ */}
+      {/* Delete Confirm Dialog */}
       {deleteConfirm !== null && (
         <div
           className="fixed inset-0 z-[1100] flex items-center justify-center p-4"
           style={{ background: 'rgba(0,0,0,0.45)', animation: 'fadeIn 0.2s ease' }}
           onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null) }}
         >
-          <div
-            className="bg-white w-full rounded-2xl p-6 shadow-2xl"
-            style={{ maxWidth: 400, animation: 'slideUp 0.2s ease' }}
-          >
+          <div className="bg-white w-full rounded-2xl p-6 shadow-2xl" style={{ maxWidth: 400, animation: 'slideUp 0.2s ease' }}>
             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#FEE2E2' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
               </svg>
             </div>
             <h3 className="text-center font-bold text-[#111827] text-base mb-2">Hapus konten ini?</h3>
             <p className="text-center text-sm text-[#6B7280] mb-6">Tindakan ini tidak bisa dibatalkan. Konten akan dihapus permanen dari database.</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-3 text-sm rounded-xl border border-[#E5E7EB] text-[#374151] font-medium hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors min-h-[48px]"
-              >
-                Batal
-              </button>
-              <button
-                onClick={() => confirmDelete(deleteConfirm)}
-                disabled={deleting !== null}
-                className="flex-1 py-3 text-sm rounded-xl font-semibold text-white bg-red-500 hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-60 min-h-[48px]"
-              >
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-3 text-sm rounded-xl border border-[#E5E7EB] text-[#374151] font-medium hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors min-h-[48px]">Batal</button>
+              <button onClick={() => confirmDelete(deleteConfirm)} disabled={deleting !== null} className="flex-1 py-3 text-sm rounded-xl font-semibold text-white bg-red-500 hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-60 min-h-[48px]">
                 {deleting !== null ? 'Menghapus...' : 'Ya, Hapus'}
               </button>
             </div>
@@ -649,10 +628,7 @@ export default function LandingEditorPage() {
         </div>
       )}
 
-      {/* ══ Edit / Add Modal
-          Mobile : bottom sheet (items-end, rounded-t-2xl, max-h-[95dvh])
-          Desktop: centered (items-center, rounded-2xl, max-h-[92vh])
-      ══ */}
+      {/* Edit / Add Modal */}
       {showForm && editRow && (
         <div
           className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center sm:p-4"
@@ -661,19 +637,14 @@ export default function LandingEditorPage() {
         >
           <div
             className="bg-white w-full flex flex-col rounded-t-2xl sm:rounded-2xl overflow-hidden"
-            style={{
-              maxWidth: 640,
-              maxHeight: '95dvh',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
-              animation: 'slideUp 0.25s ease',
-            }}
+            style={{ maxWidth: 640, maxHeight: '95dvh', boxShadow: '0 24px 64px rgba(0,0,0,0.22)', animation: 'slideUp 0.25s ease' }}
           >
-            {/* Drag handle (mobile only) */}
+            {/* Drag handle (mobile) */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
               <div className="w-10 h-1 rounded-full bg-[#E5E7EB]" />
             </div>
 
-            {/* Modal Header — sticky */}
+            {/* Modal Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-[#F3F4F6] bg-white z-10 shrink-0">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: editRow.id ? '#EEF2FF' : '#D4F5E4' }}>
@@ -686,7 +657,6 @@ export default function LandingEditorPage() {
                   {editRow.id ? 'Edit Konten' : 'Tambah Konten Baru'}
                 </h2>
               </div>
-              {/* Tutup — 44x44px touch target */}
               <button
                 onClick={closeForm}
                 aria-label="Tutup"
@@ -698,10 +668,10 @@ export default function LandingEditorPage() {
               </button>
             </div>
 
-            {/* Modal Body — scrollable */}
+            {/* Modal Body */}
             <div className="overflow-y-auto flex-1 px-4 sm:px-6 py-5 space-y-5">
 
-              {/* Section + Slug — stack di mobile, 2 kolom di sm+ */}
+              {/* Section + Slug */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <FieldLabel>Section <span className="text-red-400">*</span></FieldLabel>
@@ -766,6 +736,72 @@ export default function LandingEditorPage() {
                 />
               </div>
 
+              {/* ── HERO IMAGE ── hanya muncul untuk section Hero */}
+              {isHeroSection && (
+                <div className="rounded-2xl overflow-hidden border border-[#E0E7FF]">
+                  <div className="flex items-center gap-2 px-4 py-3" style={{ background: '#EEF2FF' }}>
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: '#C7D2FE' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338CA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs font-bold text-[#3730A3]">Gambar Screenshot App (Hero)</span>
+                    <span className="ml-auto text-[10px] text-[#818CF8] bg-[#E0E7FF] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide">Opsional</span>
+                  </div>
+
+                  <div className="px-4 py-4 space-y-4" style={{ background: '#F8F9FF' }}>
+                    <div>
+                      <FieldLabel>URL Gambar</FieldLabel>
+                      <input
+                        type="url"
+                        value={editRow.heroImageUrl}
+                        onChange={e => updateField('heroImageUrl', e.target.value)}
+                        placeholder="https://example.com/screenshot-app.png"
+                        className="w-full border border-[#E0E7FF] rounded-xl px-3 py-3 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:border-transparent transition-shadow min-h-[44px]"
+                        style={{ background: '#fff', fontSize: '16px' }}
+                      />
+                      <p className="text-[11px] text-[#9CA3AF] mt-1">
+                        Masukkan URL gambar yang bisa diakses publik (PNG/JPG/WebP). Kosongkan untuk menggunakan ilustrasi SVG default.
+                      </p>
+                    </div>
+
+                    {/* Preview gambar */}
+                    {editRow.heroImageUrl.trim() && (
+                      <div>
+                        <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">Preview</p>
+                        <div className="rounded-xl border border-[#E5E7EB] overflow-hidden bg-[#F9FAFB] flex items-center justify-center" style={{ minHeight: 120 }}>
+                          {!imgPreviewErr ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={editRow.heroImageUrl.trim()}
+                              alt="Preview gambar hero"
+                              className="max-h-48 object-contain"
+                              style={{ borderRadius: 8 }}
+                              onError={() => setImgPreviewErr(true)}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 py-6 text-[#9CA3AF]">
+                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                                <line x1="4" y1="4" x2="20" y2="20" stroke="#EF4444"/>
+                              </svg>
+                              <p className="text-xs text-red-400 font-medium">Gambar tidak dapat dimuat</p>
+                              <p className="text-[10px] text-[#9CA3AF] text-center max-w-[200px]">Pastikan URL valid dan gambar bisa diakses publik</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {!editRow.heroImageUrl.trim() && (
+                      <div className="rounded-xl border border-dashed border-[#C7D2FE] p-4 text-center">
+                        <p className="text-xs text-[#818CF8]">Kosong = ilustrasi SVG default (phone mockup) akan ditampilkan</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* CTA Dedicated Fields */}
               {isCTASection && (
                 <div className="rounded-2xl overflow-hidden border border-[#D1FAE5]">
@@ -782,7 +818,6 @@ export default function LandingEditorPage() {
                   </div>
 
                   <div className="px-4 py-4 space-y-4" style={{ background: '#FAFFFE' }}>
-                    {/* CTA Label */}
                     <div>
                       <FieldLabel>Label Tombol</FieldLabel>
                       <input
@@ -796,7 +831,6 @@ export default function LandingEditorPage() {
                       <p className="text-[11px] text-[#9CA3AF] mt-1">Teks yang tampil di dalam tombol hijau besar</p>
                     </div>
 
-                    {/* CTA Note */}
                     <div>
                       <FieldLabel hint="opsional">Catatan di bawah tombol</FieldLabel>
                       <input
@@ -810,7 +844,6 @@ export default function LandingEditorPage() {
                       <p className="text-[11px] text-[#9CA3AF] mt-1">Teks kecil abu-abu di bawah tombol</p>
                     </div>
 
-                    {/* Benefit List */}
                     <div>
                       <FieldLabel hint="1 item per baris">Checklist Keunggulan</FieldLabel>
                       <textarea
@@ -826,7 +859,6 @@ export default function LandingEditorPage() {
                       </p>
                     </div>
 
-                    {/* URL grid — stack di mobile, 2 kolom di sm+ */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <FieldLabel>URL — Belum Login</FieldLabel>
@@ -890,27 +922,27 @@ export default function LandingEditorPage() {
                 <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
                   <label className="text-xs font-semibold text-[#374151]">
                     Meta (JSON)
-                    {isCTASection && <span className="font-normal text-[#9CA3AF] ml-1">— otomatis dari CTA di atas</span>}
+                    {(isCTASection || isHeroSection) && <span className="font-normal text-[#9CA3AF] ml-1">— otomatis dari field di atas</span>}
                   </label>
                   <span className="text-[10px] text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded font-mono">
-                    {isCTASection ? 'cta_label, benefit_list, cta_url…' : 'icon, step, image_url…'}
+                    {isHeroSection ? 'hero_image_url, cta_label…' : isCTASection ? 'cta_label, benefit_list…' : 'icon, step, image_url…'}
                   </span>
                 </div>
                 <textarea
-                  rows={isCTASection ? 3 : 5}
-                  value={isCTASection ? syncCtaIntoMeta(editRow) : (editRow.metaRaw ?? '{}')}
+                  rows={(isCTASection || isHeroSection) ? 3 : 5}
+                  value={(isCTASection || isHeroSection) ? syncMetaFields(editRow) : (editRow.metaRaw ?? '{}')}
                   onChange={e => {
-                    if (isCTASection) return
+                    if (isCTASection || isHeroSection) return
                     updateField('metaRaw', e.target.value)
                     setJsonErr('')
                   }}
-                  readOnly={isCTASection}
+                  readOnly={isCTASection || isHeroSection}
                   className="w-full border rounded-xl px-3 py-2.5 text-xs font-mono text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent resize-y transition-shadow"
                   style={{
                     borderColor: jsonErr ? '#FCA5A5' : '#E5E7EB',
-                    background:  isCTASection ? '#F9FAFB' : (jsonErr ? '#FFF5F5' : '#FAFAFA'),
-                    cursor:      isCTASection ? 'default' : 'text',
-                    color:       isCTASection ? '#9CA3AF' : '#374151',
+                    background:  (isCTASection || isHeroSection) ? '#F9FAFB' : (jsonErr ? '#FFF5F5' : '#FAFAFA'),
+                    cursor:      (isCTASection || isHeroSection) ? 'default' : 'text',
+                    color:       (isCTASection || isHeroSection) ? '#9CA3AF' : '#374151',
                     fontSize:    '13px',
                   }}
                 />
@@ -922,7 +954,7 @@ export default function LandingEditorPage() {
                 )}
               </div>
 
-              {/* Sort Order + Active — stack di mobile */}
+              {/* Sort Order + Active */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
                 <div>
                   <FieldLabel>Sort Order</FieldLabel>
@@ -952,9 +984,7 @@ export default function LandingEditorPage() {
                         />
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-[#374151]">
-                          {editRow.isActive ? 'Aktif' : 'Nonaktif'}
-                        </span>
+                        <span className="text-sm font-medium text-[#374151]">{editRow.isActive ? 'Aktif' : 'Nonaktif'}</span>
                         <p className="text-[11px] text-[#9CA3AF]">Konten {editRow.isActive ? 'akan tampil' : 'disembunyikan'}</p>
                       </div>
                     </label>
@@ -963,14 +993,9 @@ export default function LandingEditorPage() {
               </div>
             </div>
 
-            {/* Modal Footer — sticky bottom */}
+            {/* Modal Footer */}
             <div className="flex gap-3 px-4 sm:px-6 py-4 border-t border-[#F3F4F6] bg-white shrink-0">
-              <button
-                onClick={closeForm}
-                className="flex-1 py-3 text-sm rounded-xl border border-[#E5E7EB] text-[#374151] font-medium hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors min-h-[48px]"
-              >
-                Batal
-              </button>
+              <button onClick={closeForm} className="flex-1 py-3 text-sm rounded-xl border border-[#E5E7EB] text-[#374151] font-medium hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors min-h-[48px]">Batal</button>
               <button
                 onClick={handleSave}
                 disabled={saving}
