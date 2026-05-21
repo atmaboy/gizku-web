@@ -380,26 +380,32 @@ export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [username, setUsername] = useState<string>('')
 
+  /* ── Load CMS content ── */
   useEffect(() => {
-    setHydrated(true)
     fetch('/api/landing-content')
       .then(r => r.json())
       .then((j: { data?: SectionMap }) => { if (j.data) setContent(j.data) })
       .catch(() => {/* keep fallback */})
   }, [])
 
+  /* ── Read auth state from localStorage (same keys used by catat/page.tsx) ── */
   useEffect(() => {
-    if (!hydrated) return
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then((j: { loggedIn?: boolean; user?: { username?: string } }) => {
-        if (j.loggedIn) {
+    const token = localStorage.getItem('nl_token')
+    const raw   = localStorage.getItem('nl_user')
+    if (token && raw) {
+      try {
+        const user = JSON.parse(raw) as { username?: string; name?: string }
+        const name = user.username ?? user.name ?? ''
+        if (name) {
           setIsLoggedIn(true)
-          setUsername(j.user?.username ?? '')
+          setUsername(name)
         }
-      })
-      .catch(() => {})
-  }, [hydrated])
+      } catch {
+        /* malformed JSON — treat as logged out */
+      }
+    }
+    setHydrated(true)
+  }, [])
 
   function ctaUrl(meta: Record<string, unknown> | null | undefined) {
     if (!hydrated) return metaStr(meta, 'cta_url_guest', '/login')
