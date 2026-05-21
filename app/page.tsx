@@ -447,10 +447,11 @@ export default function HomePage() {
           border-bottom: 1px solid #F3F4F6;
           padding: 0 20px; height: 64px;
           display: flex; align-items: center; justify-content: space-between;
+          overflow: hidden;
         }
-        .gk-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .gk-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
         .gk-logo-text { font-size: 20px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
-        .gk-nav-links { display: flex; align-items: center; gap: 8px; }
+        .gk-nav-links { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
         /* Nav CTA — guest */
         .gk-btn-nav-primary {
@@ -476,6 +477,10 @@ export default function HomePage() {
           font-size: 14px;
           transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
           cursor: pointer;
+          /* Prevent avatar from overflowing navbar */
+          max-width: 220px;
+          overflow: hidden;
+          flex-shrink: 0;
         }
         .gk-user-avatar:hover { background: #DCFCE7; box-shadow: 0 2px 10px rgba(46,204,113,0.18); transform: translateY(-1px); }
         .gk-user-initials {
@@ -662,7 +667,16 @@ export default function HomePage() {
           .gk-stat:last-child { border-bottom: none; }
           .gk-hero-phone { margin-top: 36px; }
           .gk-perk-list { align-items: flex-start; padding-left: 8px; }
+
+          /* Avatar mobile: tampilkan hanya lingkaran inisial, tanpa nama */
           .gk-user-name { display: none; }
+          .gk-user-avatar {
+            padding: 4px;
+            gap: 0;
+            max-width: 44px;
+            background: transparent;
+            border-color: #BBF7D0;
+          }
 
           /* Fix: button always full-width on mobile so text never clips */
           .gk-btn-hero {
