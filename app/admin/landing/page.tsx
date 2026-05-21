@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 
 type ContentRow = {
   id: number
@@ -68,10 +68,16 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   ),
 }
 
-const SECTIONS = Object.keys(SECTION_LABELS)
-const CTA_SECTIONS  = ['hero', 'cta']
-const HERO_SECTIONS = ['hero']
+const SECTIONS       = Object.keys(SECTION_LABELS)
+const CTA_SECTIONS   = ['hero', 'cta']
+const HERO_SECTIONS  = ['hero']
+const ALLOWED_TYPES  = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+const MAX_SIZE_MB    = 5
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: toEditRow
+// ─────────────────────────────────────────────────────────────────────────────
 function toEditRow(row?: ContentRow): EditRow {
   const meta = row?.meta ?? {}
   return {
@@ -95,6 +101,9 @@ function toEditRow(row?: ContentRow): EditRow {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: syncMetaFields
+// ─────────────────────────────────────────────────────────────────────────────
 function syncMetaFields(row: EditRow): string {
   const isCTA  = CTA_SECTIONS.includes(row.section ?? '')
   const isHero = HERO_SECTIONS.includes(row.section ?? '')
@@ -130,6 +139,9 @@ function syncMetaFields(row: EditRow): string {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-component: SectionBadge
+// ─────────────────────────────────────────────────────────────────────────────
 function SectionBadge({ section }: { section: string }) {
   const s = SECTION_LABELS[section]
   if (!s) return <span className="text-xs bg-[#F3F4F6] text-[#374151] px-2 py-0.5 rounded-md font-medium">{section}</span>
@@ -144,6 +156,9 @@ function SectionBadge({ section }: { section: string }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-component: FieldLabel
+// ─────────────────────────────────────────────────────────────────────────────
 function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
     <label className="block text-xs font-semibold text-[#374151] mb-1.5">
@@ -153,6 +168,392 @@ function FieldLabel({ children, hint }: { children: React.ReactNode; hint?: stri
   )
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-component: HeroImageUploader
+// Drag-and-drop / file-picker yang upload langsung ke Supabase Storage
+// via POST /api/admin/upload-image
+// ─────────────────────────────────────────────────────────────────────────────
+type UploadState =
+  | { status: 'idle' }
+  | { status: 'dragover' }
+  | { status: 'uploading'; progress: number; filename: string }
+  | { status: 'success'; url: string }
+  | { status: 'error'; message: string }
+
+function HeroImageUploader({
+  currentUrl,
+  onUploaded,
+  onRemove,
+}: {
+  currentUrl: string
+  onUploaded: (url: string) => void
+  onRemove: () => void
+}) {
+  const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle' })
+  const [manualUrl, setManualUrl]     = useState(currentUrl)
+  const [previewErr, setPreviewErr]   = useState(false)
+  const [showManual, setShowManual]   = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync manualUrl bila currentUrl berubah dari luar (e.g. edit row berbeda)
+  useEffect(() => {
+    setManualUrl(currentUrl)
+    setPreviewErr(false)
+    if (currentUrl && uploadState.status !== 'uploading') {
+      setUploadState({ status: 'success', url: currentUrl })
+    } else if (!currentUrl) {
+      setUploadState({ status: 'idle' })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUrl])
+
+  function validateFile(file: File): string | null {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return `Tipe file tidak didukung (${file.type}). Gunakan JPEG, PNG, WebP, atau GIF.`
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      return `Ukuran file terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maks ${MAX_SIZE_MB} MB.`
+    }
+    return null
+  }
+
+  async function uploadFile(file: File) {
+    const err = validateFile(file)
+    if (err) { setUploadState({ status: 'error', message: err }); return }
+
+    setUploadState({ status: 'uploading', progress: 0, filename: file.name })
+
+    // Simulate granular progress via XHR (fetch tidak expose upload progress)
+    const form = new FormData()
+    form.append('file', file)
+    if (currentUrl) form.append('oldUrl', currentUrl)
+
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/admin/upload-image')
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 90) // cap at 90% until response
+          setUploadState({ status: 'uploading', progress: pct, filename: file.name })
+        }
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const json = JSON.parse(xhr.responseText) as { url?: string; error?: string }
+            if (json.url) {
+              setUploadState({ status: 'success', url: json.url })
+              setManualUrl(json.url)
+              setPreviewErr(false)
+              onUploaded(json.url)
+            } else {
+              setUploadState({ status: 'error', message: json.error ?? 'Upload gagal' })
+            }
+          } catch {
+            setUploadState({ status: 'error', message: 'Respons server tidak valid' })
+          }
+        } else {
+          try {
+            const json = JSON.parse(xhr.responseText) as { error?: string }
+            setUploadState({ status: 'error', message: json.error ?? `Server error ${xhr.status}` })
+          } catch {
+            setUploadState({ status: 'error', message: `Server error ${xhr.status}` })
+          }
+        }
+        resolve()
+      }
+
+      xhr.onerror = () => {
+        setUploadState({ status: 'error', message: 'Koneksi gagal. Periksa jaringan Anda.' })
+        resolve()
+      }
+
+      xhr.send(form)
+    })
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setUploadState({ status: 'idle' })
+    const file = e.dataTransfer.files?.[0]
+    if (file) uploadFile(file)
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) uploadFile(file)
+    // Reset input sehingga file yang sama bisa dipilih ulang
+    e.target.value = ''
+  }
+
+  function handleManualSave() {
+    const url = manualUrl.trim()
+    if (url) {
+      onUploaded(url)
+      setUploadState({ status: 'success', url })
+      setPreviewErr(false)
+    } else {
+      handleRemove()
+    }
+    setShowManual(false)
+  }
+
+  function handleRemove() {
+    setUploadState({ status: 'idle' })
+    setManualUrl('')
+    setPreviewErr(false)
+    setShowManual(false)
+    onRemove()
+  }
+
+  const isDragover   = uploadState.status === 'dragover'
+  const isUploading  = uploadState.status === 'uploading'
+  const isSuccess    = uploadState.status === 'success'
+  const isError      = uploadState.status === 'error'
+  const displayUrl   = isSuccess ? uploadState.url : currentUrl
+
+  return (
+    <div className="space-y-3">
+
+      {/* ── State: sukses / ada gambar ── */}
+      {isSuccess && displayUrl && (
+        <div className="rounded-xl border border-[#C7D2FE] overflow-hidden" style={{ background: '#F8F9FF' }}>
+          {/* Thumbnail */}
+          <div className="relative flex items-center justify-center bg-[#EEF2FF] min-h-[120px] p-3">
+            {!previewErr ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={displayUrl}
+                alt="Preview gambar hero"
+                className="max-h-52 rounded-lg object-contain shadow-md"
+                style={{ maxWidth: '100%' }}
+                onError={() => setPreviewErr(true)}
+              />
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-4 text-[#9CA3AF]">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                  <line x1="4" y1="4" x2="20" y2="20"/>
+                </svg>
+                <p className="text-xs text-red-400 font-medium">Gambar tidak dapat dimuat</p>
+              </div>
+            )}
+
+            {/* Badge: Supabase */}
+            <span className="absolute top-2 left-2 inline-flex items-center gap-1 text-[10px] font-semibold text-[#4338CA] bg-white px-2 py-1 rounded-full shadow-sm border border-[#E0E7FF]">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Tersimpan di Supabase
+            </span>
+          </div>
+
+          {/* URL bar + aksi */}
+          <div className="px-3 py-2.5 flex items-center gap-2 border-t border-[#E0E7FF]">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span className="text-[10px] text-[#6B7280] font-mono truncate flex-1">{displayUrl}</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => { setShowManual(v => !v); setManualUrl(displayUrl) }}
+                className="text-[10px] px-2 py-1 rounded-lg border border-[#E0E7FF] text-[#6366F1] hover:bg-[#EEF2FF] transition-colors font-medium min-h-[28px]"
+                title="Edit URL manual"
+              >
+                Edit URL
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="text-[10px] px-2 py-1 rounded-lg border border-[#E0E7FF] text-[#6366F1] hover:bg-[#EEF2FF] transition-colors font-medium min-h-[28px]"
+                title="Ganti gambar"
+              >
+                Ganti
+              </button>
+              <button
+                type="button"
+                onClick={handleRemove}
+                className="text-[10px] px-2 py-1 rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors font-medium min-h-[28px]"
+                title="Hapus gambar"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+
+          {/* Inline edit URL manual */}
+          {showManual && (
+            <div className="px-3 pb-3 space-y-2 border-t border-[#E0E7FF] pt-2.5" style={{ background: '#fff' }}>
+              <p className="text-[10px] text-[#9CA3AF]">Atau tempel URL gambar langsung (harus bisa diakses publik):</p>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={manualUrl}
+                  onChange={e => setManualUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="flex-1 border border-[#E0E7FF] rounded-lg px-3 py-2 text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:border-transparent min-h-[36px]"
+                  style={{ fontSize: '14px' }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleManualSave() }}
+                />
+                <button
+                  type="button"
+                  onClick={handleManualSave}
+                  className="px-3 py-2 text-xs rounded-lg font-semibold text-white min-h-[36px]"
+                  style={{ background: '#6366F1' }}
+                >
+                  Simpan
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── State: uploading ── */}
+      {isUploading && (
+        <div className="rounded-xl border border-[#C7D2FE] p-4 space-y-3" style={{ background: '#F8F9FF' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#EEF2FF' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
+                <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+                <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-[#3730A3] truncate">{uploadState.filename}</p>
+              <p className="text-[10px] text-[#818CF8]">Mengunggah ke Supabase Storage…</p>
+            </div>
+            <span className="text-sm font-bold tabular-nums text-[#6366F1]">{uploadState.progress}%</span>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: '#E0E7FF' }}>
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{ width: `${uploadState.progress}%`, background: 'linear-gradient(90deg, #6366F1, #818CF8)' }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── State: error ── */}
+      {isError && (
+        <div className="rounded-xl border border-red-200 p-3 flex items-start gap-3" style={{ background: '#FFF5F5' }}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: '#FEE2E2' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-red-700 mb-0.5">Upload gagal</p>
+            <p className="text-[11px] text-red-500">{uploadState.message}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setUploadState({ status: 'idle' })}
+            className="shrink-0 text-[10px] px-2.5 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-100 transition-colors font-medium min-h-[28px]"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
+
+      {/* ── State: idle / drop zone ── */}
+      {!isSuccess && !isUploading && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Area upload gambar, klik atau seret file ke sini"
+          className="rounded-xl border-2 border-dashed transition-all cursor-pointer flex flex-col items-center justify-center gap-3 py-7 px-4 text-center focus-visible:outline-2 focus-visible:outline-[#6366F1]"
+          style={{
+            borderColor: isDragover ? '#6366F1' : '#C7D2FE',
+            background:  isDragover ? '#EEF2FF' : '#F8F9FF',
+            transform:   isDragover ? 'scale(1.01)' : 'scale(1)',
+          }}
+          onDragOver={e => { e.preventDefault(); setUploadState({ status: 'dragover' }) }}
+          onDragLeave={() => setUploadState({ status: 'idle' }) }
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
+        >
+          <div
+            className="w-12 h-12 rounded-2xl flex items-center justify-center transition-colors"
+            style={{ background: isDragover ? '#C7D2FE' : '#E0E7FF' }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isDragover ? '#4338CA' : '#818CF8'} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: isDragover ? '#4338CA' : '#3730A3' }}>
+              {isDragover ? 'Lepaskan untuk upload' : 'Seret gambar ke sini'}
+            </p>
+            <p className="text-xs text-[#818CF8] mt-0.5">
+              atau <span className="underline font-semibold">klik untuk memilih file</span>
+            </p>
+            <p className="text-[10px] text-[#A5B4FC] mt-1.5">
+              PNG, JPG, WebP, GIF · Maks {MAX_SIZE_MB} MB · Upload ke Supabase Storage
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Manual URL fallback (idle state) */}
+      {!isSuccess && !isUploading && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowManual(v => !v)}
+            className="text-[11px] text-[#818CF8] hover:text-[#6366F1] transition-colors underline"
+          >
+            {showManual ? '↑ Sembunyikan' : '↓ Atau tempel URL gambar langsung'}
+          </button>
+          {showManual && (
+            <div className="mt-2 flex gap-2" style={{ animation: 'slideUp 0.15s ease' }}>
+              <input
+                type="url"
+                value={manualUrl}
+                onChange={e => setManualUrl(e.target.value)}
+                placeholder="https://example.com/screenshot-app.png"
+                className="flex-1 border border-[#E0E7FF] rounded-lg px-3 py-2 text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:border-transparent min-h-[40px]"
+                style={{ background: '#fff', fontSize: '14px' }}
+                onKeyDown={e => { if (e.key === 'Enter') handleManualSave() }}
+              />
+              <button
+                type="button"
+                onClick={handleManualSave}
+                disabled={!manualUrl.trim()}
+                className="px-3 py-2 text-xs rounded-lg font-semibold text-white disabled:opacity-40 min-h-[40px]"
+                style={{ background: '#6366F1' }}
+              >
+                Pakai URL ini
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ALLOWED_TYPES.join(',')}
+        className="sr-only"
+        onChange={handleFileChange}
+        aria-hidden="true"
+      />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Page Component
+// ─────────────────────────────────────────────────────────────────────────────
 export default function LandingEditorPage() {
   const [rows, setRows]           = useState<ContentRow[]>([])
   const [loading, setLoading]     = useState(true)
@@ -164,7 +565,6 @@ export default function LandingEditorPage() {
   const [toast, setToast]         = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
   const [jsonErr, setJsonErr]     = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
-  const [imgPreviewErr, setImgPreviewErr] = useState(false)
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type })
@@ -198,14 +598,12 @@ export default function LandingEditorPage() {
   function openNew() {
     setEditRow(toEditRow())
     setJsonErr('')
-    setImgPreviewErr(false)
     setShowForm(true)
   }
 
   function openEdit(row: ContentRow) {
     setEditRow(toEditRow(row))
     setJsonErr('')
-    setImgPreviewErr(false)
     setShowForm(true)
   }
 
@@ -213,12 +611,10 @@ export default function LandingEditorPage() {
     setShowForm(false)
     setEditRow(null)
     setJsonErr('')
-    setImgPreviewErr(false)
   }
 
   function updateField<K extends keyof EditRow>(key: K, value: EditRow[K]) {
     setEditRow(prev => prev ? { ...prev, [key]: value } : prev)
-    if (key === 'heroImageUrl') setImgPreviewErr(false)
   }
 
   async function handleSave() {
@@ -487,7 +883,6 @@ export default function LandingEditorPage() {
                       <td className="px-5 py-3.5 max-w-[220px]">
                         <p className="font-medium text-[#111827] text-sm truncate">{row.title}</p>
                         {row.subtitle && <p className="text-xs text-[#9CA3AF] truncate mt-0.5">{row.subtitle}</p>}
-                        {/* Tampilkan indikator jika ada hero image */}
                         {row.section === 'hero' && typeof row.meta?.hero_image_url === 'string' && row.meta.hero_image_url && (
                           <span className="inline-flex items-center gap-1 text-[10px] text-[#6366F1] bg-[#EEF2FF] px-1.5 py-0.5 rounded mt-1 font-medium">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
@@ -736,9 +1131,10 @@ export default function LandingEditorPage() {
                 />
               </div>
 
-              {/* ── HERO IMAGE ── hanya muncul untuk section Hero */}
+              {/* ── HERO IMAGE UPLOADER ── hanya muncul untuk section Hero */}
               {isHeroSection && (
                 <div className="rounded-2xl overflow-hidden border border-[#E0E7FF]">
+                  {/* Panel header */}
                   <div className="flex items-center gap-2 px-4 py-3" style={{ background: '#EEF2FF' }}>
                     <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: '#C7D2FE' }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338CA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -749,55 +1145,16 @@ export default function LandingEditorPage() {
                     <span className="ml-auto text-[10px] text-[#818CF8] bg-[#E0E7FF] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide">Opsional</span>
                   </div>
 
-                  <div className="px-4 py-4 space-y-4" style={{ background: '#F8F9FF' }}>
-                    <div>
-                      <FieldLabel>URL Gambar</FieldLabel>
-                      <input
-                        type="url"
-                        value={editRow.heroImageUrl}
-                        onChange={e => updateField('heroImageUrl', e.target.value)}
-                        placeholder="https://example.com/screenshot-app.png"
-                        className="w-full border border-[#E0E7FF] rounded-xl px-3 py-3 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:border-transparent transition-shadow min-h-[44px]"
-                        style={{ background: '#fff', fontSize: '16px' }}
-                      />
-                      <p className="text-[11px] text-[#9CA3AF] mt-1">
-                        Masukkan URL gambar yang bisa diakses publik (PNG/JPG/WebP). Kosongkan untuk menggunakan ilustrasi SVG default.
-                      </p>
-                    </div>
-
-                    {/* Preview gambar */}
-                    {editRow.heroImageUrl.trim() && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">Preview</p>
-                        <div className="rounded-xl border border-[#E5E7EB] overflow-hidden bg-[#F9FAFB] flex items-center justify-center" style={{ minHeight: 120 }}>
-                          {!imgPreviewErr ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={editRow.heroImageUrl.trim()}
-                              alt="Preview gambar hero"
-                              className="max-h-48 object-contain"
-                              style={{ borderRadius: 8 }}
-                              onError={() => setImgPreviewErr(true)}
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center gap-2 py-6 text-[#9CA3AF]">
-                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                                <line x1="4" y1="4" x2="20" y2="20" stroke="#EF4444"/>
-                              </svg>
-                              <p className="text-xs text-red-400 font-medium">Gambar tidak dapat dimuat</p>
-                              <p className="text-[10px] text-[#9CA3AF] text-center max-w-[200px]">Pastikan URL valid dan gambar bisa diakses publik</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {!editRow.heroImageUrl.trim() && (
-                      <div className="rounded-xl border border-dashed border-[#C7D2FE] p-4 text-center">
-                        <p className="text-xs text-[#818CF8]">Kosong = ilustrasi SVG default (phone mockup) akan ditampilkan</p>
-                      </div>
-                    )}
+                  {/* Uploader component */}
+                  <div className="px-4 py-4" style={{ background: '#F8F9FF' }}>
+                    <HeroImageUploader
+                      currentUrl={editRow.heroImageUrl}
+                      onUploaded={(url) => updateField('heroImageUrl', url)}
+                      onRemove={() => updateField('heroImageUrl', '')}
+                    />
+                    <p className="text-[10px] text-[#A5B4FC] mt-3">
+                      Kosongkan untuk menggunakan ilustrasi SVG default (phone mockup).
+                    </p>
                   </div>
                 </div>
               )}
