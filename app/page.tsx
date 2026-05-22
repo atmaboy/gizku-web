@@ -407,6 +407,7 @@ export default function HomePage() {
     setHydrated(true)
   }, [])
 
+  /* ── CTA URL: beda tujuan tergantung auth state, label tetap dari CMS ── */
   function ctaUrl(meta: Record<string, unknown> | null | undefined) {
     if (!hydrated) return metaStr(meta, 'cta_url_guest', '/login')
     return isLoggedIn
@@ -420,8 +421,9 @@ export default function HomePage() {
   const stats    = content.stats ?? []
   const cta      = content.cta?.[0]
 
-  const heroCTALabel   = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : metaStr(hero?.meta, 'cta_label', 'Mulai Sekarang')
-  const bottomCTALabel = hydrated && isLoggedIn ? 'Catat Makan Sekarang' : metaStr(cta?.meta,  'cta_label', 'Mulai Sekarang')
+  /* ── Label selalu dari CMS, tidak dibedakan berdasarkan auth state ── */
+  const heroCTALabel   = metaStr(hero?.meta, 'cta_label', 'Mulai Sekarang')
+  const bottomCTALabel = metaStr(cta?.meta,  'cta_label', 'Mulai Sekarang')
 
   const heroNote   = metaStr(hero?.meta, 'cta_note', DEFAULT_CTA_NOTE)
   const bottomNote = metaStr(cta?.meta,  'cta_note', DEFAULT_CTA_NOTE)
@@ -477,7 +479,6 @@ export default function HomePage() {
           font-size: 14px;
           transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
           cursor: pointer;
-          /* Prevent avatar from overflowing navbar */
           max-width: 220px;
           overflow: hidden;
           flex-shrink: 0;
