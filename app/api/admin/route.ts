@@ -139,6 +139,45 @@ export async function POST(req: NextRequest) {
       return ok({ message: 'User diperbarui' })
     }
 
+    // RESET USER PASSWORD (Entry Point 3 — Backoffice admin)
+    // Admin set password sembarang, user WAJIB ganti saat login berikutnya
+    if (action === 'reset_user_password') {
+      const { userId, newPassword } = await req.json()
+      if (!userId) return err('userId diperlukan')
+      if (!newPassword) return err('Password baru diperlukan')
+      if (newPassword.length < 6) return err('Password minimal 6 karakter')
+
+      // Ambil username admin dari cookie token untuk audit trail
+      const adminCookieToken = req.cookies.get('nl_admin_token')?.value
+      let adminUsername = 'admin'
+      if (adminCookieToken) {
+        try {
+          const { jwtVerify } = await import('jose')
+          const secret = new TextEncoder().encode(
+            process.env.JWT_SECRET || 'fallback-change-in-production-32ch'
+          )
+          const { payload } = await jwtVerify(adminCookieToken, secret)
+          if (payload.username && typeof payload.username === 'string') {
+            adminUsername = payload.username
+          }
+        } catch { /* fallback ke 'admin' */ }
+      }
+
+      const { hashPassword } = await import('@/lib/auth')
+      const hash = await hashPassword(newPassword)
+
+      await db.update(users).set({
+        passwordHash:      hash,
+        passwordChangedAt: new Date(),
+        passwordChangedBy: 'admin',
+        mustChangePassword: true,   // user WAJIB ganti password saat login berikutnya
+        adminResetBy:      adminUsername,
+        updatedAt:         new Date(),
+      }).where(eq(users.id, userId))
+
+      return ok({ message: 'Password user berhasil direset. User wajib ganti password saat login.' })
+    }
+
     if (action === 'delete_user') {
       const { userId } = await req.json()
       if (!userId) return err('userId diperlukan')
@@ -146,7 +185,7 @@ export async function POST(req: NextRequest) {
       return ok({ message: 'User dihapus' })
     }
 
-    // ── update report status ──────────────────────────────────────────────────
+    // ── update report status ───────────────────────────────────────────────────────────────
     if (action === 'update_report') {
       const { id, status } = await req.json()
       if (!id) return err('id laporan diperlukan')
@@ -239,12 +278,17 @@ export async function GET(req: NextRequest) {
 
     if (action === 'users') {
       const allUsers = await db.select({
-        id: users.id,
-        username: users.username,
-        email: users.email,
-        isActive: users.isActive,
-        dailyLimit: users.dailyLimit,
-        createdAt: users.createdAt,
+        id:                 users.id,
+        username:           users.username,
+        email:              users.email,
+        isActive:           users.isActive,
+        dailyLimit:         users.dailyLimit,
+        createdAt:          users.createdAt,
+        // Password audit trail ───────────────────────
+        passwordChangedAt:  users.passwordChangedAt,
+        passwordChangedBy:  users.passwordChangedBy,
+        mustChangePassword: users.mustChangePassword,
+        adminResetBy:       users.adminResetBy,
       }).from(users).orderBy(desc(users.createdAt))
       return ok({ users: allUsers })
     }
@@ -264,7 +308,7 @@ export async function GET(req: NextRequest) {
       return ok({ globalLimit, apiKey: apiKey ? '••••••••' : '', anthropicModel, maintenance })
     }
 
-    // ── list all reports (for client-side fetching) ───────────────────────────────────────
+    // ── list all reports (for client-side fetching) ─────────────────────────────────────────────────
     if (action === 'reports') {
       const status = req.nextUrl.searchParams.get('status') // optional: 'open' | 'closed'
       const rows = status

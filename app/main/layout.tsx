@@ -77,13 +77,49 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [emailError, setEmailError] = useState('')
   const [emailSuccess, setEmailSuccess] = useState(false)
 
+  // ── Ubah Password state ──
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [cpUsername, setCpUsername] = useState('')
+  const [cpNew, setCpNew] = useState('')
+  const [cpConfirm, setCpConfirm] = useState('')
+  const [cpShowNew, setCpShowNew] = useState(false)
+  const [cpShowConfirm, setCpShowConfirm] = useState(false)
+  const [cpLoading, setCpLoading] = useState(false)
+  const [cpError, setCpError] = useState('')
+  const [cpSuccess, setCpSuccess] = useState(false)
+
   const forceLogout = useCallback(() => {
     localStorage.removeItem('nl_token')
     localStorage.removeItem('nl_user')
+    localStorage.removeItem('nl_must_change_password')
     router.replace('/login')
   }, [router])
 
   const initApp = useCallback(async (token: string, userStr: string) => {
+    // FIX: Baca mustChangePassword dari dua sumber:
+    // 1. nl_must_change_password di localStorage (di-set saat login)
+    // 2. Fallback: parse nl_user dan cek field mustChangePassword
+    //    (guard tambahan jika flag di localStorage belum di-set)
+    const mustChangeFlagLS = localStorage.getItem('nl_must_change_password')
+    let mustChange = mustChangeFlagLS === 'true'
+
+    if (!mustChange) {
+      try {
+        const parsedUser = JSON.parse(userStr)
+        if (parsedUser?.mustChangePassword === true) {
+          // Sinkronkan ke localStorage agar konsisten
+          localStorage.setItem('nl_must_change_password', 'true')
+          mustChange = true
+        }
+      } catch { /* fail-open */ }
+    }
+
+    // Intercept: jika wajib ganti password dan belum di halaman tersebut
+    if (mustChange && !pathname.includes('force-change-password')) {
+      router.replace('/main/force-change-password')
+      return
+    }
+
     const headers = { Authorization: `Bearer ${token}` }
 
     const [todayResult, emailResult, maintenanceResult] = await Promise.allSettled([
@@ -125,7 +161,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
 
     setUser(JSON.parse(userStr))
-  }, [forceLogout])
+  }, [forceLogout, pathname])
 
   useEffect(() => {
     const token = localStorage.getItem('nl_token')
@@ -138,6 +174,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   async function logout() {
     localStorage.removeItem('nl_token')
     localStorage.removeItem('nl_user')
+    localStorage.removeItem('nl_must_change_password')
     router.replace('/login')
   }
 
@@ -200,6 +237,51 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // ── Ubah Password submit ──
+  async function submitChangePassword() {
+    setCpError('')
+    const trimUser = cpUsername.trim().toLowerCase()
+    const trimNew  = cpNew.trim()
+    const trimConf = cpConfirm.trim()
+
+    if (!trimUser) { setCpError('Masukkan username kamu untuk konfirmasi'); return }
+    if (trimUser !== (user?.username ?? '').toLowerCase()) { setCpError('Username tidak cocok dengan akun yang sedang login'); return }
+    if (trimNew.length < 6) { setCpError('Password baru minimal 6 karakter'); return }
+    if (trimNew !== trimConf) { setCpError('Konfirmasi password tidak cocok'); return }
+
+    setCpLoading(true)
+    try {
+      const token = localStorage.getItem('nl_token') || ''
+      const res = await fetch('/api/auth?action=change_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ username: trimUser, newPassword: trimNew }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setCpError(data.error || 'Gagal mengubah password. Coba lagi.'); return }
+      setCpSuccess(true)
+      // Hapus sesi → paksa login ulang
+      setTimeout(() => {
+        localStorage.removeItem('nl_token')
+        localStorage.removeItem('nl_user')
+        localStorage.removeItem('nl_must_change_password')
+        router.replace('/login')
+      }, 2200)
+    } catch {
+      setCpError('Tidak dapat terhubung ke server. Periksa koneksi internet kamu.')
+    } finally {
+      setCpLoading(false)
+    }
+  }
+
+  function openChangePassword() {
+    setCpUsername(''); setCpNew(''); setCpConfirm('')
+    setCpShowNew(false); setCpShowConfirm(false)
+    setCpError(''); setCpSuccess(false)
+    setShowUserMenu(false)
+    setShowChangePassword(true)
+  }
+
   if (!user) return <AppShellSkeleton />
 
   const initial = user.username[0]?.toUpperCase() ?? 'U'
@@ -208,6 +290,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     bg: '#F9FAFB', white: '#FFFFFF', border: '#E5E7EB',
     text: '#111827', muted: '#6B7280', green: '#2ECC71',
     greenDim: '#D4F5E4', red: '#EF4444', orange: '#F59E0B', orangeDim: '#FEF3C7',
+    greenDeep: '#15803D',
+  }
+
+  const inputBase: React.CSSProperties = {
+    width: '100%', background: C.bg, border: `1.5px solid ${C.border}`,
+    borderRadius: 12, padding: '12px 42px 12px 13px', color: C.text,
+    fontSize: 14, outline: 'none', fontFamily: 'var(--font-inter), sans-serif',
   }
 
   const IconMail = (
@@ -226,6 +315,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
       <polyline points="16 17 21 12 16 7"/>
       <line x1="21" y1="12" x2="9" y2="12"/>
+    </svg>
+  )
+  const IconLock = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+  )
+  const EyeIcon = ({ open }: { open: boolean }) => (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {open ? (
+        <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></>
+      ) : (
+        <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+      )}
     </svg>
   )
 
@@ -347,6 +451,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '8px 12px', color: '#15803D', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>✅ Email berhasil disimpan</div>
             )}
 
+            {/* ── Ubah Password button ── */}
+            <button
+              onClick={openChangePassword}
+              style={{ width: '100%', padding: '13px 16px', borderRadius: 13, marginBottom: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}
+            >
+              <span style={{ color: C.muted, display: 'flex', alignItems: 'center' }}>{IconLock}</span>
+              Ubah Password
+            </button>
+
             <button
               onClick={() => { setShowUserMenu(false); setShowEmailForm(false); setShowReport(true); setReportDone(false); setReportError('') }}
               style={{ width: '100%', padding: '13px 16px', borderRadius: 13, marginBottom: 8, background: '#F9FAFB', border: `1px solid ${C.border}`, color: C.text, fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}
@@ -408,6 +521,128 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
+
+      {/* ── UBAH PASSWORD OVERLAY ── */}
+      {showChangePassword && (
+        <div
+          onClick={() => { if (!cpLoading && !cpSuccess) setShowChangePassword(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: '22px 22px 0 0', width: '100%', maxWidth: 480, padding: '20px 20px calc(28px + env(safe-area-inset-bottom, 0px))', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -4px 24px rgba(0,0,0,.10)' }}>
+            <div style={{ width: 36, height: 4, background: '#E5E7EB', borderRadius: 4, margin: '0 auto 20px' }} />
+
+            {cpSuccess ? (
+              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+                <div style={{ fontSize: 44, marginBottom: 12 }}>✅</div>
+                <div style={{ fontFamily: 'var(--font-montserrat), sans-serif', fontWeight: 700, fontSize: 17, color: C.text, marginBottom: 8 }}>Password Berhasil Diubah!</div>
+                <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.6 }}>Kamu akan otomatis logout dan diarahkan ke halaman login.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div style={{ fontFamily: 'var(--font-montserrat), sans-serif', fontWeight: 700, fontSize: 16, color: C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: C.muted, display: 'flex' }}>{IconLock}</span>
+                    Ubah Password
+                  </div>
+                  <button onClick={() => setShowChangePassword(false)} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '6px 12px', color: C.muted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✕ Batal</button>
+                </div>
+
+                <div style={{ fontSize: 13, color: C.muted, marginBottom: 18, lineHeight: 1.5 }}>
+                  Masukkan username kamu sebagai konfirmasi identitas, lalu ketik password baru.
+                  Setelah berhasil kamu akan diminta login kembali.
+                </div>
+
+                {cpError && (
+                  <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 10, padding: '9px 12px', color: C.red, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {cpError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Username konfirmasi */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Username</label>
+                    <input
+                      type="text" value={cpUsername}
+                      onChange={e => { setCpUsername(e.target.value); setCpError('') }}
+                      placeholder="Masukkan username kamu"
+                      autoComplete="username"
+                      style={inputBase}
+                    />
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Untuk konfirmasi bahwa ini akun kamu</div>
+                  </div>
+
+                  {/* Password baru */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Password Baru</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={cpShowNew ? 'text' : 'password'} value={cpNew}
+                        onChange={e => { setCpNew(e.target.value); setCpError('') }}
+                        placeholder="Minimal 6 karakter"
+                        autoComplete="new-password"
+                        style={inputBase}
+                      />
+                      <button type="button" onClick={() => setCpShowNew(v => !v)}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center', padding: 0 }}
+                        aria-label={cpShowNew ? 'Sembunyikan' : 'Tampilkan'}>
+                        <EyeIcon open={cpShowNew} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Konfirmasi */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Konfirmasi Password Baru</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={cpShowConfirm ? 'text' : 'password'} value={cpConfirm}
+                        onChange={e => { setCpConfirm(e.target.value); setCpError('') }}
+                        placeholder="Ulangi password baru"
+                        autoComplete="new-password"
+                        style={{ ...inputBase, borderColor: cpConfirm && cpConfirm !== cpNew ? C.red : C.border }}
+                      />
+                      <button type="button" onClick={() => setCpShowConfirm(v => !v)}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center', padding: 0 }}
+                        aria-label={cpShowConfirm ? 'Sembunyikan' : 'Tampilkan'}>
+                        <EyeIcon open={cpShowConfirm} />
+                      </button>
+                    </div>
+                    {cpConfirm && cpConfirm !== cpNew && (
+                      <div style={{ fontSize: 11, color: C.red, marginTop: 3 }}>Password tidak cocok</div>
+                    )}
+                  </div>
+
+                  {/* Submit */}
+                  <button
+                    onClick={submitChangePassword}
+                    disabled={cpLoading || !cpUsername || !cpNew || !cpConfirm}
+                    style={{
+                      width: '100%', padding: '13px',
+                      background: cpLoading || !cpUsername || !cpNew || !cpConfirm ? '#9CA3AF' : C.green,
+                      color: '#fff', borderRadius: 13, border: 'none',
+                      fontWeight: 700, fontSize: 14, cursor: cpLoading || !cpUsername || !cpNew || !cpConfirm ? 'not-allowed' : 'pointer',
+                      fontFamily: 'var(--font-montserrat), sans-serif',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}
+                  >
+                    {cpLoading ? (
+                      <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Menyimpan…</>
+                    ) : 'Simpan Password Baru'}
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 16, padding: '9px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, color: C.greenDeep, lineHeight: 1.6 }}>🔒 Setelah berhasil, kamu akan otomatis logout dan perlu login kembali dengan password baru.</div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </>
   )
 }

@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import StagingBanner from '@/components/StagingBanner'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+        <StagingBanner />
         {children}
         <Toaster richColors position="top-center" />
         <Analytics />

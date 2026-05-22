@@ -89,7 +89,7 @@ function DropletIcon({ size = 12, color = '#a855f7' }: { size?: number; color?: 
   )
 }
 
-function TrashIcon({ size = 12, color = '#f87171' }: { size?: number; color?: string }) {
+function TrashIcon({ size = 14, color = '#f87171' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="3 6 5 6 21 6" />
@@ -165,6 +165,19 @@ export default function MealHistoryModal({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [lightbox])
+
+  // Tutup modal dengan Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !lightbox) onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [lightbox, onClose])
+
+  // Cegah body scroll saat modal terbuka
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
 
   function handleDateChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -254,7 +267,7 @@ export default function MealHistoryModal({
                 download
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs transition"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs transition min-h-[44px]"
                 onClick={e => e.stopPropagation()}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -266,12 +279,12 @@ export default function MealHistoryModal({
               </a>
               <button
                 onClick={() => setLightbox(null)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs transition"
+                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs transition min-h-[44px]"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
-                Tutup (Esc)
+                Tutup
               </button>
             </div>
           </div>
@@ -285,22 +298,36 @@ export default function MealHistoryModal({
               className="max-h-[70vh] w-full object-contain rounded-xl shadow-2xl ring-1 ring-white/10"
             />
           </div>
-          <p className="text-white/40 text-xs mt-3">Klik di luar foto atau tekan Esc untuk menutup</p>
+          <p className="text-white/40 text-xs mt-3 text-center">Klik di luar foto atau tekan Esc untuk menutup</p>
         </div>
       )}
 
       {/* ── MODAL UTAMA ── */}
+      {/*
+        Mobile: modal muncul sebagai bottom sheet (items-end), full width, rounded-t-2xl
+        Desktop (sm+): modal center (items-center), max-w-2xl, rounded-2xl
+      */}
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4"
         onClick={e => { if (e.target === e.currentTarget) onClose() }}
       >
-        <div className="bg-white ring-1 ring-[#E5E7EB] rounded-2xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col">
+        <div className="
+          bg-white ring-1 ring-[#E5E7EB] shadow-xl flex flex-col
+          w-full rounded-t-2xl sm:rounded-2xl
+          max-h-[92dvh] sm:max-h-[88vh]
+          sm:max-w-2xl
+        ">
 
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB]">
-            <div>
-              <h2 className="text-base font-semibold text-[#111827]">Riwayat Analisa Makanan</h2>
-              <p className="text-xs text-[#6B7280] mt-0.5">
+          {/* Drag handle — mobile only */}
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-[#E5E7EB]" />
+          </div>
+
+          {/* ── Header ── */}
+          <div className="flex items-start justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-[#E5E7EB] gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-[#111827] leading-snug">Riwayat Analisa Makanan</h2>
+              <p className="text-xs text-[#6B7280] mt-0.5 leading-relaxed">
                 @{username}
                 {data && (
                   isFiltering
@@ -309,19 +336,25 @@ export default function MealHistoryModal({
                 )}
               </p>
             </div>
+            {/* Tombol tutup — min 44x44px touch target */}
             <button
               onClick={onClose}
-              className="text-[#6B7280] hover:text-[#111827] transition w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#F3F4F6]"
+              aria-label="Tutup modal"
+              className="
+                shrink-0 w-11 h-11 flex items-center justify-center
+                rounded-xl text-[#6B7280] hover:text-[#111827]
+                hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition
+              "
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
 
-          {/* Filter bar */}
-          <div className="px-6 pt-3 pb-2 border-b border-[#E5E7EB] flex items-center gap-2">
+          {/* ── Filter bar ── */}
+          <div className="px-4 sm:px-6 pt-3 pb-2 border-b border-[#E5E7EB] flex items-center gap-2">
             <div
               role="button"
               aria-label="Pilih tanggal filter"
@@ -334,7 +367,7 @@ export default function MealHistoryModal({
                 width="13" height="13" viewBox="0 0 24 24"
                 fill="none" stroke={filterDate ? '#2ECC71' : '#9CA3AF'}
                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+                className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10"
               >
                 <rect x="3" y="4" width="18" height="18" rx="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -347,19 +380,26 @@ export default function MealHistoryModal({
                 value={filterDate}
                 max={new Date().toISOString().split('T')[0]}
                 onChange={handleDateChange}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border transition outline-none cursor-pointer"
+                className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border transition outline-none cursor-pointer min-h-[44px]"
                 style={{
                   borderColor: filterDate ? '#BBF7D0' : '#E5E7EB',
                   background:  filterDate ? '#F0FDF4' : '#F9FAFB',
                   color:       filterDate ? '#111827' : '#6B7280',
                   colorScheme: 'light',
+                  fontSize: '16px', // Cegah iOS auto-zoom saat input focus
                 }}
               />
             </div>
             {filterDate && (
               <button
                 onClick={handleResetFilter}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition whitespace-nowrap"
+                aria-label="Reset filter tanggal"
+                className="
+                  flex items-center gap-1.5 px-3 py-2.5 text-xs rounded-xl
+                  border border-[#E5E7EB] text-[#6B7280]
+                  hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition
+                  whitespace-nowrap min-h-[44px]
+                "
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/>
@@ -370,8 +410,8 @@ export default function MealHistoryModal({
             )}
           </div>
 
-          {/* Body scroll */}
-          <div className="overflow-y-auto flex-1 p-4 space-y-3">
+          {/* ── Body scroll ── */}
+          <div className="overflow-y-auto flex-1 p-3 sm:p-4 space-y-3">
 
             {/* Loading skeleton */}
             {(loading || paging) && (
@@ -406,7 +446,7 @@ export default function MealHistoryModal({
                 </p>
                 <button
                   onClick={handleResetFilter}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] text-[#166534] hover:bg-[#D4F5E4] transition"
+                  className="text-xs px-4 py-2.5 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] text-[#166534] hover:bg-[#D4F5E4] active:bg-[#BBF7D0] transition min-h-[44px]"
                 >
                   Lihat Semua Riwayat
                 </button>
@@ -440,6 +480,7 @@ export default function MealHistoryModal({
                       <button
                         onClick={() => setLightbox({ url: meal.imageUrl!, name: dishLabel })}
                         title="Klik untuk perbesar"
+                        aria-label={`Perbesar foto ${dishLabel}`}
                         className="shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-[#F3F4F6] group relative border border-[#E5E7EB]"
                       >
                         <img
@@ -520,32 +561,45 @@ export default function MealHistoryModal({
                       </div>
                     </div>
 
-                    {/* ── Action buttons ── */}
-                    <div className="flex flex-col gap-1.5 items-end shrink-0">
+                    {/* ── Action buttons — min 44x44px touch targets ── */}
+                    <div className="flex flex-col gap-2 items-end shrink-0">
                       {(menuItems.length > 0 || desc) && (
                         <button
                           onClick={() => setExpanded(isExpanded ? null : meal.id)}
-                          className="text-xs px-2.5 py-1 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition"
+                          className="
+                            text-xs px-3 py-2 rounded-xl border border-[#E5E7EB]
+                            text-[#6B7280] hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition
+                            min-h-[44px] min-w-[44px]
+                          "
                         >
-                          {isExpanded ? '▲ Tutup' : menuItems.length > 0 ? `▼ ${menuItems.length} menu` : '▼ Detail'}
+                          {isExpanded ? '▲' : menuItems.length > 0 ? `▼ ${menuItems.length}` : '▼'}
+                          <span className="hidden sm:inline">
+                            {isExpanded ? ' Tutup' : menuItems.length > 0 ? ' menu' : ' Detail'}
+                          </span>
                         </button>
                       )}
                       <button
                         onClick={() => deleteMeal(meal.id)}
                         disabled={deleting === meal.id}
-                        className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 text-red-400 hover:bg-red-50 transition disabled:opacity-50"
+                        aria-label="Hapus riwayat makanan"
+                        className="
+                          flex items-center justify-center gap-1 px-3 py-2 rounded-xl
+                          border border-red-200 text-red-400
+                          hover:bg-red-50 active:bg-red-100 transition
+                          disabled:opacity-50 min-h-[44px] min-w-[44px]
+                        "
                       >
                         {deleting === meal.id
-                          ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin .7s linear infinite' }}><path d="M12 2 a10 10 0 0 1 10 10" /></svg>
-                          : <TrashIcon size={12} />
+                          ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin .7s linear infinite' }}><path d="M12 2 a10 10 0 0 1 10 10" /></svg>
+                          : <TrashIcon size={14} />
                         }
                       </button>
                     </div>
                   </div>
 
-                  {/* ── EXPANDED ── */}
+                  {/* ── EXPANDED detail ── */}
                   {isExpanded && (
-                    <div className="border-t border-[#E5E7EB] px-4 py-3 space-y-3 bg-[#F9FAFB]">
+                    <div className="border-t border-[#E5E7EB] px-3 sm:px-4 py-3 space-y-3 bg-[#F9FAFB]">
 
                       {desc && (
                         <div className="bg-white border border-[#E5E7EB] rounded-lg p-3 space-y-1">
@@ -608,55 +662,88 @@ export default function MealHistoryModal({
             })}
           </div>
 
-          {/* Pagination footer */}
-          <div className="px-6 py-3 border-t border-[#E5E7EB] flex items-center justify-between gap-3">
-            <span className="text-xs text-[#6B7280] tabular-nums">
-              {paging ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2ECC71" strokeWidth="2.5" strokeLinecap="round"
-                    style={{ animation: 'spin .7s linear infinite' }}>
-                    <path d="M12 2 a10 10 0 0 1 10 10" />
-                  </svg>
-                  Memuat…
-                </span>
-              ) : data ? `Hal. ${page} / ${totalPages}` : ''}
-            </span>
+          {/* ── Pagination footer ──
+              Mobile: 2 tombol saja (Prev / Next) + info halaman di tengah
+              Desktop: semua tombol (First, Prev, info, Next, Tutup)
+          */}
+          <div className="px-4 sm:px-6 py-3 border-t border-[#E5E7EB]">
 
-            <div className="flex items-center gap-2">
-              {page > 1 && (
-                <button
-                  disabled={paging}
-                  onClick={() => load(1, true, filterDate)}
-                  title="Halaman pertama"
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="11 17 6 12 11 7"/>
-                    <polyline points="18 17 13 12 18 7"/>
-                  </svg>
-                  First
-                </button>
-              )}
+            {/* Mobile pagination */}
+            <div className="flex sm:hidden items-center gap-2">
               <button
                 disabled={page <= 1 || paging}
                 onClick={() => load(page - 1, true, filterDate)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 py-3 text-sm rounded-xl border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px]"
               >
                 ← Prev
               </button>
+              <span className="text-xs text-[#6B7280] tabular-nums text-center px-2 shrink-0">
+                {paging ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2ECC71" strokeWidth="2.5" strokeLinecap="round"
+                    style={{ animation: 'spin .7s linear infinite' }}>
+                    <path d="M12 2 a10 10 0 0 1 10 10" />
+                  </svg>
+                ) : data ? `${page} / ${totalPages}` : '-'}
+              </span>
               <button
                 disabled={page >= totalPages || paging}
                 onClick={() => load(page + 1, true, filterDate)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 py-3 text-sm rounded-xl border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] active:bg-[#E5E7EB] transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px]"
               >
                 Next →
               </button>
-              <button
-                onClick={onClose}
-                className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] transition"
-              >
-                Tutup
-              </button>
+            </div>
+
+            {/* Desktop pagination */}
+            <div className="hidden sm:flex items-center justify-between gap-3">
+              <span className="text-xs text-[#6B7280] tabular-nums">
+                {paging ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2ECC71" strokeWidth="2.5" strokeLinecap="round"
+                      style={{ animation: 'spin .7s linear infinite' }}>
+                      <path d="M12 2 a10 10 0 0 1 10 10" />
+                    </svg>
+                    Memuat…
+                  </span>
+                ) : data ? `Hal. ${page} / ${totalPages}` : ''}
+              </span>
+
+              <div className="flex items-center gap-2">
+                {page > 1 && (
+                  <button
+                    disabled={paging}
+                    onClick={() => load(1, true, filterDate)}
+                    title="Halaman pertama"
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="11 17 6 12 11 7"/>
+                      <polyline points="18 17 13 12 18 7"/>
+                    </svg>
+                    First
+                  </button>
+                )}
+                <button
+                  disabled={page <= 1 || paging}
+                  onClick={() => load(page - 1, true, filterDate)}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ← Prev
+                </button>
+                <button
+                  disabled={page >= totalPages || paging}
+                  onClick={() => load(page + 1, true, filterDate)}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] transition"
+                >
+                  Tutup
+                </button>
+              </div>
             </div>
           </div>
 

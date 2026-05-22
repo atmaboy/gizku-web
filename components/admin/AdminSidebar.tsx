@@ -37,6 +37,17 @@ const nav = [
     ),
   },
   {
+    href: '/admin/landing',
+    label: 'Landing Page',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18"/>
+        <path d="M9 21V9"/>
+      </svg>
+    ),
+  },
+  {
     href: '/admin/config',
     label: 'Pengaturan',
     icon: (
@@ -59,7 +70,12 @@ function GizkuLogo() {
   )
 }
 
-export default function AdminSidebar() {
+interface AdminSidebarProps {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export default function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebarProps) {
   const router = useRouter()
 
   function logout() {
@@ -67,8 +83,8 @@ export default function AdminSidebar() {
     router.push('/admin/login')
   }
 
-  return (
-    <aside className="w-60 shrink-0 border-r border-[#E5E7EB] bg-white flex flex-col">
+  const sidebarContent = (
+    <>
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[#E5E7EB]">
         <GizkuLogo />
@@ -77,12 +93,29 @@ export default function AdminSidebar() {
           <p className="text-[11px] text-[#6B7280] leading-none mt-0.5">AI Nutrition Companion</p>
         </div>
         <span className="ml-auto text-[11px] bg-[#D4F5E4] text-[#1F9D57] px-2 py-0.5 rounded-full font-medium">Admin</span>
+        {/* Tombol close — hanya tampil di mobile drawer */}
+        <button
+          onClick={onMobileClose}
+          className="ml-2 flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[#F3F4F6] transition-colors md:hidden"
+          aria-label="Tutup menu"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 space-y-1 px-3">
+      <nav className="flex-1 py-4 space-y-1 px-3" aria-label="Menu admin">
         {nav.map(n => (
-          <NavLink key={n.href} href={n.href} label={n.label} icon={n.icon} />
+          <NavLink
+            key={n.href}
+            href={n.href}
+            label={n.label}
+            icon={n.icon}
+            onNavigate={onMobileClose}
+          />
         ))}
       </nav>
 
@@ -90,7 +123,7 @@ export default function AdminSidebar() {
       <div className="px-3 py-4 border-t border-[#E5E7EB]">
         <button
           onClick={logout}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-[#6B7280] hover:text-red-500 hover:bg-red-50 transition-colors"
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-[#6B7280] hover:text-red-500 hover:bg-red-50 transition-colors min-h-[44px]"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -100,6 +133,31 @@ export default function AdminSidebar() {
           Logout
         </button>
       </div>
-    </aside>
+    </>
+  )
+
+  return (
+    <>
+      {/* ── Desktop sidebar ── selalu tampil di md ke atas */}
+      <aside className="hidden md:flex w-60 shrink-0 border-r border-[#E5E7EB] bg-white flex-col">
+        {sidebarContent}
+      </aside>
+
+      {/* ── Mobile drawer sidebar ── slide-in dari kiri */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-40 w-72 bg-white flex flex-col
+          shadow-xl border-r border-[#E5E7EB]
+          transform transition-transform duration-300 ease-in-out
+          md:hidden
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+        aria-modal="true"
+        role="dialog"
+        aria-label="Navigasi admin"
+      >
+        {sidebarContent}
+      </aside>
+    </>
   )
 }
