@@ -18,11 +18,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Bot not configured' }, { status: 503 })
     }
 
-    // Validate secret token to reject forged requests
-    const secret  = process.env.TELEGRAM_WEBHOOK_SECRET
+    // Validate secret token to reject forged requests.
+    // Only enforced when TELEGRAM_WEBHOOK_SECRET is set in env.
+    // When testing manually with curl, either:
+    //   (a) unset TELEGRAM_WEBHOOK_SECRET in dev, OR
+    //   (b) pass -H "X-Telegram-Bot-Api-Secret-Token: <your-secret>"
+    const secret = process.env.TELEGRAM_WEBHOOK_SECRET
     if (secret) {
       const incoming = req.headers.get('x-telegram-bot-api-secret-token')
       if (incoming !== secret) {
+        console.warn('[webhook] Rejected request: invalid or missing secret token')
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
     }
@@ -41,7 +46,24 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Telegram sends GET to verify webhook — return 200
+/**
+ * GET /api/telegram/webhook
+ * Health check — returns config status for easy debugging.
+ * Does NOT expose secret values, only whether they are set.
+ */
 export async function GET() {
-  return NextResponse.json({ ok: true, service: 'gizku-telegram-bot' })
+  const token  = process.env.TELEGRAM_BOT_TOKEN
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET
+
+  return NextResponse.json({
+    ok: true,
+    service: 'gizku-telegram-bot',
+    config: {
+      token_set:  !!token,
+      secret_set: !!secret,
+      note: secret
+        ? 'Secret is set. When testing with curl, add: -H "X-Telegram-Bot-Api-Secret-Token: <your-secret>"'
+        : 'No secret set — webhook accepts all POST requests (ok for dev)',
+    },
+  })
 }
