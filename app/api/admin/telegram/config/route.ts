@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { adminConfig } from '@/drizzle/schema'
-import { verifyToken } from '@/lib/auth'
+import { verifyAdminToken } from '@/lib/auth'
 
 const TELEGRAM_KEYS = [
   'telegram_free_daily_limit',
@@ -26,12 +26,18 @@ const TELEGRAM_KEYS = [
 ] as const
 
 async function requireAdmin(req: NextRequest) {
-  const authHeader  = req.headers.get('authorization') ?? ''
-  const cookieToken = req.cookies.get('admin_token')?.value ?? req.cookies.get('auth_token')?.value ?? ''
+  // Admin login stores token in nl_admin_token (set by POST /api/admin?action=login)
+  const cookieToken =
+    req.cookies.get('nl_admin_token')?.value ??
+    req.cookies.get('admin_token')?.value ?? // legacy fallback
+    ''
+
+  const authHeader = req.headers.get('authorization') ?? ''
   const raw = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : cookieToken
   if (!raw) return null
+
   try {
-    return await verifyToken(raw) as { userId?: string } | null
+    return await verifyAdminToken(raw)
   } catch { return null }
 }
 
@@ -39,40 +45,49 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Fetch all admin_config rows then filter to telegram keys in JS
-  // (avoids Drizzle inArray limitation on text primary key columns)
-  const all = await db.select().from(adminConfig)
+  try {
+    // Fetch all admin_config rows then filter to telegram keys in JS
+    const all = await db.select().from(adminConfig)
 
-  const cfg: Record<string, string | null> = {}
-  for (const key of TELEGRAM_KEYS) {
-    const row = all.find(r => r.key === key)
-    cfg[key] = row?.value ?? null
+    const cfg: Record<string, string | null> = {}
+    for (const key of TELEGRAM_KEYS) {
+      const row = all.find(r => r.key === key)
+      cfg[key] = row?.value ?? null
+    }
+
+    return NextResponse.json({ config: cfg })
+  } catch (e) {
+    console.error('[telegram/config GET] error:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  return NextResponse.json({ config: cfg })
 }
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json() as Record<string, string>
+  try {
+    const body = await req.json() as Record<string, string>
 
-  // Only allow updating known telegram keys
-  const updates = Object.entries(body).filter(([k]) => (TELEGRAM_KEYS as readonly string[]).includes(k))
-  if (updates.length === 0) {
-    return NextResponse.json({ error: 'No valid keys provided' }, { status: 400 })
+    // Only allow updating known telegram keys
+    const updates = Object.entries(body).filter(([k]) => (TELEGRAM_KEYS as readonly string[]).includes(k))
+    if (updates.length === 0) {
+      return NextResponse.json({ error: 'No valid keys provided' }, { status: 400 })
+    }
+
+    for (const [key, value] of updates) {
+      await db
+        .insert(adminConfig)
+        .values({ key, value: String(value) })
+        .onConflictDoUpdate({
+          target: adminConfig.key,
+          set:    { value: String(value), updatedAt: new Date() },
+        })
+    }
+
+    return NextResponse.json({ ok: true, updated: updates.map(([k]) => k) })
+  } catch (e) {
+    console.error('[telegram/config POST] error:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  for (const [key, value] of updates) {
-    await db
-      .insert(adminConfig)
-      .values({ key, value: String(value) })
-      .onConflictDoUpdate({
-        target: adminConfig.key,
-        set:    { value: String(value), updatedAt: new Date() },
-      })
-  }
-
-  return NextResponse.json({ ok: true, updated: updates.map(([k]) => k) })
 }
