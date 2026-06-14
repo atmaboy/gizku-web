@@ -48,6 +48,15 @@ const nav = [
     ),
   },
   {
+    href: '/admin/telegram',
+    label: 'Telegram Bot',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M21.5 4.5L2.5 10.5l6.5 2.5m12.5-8.5l-8 9m8-9L10 14.5m0 0v5l3.5-3.5"/>
+      </svg>
+    ),
+  },
+  {
     href: '/admin/config',
     label: 'Pengaturan',
     icon: (
