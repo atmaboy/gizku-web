@@ -14,7 +14,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { adminConfig } from '@/drizzle/schema'
-import { eq } from 'drizzle-orm'
 import { verifyToken } from '@/lib/auth'
 
 const TELEGRAM_KEYS = [
@@ -40,16 +39,10 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const rows = await db
-    .select()
-    .from(adminConfig)
-    .where(
-      // Use SQL IN via multiple selects merged, drizzle doesn't have inArray for text column easily
-      // so we fetch all and filter
-    )
-
-  // Filter to telegram keys
+  // Fetch all admin_config rows then filter to telegram keys in JS
+  // (avoids Drizzle inArray limitation on text primary key columns)
   const all = await db.select().from(adminConfig)
+
   const cfg: Record<string, string | null> = {}
   for (const key of TELEGRAM_KEYS) {
     const row = all.find(r => r.key === key)
