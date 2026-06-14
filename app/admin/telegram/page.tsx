@@ -22,6 +22,22 @@ type TgUser = {
   createdAt: string
 }
 
+type TgMeal = {
+  id: string
+  dishNames: string[]
+  totalCalories: number
+  totalProtein: string
+  totalCarbs: string
+  totalFat: string
+  imageUrl?: string | null
+  loggedAt: string
+  source: string
+  rawAnalysis?: {
+    dishes?: Array<{ name: string; portion: string; calories: number; protein: number; carbs: number; fat: number }>
+    notes?: string
+  }
+}
+
 type Config = {
   telegram_free_daily_limit: string | null
   telegram_linked_daily_limit: string | null
@@ -41,6 +57,13 @@ export default function TelegramAdminPage() {
   const [error, setError]       = useState<string | null>(null)
   const [search, setSearch]     = useState('')
   const [activeTab, setActiveTab] = useState<'stats' | 'users' | 'config'>('stats')
+
+  // User history drawer
+  const [selectedUser, setSelectedUser]       = useState<TgUser | null>(null)
+  const [userMeals, setUserMeals]             = useState<TgMeal[]>([])
+  const [mealsLoading, setMealsLoading]       = useState(false)
+  const [mealsError, setMealsError]           = useState<string | null>(null)
+  const [detailMeal, setDetailMeal]           = useState<TgMeal | null>(null)
 
   // Editable config state
   const [freeLimit, setFreeLimit]     = useState('')
@@ -68,7 +91,6 @@ export default function TelegramAdminPage() {
       setUsers(statsData.users)
       setConfig(cfgData.config)
 
-      // Populate form
       setFreeLimit(cfgData.config.telegram_free_daily_limit ?? '3')
       setLinkedLimit(cfgData.config.telegram_linked_daily_limit ?? '10')
       setWelcomeMsg(cfgData.config.telegram_welcome_message ?? '')
@@ -83,6 +105,24 @@ export default function TelegramAdminPage() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const openUserHistory = async (u: TgUser) => {
+    if (!u.userId) return
+    setSelectedUser(u)
+    setUserMeals([])
+    setMealsError(null)
+    setMealsLoading(true)
+    try {
+      const res = await fetch(`/api/admin/users/${u.userId}/meals`)
+      if (!res.ok) throw new Error('Gagal memuat riwayat')
+      const data = await res.json()
+      setUserMeals(data.meals ?? [])
+    } catch (e) {
+      setMealsError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+    } finally {
+      setMealsLoading(false)
+    }
+  }
 
   const handleSaveConfig = async () => {
     setSaving(true)
@@ -119,6 +159,9 @@ export default function TelegramAdminPage() {
       u.telegramId.includes(q)
     )
   })
+
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -166,7 +209,7 @@ export default function TelegramAdminPage() {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            {tab === 'stats'  ? '📊 Statistik' : tab === 'users' ? '👥 Pengguna' : '⚙️ Konfigurasi'}
+            {tab === 'stats' ? '📊 Statistik' : tab === 'users' ? '👥 Pengguna' : '⚙️ Konfigurasi'}
           </button>
         ))}
       </div>
@@ -174,7 +217,6 @@ export default function TelegramAdminPage() {
       {/* ── STATS TAB ── */}
       {activeTab === 'stats' && summary && (
         <div>
-          {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             {[
               { label: 'Total Pengguna',  value: summary.totalTgUsers,   icon: '👥', color: 'blue'    },
@@ -183,7 +225,7 @@ export default function TelegramAdminPage() {
               { label: 'Aktif Hari Ini', value: summary.activeToday,     icon: '⚡', color: 'violet'  },
               { label: 'Analisa 7 Hari', value: summary.weeklyTgMeals,   icon: '📸', color: 'rose'    },
               { label: 'Analisa 30 Hari',value: summary.monthlyTgMeals,  icon: '📅', color: 'indigo'  },
-            ].map(({ label, value, icon, color }) => (
+            ].map(({ label, value, icon }) => (
               <div key={label} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
                 <div className="text-2xl mb-2">{icon}</div>
                 <div className="text-2xl font-bold text-gray-900 tabular-nums">{value.toLocaleString('id-ID')}</div>
@@ -191,8 +233,6 @@ export default function TelegramAdminPage() {
               </div>
             ))}
           </div>
-
-          {/* Linking rate */}
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Tingkat Koneksi Akun</h3>
             <div className="flex items-center gap-3">
@@ -238,12 +278,13 @@ export default function TelegramAdminPage() {
                     <th className="text-center px-4 py-3 font-medium text-gray-600">Analisa Hari Ini</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Terakhir Aktif</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600">Bergabung</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-600">Riwayat</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-12 text-gray-400">
+                      <td colSpan={7} className="text-center py-12 text-gray-400">
                         {search ? 'Tidak ada pengguna yang cocok.' : 'Belum ada pengguna Telegram.'}
                       </td>
                     </tr>
@@ -274,6 +315,18 @@ export default function TelegramAdminPage() {
                       <td className="px-4 py-3 text-gray-400 text-xs">
                         {new Date(u.createdAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
+                      <td className="px-4 py-3 text-center">
+                        {u.userId ? (
+                          <button
+                            onClick={() => openUserHistory(u)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                          >
+                            📋 Lihat
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -287,7 +340,6 @@ export default function TelegramAdminPage() {
       {activeTab === 'config' && (
         <div className="max-w-2xl">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-6">
-            {/* Limits */}
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-1">Batas Analisa Harian</h3>
               <p className="text-xs text-gray-400 mb-4">Pengguna yang menghubungkan akun mendapat kuota lebih besar.</p>
@@ -315,28 +367,11 @@ export default function TelegramAdminPage() {
 
             <hr className="border-gray-100" />
 
-            {/* Messages */}
             {[
-              {
-                label: 'Pesan Selamat Datang (/start)',
-                sublabel: 'Kosongkan untuk menggunakan teks default.',
-                value: welcomeMsg, setter: setWelcomeMsg, rows: 3,
-              },
-              {
-                label: 'Pesan Bantuan (/help)',
-                sublabel: 'Kosongkan untuk menggunakan teks default.',
-                value: helpMsg, setter: setHelpMsg, rows: 4,
-              },
-              {
-                label: 'Pesan Batas Tercapai',
-                sublabel: 'Gunakan {used} dan {limit} sebagai variabel.',
-                value: limitMsg, setter: setLimitMsg, rows: 3,
-              },
-              {
-                label: 'CTA Setelah Analisa (untuk user belum login)',
-                sublabel: 'Ditampilkan di bawah hasil analisa untuk mendorong user login.',
-                value: ctaMsg, setter: setCtaMsg, rows: 3,
-              },
+              { label: 'Pesan Selamat Datang (/start)', sublabel: 'Kosongkan untuk menggunakan teks default.', value: welcomeMsg, setter: setWelcomeMsg, rows: 3 },
+              { label: 'Pesan Bantuan (/help)', sublabel: 'Kosongkan untuk menggunakan teks default.', value: helpMsg, setter: setHelpMsg, rows: 4 },
+              { label: 'Pesan Batas Tercapai', sublabel: 'Gunakan {used} dan {limit} sebagai variabel.', value: limitMsg, setter: setLimitMsg, rows: 3 },
+              { label: 'CTA Setelah Analisa (untuk user belum login)', sublabel: 'Ditampilkan di bawah hasil analisa untuk mendorong user login.', value: ctaMsg, setter: setCtaMsg, rows: 3 },
             ].map(({ label, sublabel, value, setter, rows }) => (
               <div key={label}>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">{label}</label>
@@ -359,13 +394,181 @@ export default function TelegramAdminPage() {
               >
                 {saving ? 'Menyimpan...' : 'Simpan Konfigurasi'}
               </button>
-              {saved && (
-                <span className="text-sm text-emerald-600 font-medium">✅ Tersimpan!</span>
+              {saved && <span className="text-sm text-emerald-600 font-medium">✅ Tersimpan!</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── USER HISTORY DRAWER ── */}
+      {selectedUser && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+          onClick={() => { setSelectedUser(null); setDetailMeal(null) }}
+        >
+          <div
+            className="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl max-h-[88vh] flex flex-col shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-semibold text-gray-900 text-base">
+                  Riwayat Analisa — {selectedUser.firstName ?? selectedUser.username ?? 'Pengguna'}
+                </h2>
+                {selectedUser.username && (
+                  <p className="text-xs text-gray-400 mt-0.5">@{selectedUser.username} · ID {selectedUser.telegramId}</p>
+                )}
+              </div>
+              <button
+                onClick={() => { setSelectedUser(null); setDetailMeal(null) }}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Drawer body */}
+            <div className="overflow-y-auto flex-1 px-5 py-4">
+              {mealsLoading && (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+                </div>
+              )}
+              {mealsError && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-4 py-3">{mealsError}</div>
+              )}
+              {!mealsLoading && !mealsError && userMeals.length === 0 && (
+                <div className="text-center py-16 text-gray-400">
+                  <div className="text-4xl mb-3">🍽️</div>
+                  <p className="text-sm font-medium">Belum ada riwayat analisa</p>
+                </div>
+              )}
+              {!mealsLoading && userMeals.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-400 mb-3">{userMeals.length} catatan ditemukan</p>
+                  {userMeals.map(meal => (
+                    <button
+                      key={meal.id}
+                      onClick={() => setDetailMeal(meal)}
+                      className="w-full text-left bg-white border border-gray-100 hover:border-gray-200 hover:shadow-sm rounded-xl px-4 py-3 flex items-center justify-between gap-3 transition-all"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm text-gray-900 truncate">
+                          {meal.dishNames.length > 0 ? meal.dishNames.join(', ') : 'Makanan'}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-400">{fmtDateTime(meal.loggedAt)}</span>
+                          <SourceBadge source={meal.source} size="xs" />
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="font-semibold text-sm text-gray-800">{meal.totalCalories}</div>
+                        <div className="text-xs text-gray-400">kkal</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MEAL DETAIL MODAL (inside drawer) ── */}
+      {detailMeal && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center"
+          onClick={() => setDetailMeal(null)}
+        >
+          <div
+            className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[85vh] overflow-y-auto shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="font-semibold text-gray-900 text-sm truncate">
+                  {detailMeal.dishNames.join(', ') || 'Makanan'}
+                </span>
+                <SourceBadge source={detailMeal.source} size="sm" />
+              </div>
+              <button onClick={() => setDetailMeal(null)} className="text-gray-400 hover:text-gray-600 ml-2 flex-shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <p className="text-xs text-gray-400">{fmtDateTime(detailMeal.loggedAt)}</p>
+
+              {/* Nutrition summary */}
+              <div className="grid grid-cols-4 gap-2 bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                {[
+                  { label: 'Kalori', value: String(detailMeal.totalCalories), unit: 'kkal', color: '#FF8A65' },
+                  { label: 'Protein', value: `${parseFloat(detailMeal.totalProtein).toFixed(1)}`, unit: 'g', color: '#2ECC71' },
+                  { label: 'Karbo', value: `${parseFloat(detailMeal.totalCarbs).toFixed(1)}`, unit: 'g', color: '#6B9FD4' },
+                  { label: 'Lemak', value: `${parseFloat(detailMeal.totalFat).toFixed(1)}`, unit: 'g', color: '#81C784' },
+                ].map(({ label, value, unit, color }) => (
+                  <div key={label} className="text-center">
+                    <div className="font-bold text-sm tabular-nums" style={{ color }}>{value}</div>
+                    <div className="text-xs text-gray-400">{unit}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Dishes */}
+              {detailMeal.rawAnalysis?.dishes && detailMeal.rawAnalysis.dishes.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Menu Terdeteksi</p>
+                  <div className="space-y-2">
+                    {detailMeal.rawAnalysis.dishes.map((d, i) => (
+                      <div key={i} className="bg-gray-50 rounded-lg px-3 py-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium text-sm text-gray-900">{d.name}</div>
+                            <div className="text-xs text-gray-400">{d.portion}</div>
+                          </div>
+                          <div className="font-semibold text-sm text-orange-400">{d.calories} kkal</div>
+                        </div>
+                        <div className="flex gap-3 mt-1 text-xs text-gray-400">
+                          <span className="text-emerald-600">P: {d.protein}g</span>
+                          <span className="text-blue-500">K: {d.carbs}g</span>
+                          <span className="text-green-500">L: {d.fat}g</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {detailMeal.rawAnalysis?.notes && (
+                <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 text-xs text-amber-700 leading-relaxed">
+                  💡 {detailMeal.rawAnalysis.notes}
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+// ── Source Badge Component ─────────────────────────────────────────────────────
+function SourceBadge({ source, size = 'sm' }: { source: string; size?: 'xs' | 'sm' }) {
+  const isTelegram = source === 'telegram'
+  const base = size === 'xs' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs'
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full font-medium ${
+      isTelegram
+        ? 'bg-blue-50 text-blue-600 border border-blue-100'
+        : 'bg-gray-100 text-gray-500 border border-gray-200'
+    } ${base}`}>
+      {isTelegram ? '✈️' : '🌐'}
+      {isTelegram ? 'Telegram' : 'Web'}
+    </span>
   )
 }

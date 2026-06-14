@@ -15,6 +15,7 @@ type Meal = {
   totalFat: string
   imageUrl?: string | null
   loggedAt: string
+  source?: string
   rawAnalysis?: { dishes: Dish[]; total: Record<string, unknown>; notes?: string; healthScore?: number; assessment?: string }
 }
 type HistoryData = { meals: Meal[]; total: number; page: number; totalPages: number }
@@ -111,6 +112,21 @@ const IconSalad = () => (
     <path d="M9 14h6"/>
   </svg>
 )
+
+function SourceBadge({ source }: { source?: string }) {
+  const isTelegram = source === 'telegram'
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3,
+      padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 600,
+      background: isTelegram ? '#EFF6FF' : '#F3F4F6',
+      color: isTelegram ? '#2563EB' : '#6B7280',
+      border: `1px solid ${isTelegram ? '#BFDBFE' : '#E5E7EB'}`,
+    }}>
+      {isTelegram ? '✈️ Telegram' : '🌐 Web'}
+    </span>
+  )
+}
 
 function SkeletonBlock({ height, radius = 12, width = '100%' }: { height: number; radius?: number; width?: string }) {
   return (
@@ -410,7 +426,10 @@ export default function RiwayatPage() {
                         <div style={{ fontWeight: 600, fontSize: 14, color: C.text, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {meal.dishNames.length > 0 ? meal.dishNames.join(', ') : 'Makanan'}
                         </div>
-                        <div style={{ fontSize: 12, color: C.muted }}>{fmtTime(meal.loggedAt)} · {meal.dishNames.length} menu</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 12, color: C.muted }}>{fmtTime(meal.loggedAt)} · {meal.dishNames.length} menu</span>
+                          <SourceBadge source={meal.source} />
+                        </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 12 }}>
                         <div style={{ textAlign: 'right' }}>
@@ -458,7 +477,10 @@ export default function RiwayatPage() {
               <button onClick={() => setModalMeal(null)} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '6px 12px', color: C.muted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✕ Tutup</button>
             </div>
             <div style={{ padding: '0 16px calc(28px + env(safe-area-inset-bottom, 0px))' }}>
-              <div style={{ fontWeight: 700, fontSize: 17, color: C.text, marginBottom: 4 }}>{modalMeal.dishNames.join(', ') || 'Makanan'}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 17, color: C.text }}>{modalMeal.dishNames.join(', ') || 'Makanan'}</div>
+                <SourceBadge source={modalMeal.source} />
+              </div>
               <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>{fmtDate(modalMeal.loggedAt)} · {fmtTime(modalMeal.loggedAt)}</div>
 
               {modalMeal.imageUrl && (
