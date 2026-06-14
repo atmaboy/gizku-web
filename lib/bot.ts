@@ -161,11 +161,8 @@ export function createBot(token: string): Bot {
   const bot = new Bot(token)
 
   // ── /start ──────────────────────────────────────────────────────────────
-  // IMPORTANT: reply() is called FIRST before any DB work.
-  // This ensures the welcome message always sends even if DB is unavailable.
   bot.command('start', async (ctx) => {
     try {
-      // Fetch welcome message (falls back to hardcoded default on any error)
       let welcome: string | null = null
       try {
         welcome = await getCfg('telegram_welcome_message')
@@ -173,23 +170,19 @@ export function createBot(token: string): Bot {
         console.error('[bot] /start getCfg error:', cfgErr)
       }
 
-      // Always reply — even if DB is down
       await ctx.reply(
         welcome ??
-          'Selamat datang di *Gizku Bot*! 🥗\n\nKirim foto makananmu dan aku akan analisa kandungan gizinya secara instan.\n\n📸 *Cara pakai:* Foto makananmu lalu kirim ke sini.\n\nKetik /help untuk panduan lengkap.',
+          'Halo! 👋 Selamat datang di *Gizku Bot*.\n\nKirim foto makananmu dan aku akan langsung analisa kandungan gizinya! 🥗\n\nKetik /help untuk melihat panduan lengkap.',
         { parse_mode: 'Markdown' },
       )
 
-      // Register user in DB after reply (non-blocking for UX)
       try {
         await getOrCreateTelegramUser(ctx)
       } catch (dbErr) {
         console.error('[bot] /start DB upsert error:', dbErr)
-        // Not critical — user still got the welcome message
       }
     } catch (e) {
       console.error('[bot] /start handler error:', e)
-      // Last-resort reply with no markdown to avoid parse errors
       try { await ctx.reply('Selamat datang di Gizku Bot! Kirim foto makananmu. 🥗') } catch {}
     }
   })
@@ -294,6 +287,10 @@ export function createBot(token: string): Bot {
 
   // ── Photo handler ────────────────────────────────────────────────────────
   bot.on('message:photo', async (ctx) => {
+    // Send typing indicator immediately — fire-and-forget (non-blocking)
+    // This must NOT be awaited so it doesn't eat into the 60s timeout budget
+    ctx.replyWithChatAction('upload_photo').catch(() => {})
+
     let tgUser
     try {
       tgUser = await getOrCreateTelegramUser(ctx)
@@ -310,7 +307,7 @@ export function createBot(token: string): Bot {
       limit = parseInt(limitRaw ?? '3', 10)
     } catch {}
 
-    // Check limit
+    // Check daily limit
     if (tgUser.dailyCount >= limit) {
       let limitMsg: string | null = null
       try { limitMsg = await getCfg('telegram_limit_reached_message') } catch {}
@@ -320,9 +317,6 @@ export function createBot(token: string): Bot {
       await ctx.reply(msg, { parse_mode: 'Markdown' })
       return
     }
-
-    // Send typing indicator
-    await ctx.replyWithChatAction('typing')
 
     try {
       // Get highest resolution photo
@@ -338,18 +332,17 @@ export function createBot(token: string): Bot {
       const mimeType  = 'image/jpeg'
 
       // Get Anthropic config
-      let apiKey: string | null = null
+      let apiKey: string | null = process.env.ANTHROPIC_API_KEY ?? null
       let modelId = 'claude-sonnet-4-5'
       try {
-        apiKey  = await getCfg('anthropic_api_key') || process.env.ANTHROPIC_API_KEY || null
-        modelId = await getCfg('anthropic_model') || 'claude-sonnet-4-5'
+        const cfgKey = await getCfg('anthropic_api_key')
+        if (cfgKey) apiKey = cfgKey
+        const cfgModel = await getCfg('anthropic_model')
+        if (cfgModel) modelId = cfgModel
       } catch {}
 
       if (!apiKey) {
-        apiKey = process.env.ANTHROPIC_API_KEY || null
-      }
-
-      if (!apiKey) {
+        console.error('[bot] ANTHROPIC_API_KEY not set')
         await ctx.reply('⚠️ Layanan AI belum dikonfigurasi. Hubungi admin.')
         return
       }
@@ -452,7 +445,7 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
         }
       }
 
-      // Build CTA message
+      // Build CTA message for unlinked users
       let ctaMessage = ''
       if (!tgUser.userId) {
         try { ctaMessage = await getCfg('telegram_after_analysis_cta') ?? '' } catch {}
