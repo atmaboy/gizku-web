@@ -10,6 +10,11 @@
  *   4. Bot calls GET /api/telegram/verify?token=AB3X9Z&tgId=...&firstName=...&username=...
  *   5. Verify endpoint links telegramUsers.userId = users.id and deletes token
  *   6. Bot confirms success; future photo analyses are saved to user's meal log
+ *
+ * Whitelist (dev/staging only):
+ *   Set TELEGRAM_WHITELIST_ENABLED=true and TELEGRAM_WHITELIST_IDS=id1,id2
+ *   in Vercel Preview environment to restrict bot access to specific Telegram
+ *   user IDs. Has zero effect in production (when flag is not set).
  */
 
 import { Bot, Context } from 'grammy'
@@ -48,6 +53,46 @@ type AnalysisResult = {
   notes?: string
   healthScore?: number
   assessment?: string
+}
+
+// ─── Whitelist helper ─────────────────────────────────────────────────────────
+
+/**
+ * Returns true when whitelist mode is active AND the given Telegram user ID
+ * is NOT in the allowed list.
+ *
+ * Whitelist is activated only when TELEGRAM_WHITELIST_ENABLED=true.
+ * TELEGRAM_WHITELIST_IDS is a comma-separated list of numeric Telegram user IDs.
+ *
+ * Example Vercel env (Preview only):
+ *   TELEGRAM_WHITELIST_ENABLED=true
+ *   TELEGRAM_WHITELIST_IDS=123456789,987654321
+ */
+function isBlockedByWhitelist(telegramUserId: number): boolean {
+  const enabled = process.env.TELEGRAM_WHITELIST_ENABLED === 'true'
+  if (!enabled) return false
+
+  const raw = process.env.TELEGRAM_WHITELIST_IDS ?? ''
+  const allowed = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map(Number)
+
+  // If whitelist is enabled but empty, block everyone (safer default)
+  if (allowed.length === 0) return true
+
+  return !allowed.includes(telegramUserId)
+}
+
+/** Send a single friendly block message, then return. */
+async function replyBlocked(ctx: Context): Promise<void> {
+  await ctx.reply(
+    '🚧 *Bot Gizku sedang dalam pengembangan.*\n\n' +
+    'Saat ini hanya tester terpilih yang bisa menggunakan bot ini.\n' +
+    'Pantau terus — fitur lengkap segera hadir! 🚀',
+    { parse_mode: 'Markdown' },
+  )
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -163,6 +208,23 @@ async function callVerifyEndpoint(token: string, ctx: Context): Promise<
 
 export function createBot(token: string): Bot {
   const bot = new Bot(token)
+
+  // ── Whitelist middleware ─────────────────────────────────────────────────
+  // Runs before every handler. When whitelist is active (staging/dev), only
+  // allowed Telegram IDs can interact. Production is unaffected.
+  bot.use(async (ctx, next) => {
+    if (!ctx.from) return next()
+    if (isBlockedByWhitelist(ctx.from.id)) {
+      // Only reply to the very first interaction to avoid spamming the user
+      // on every message. We reply on 'message' updates only (not callbacks etc).
+      if (ctx.message) {
+        try { await replyBlocked(ctx) } catch { /* silent */ }
+      }
+      // Do NOT call next() — block the rest of the handler chain
+      return
+    }
+    return next()
+  })
 
   // ── /start ──────────────────────────────────────────────────────────────
   bot.command('start', async (ctx) => {
