@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { telegramUsers, meals, users } from '@/drizzle/schema'
 import { desc, eq, count, and, gte, isNotNull } from 'drizzle-orm'
-import { verifyAdminToken } from '@/lib/auth'
+import { verifyToken } from '@/lib/auth'
 
 async function requireAdmin(req: NextRequest) {
   // Admin login stores token in nl_admin_token (set by POST /api/admin?action=login)
@@ -22,7 +22,10 @@ async function requireAdmin(req: NextRequest) {
   if (!raw) return null
 
   try {
-    return await verifyAdminToken(raw)
+    const payload = await verifyToken(raw)
+    // Admin token has role: 'admin' (set by signAdminToken in lib/auth.ts)
+    if (payload?.role !== 'admin') return null
+    return payload
   } catch {
     return null
   }
