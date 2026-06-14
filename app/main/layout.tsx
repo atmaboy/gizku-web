@@ -96,10 +96,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [router])
 
   const initApp = useCallback(async (token: string, userStr: string) => {
-    // FIX: Baca mustChangePassword dari dua sumber:
-    // 1. nl_must_change_password di localStorage (di-set saat login)
-    // 2. Fallback: parse nl_user dan cek field mustChangePassword
-    //    (guard tambahan jika flag di localStorage belum di-set)
     const mustChangeFlagLS = localStorage.getItem('nl_must_change_password')
     let mustChange = mustChangeFlagLS === 'true'
 
@@ -107,14 +103,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       try {
         const parsedUser = JSON.parse(userStr)
         if (parsedUser?.mustChangePassword === true) {
-          // Sinkronkan ke localStorage agar konsisten
           localStorage.setItem('nl_must_change_password', 'true')
           mustChange = true
         }
       } catch { /* fail-open */ }
     }
 
-    // Intercept: jika wajib ganti password dan belum di halaman tersebut
     if (mustChange && !pathname.includes('force-change-password')) {
       router.replace('/main/force-change-password')
       return
@@ -260,7 +254,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const data = await res.json()
       if (!res.ok) { setCpError(data.error || 'Gagal mengubah password. Coba lagi.'); return }
       setCpSuccess(true)
-      // Hapus sesi → paksa login ulang
       setTimeout(() => {
         localStorage.removeItem('nl_token')
         localStorage.removeItem('nl_user')
@@ -323,6 +316,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
     </svg>
   )
+  const IconSettings = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  )
   const EyeIcon = ({ open }: { open: boolean }) => (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       {open ? (
@@ -382,10 +381,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {([
               { href: '/main/catat', label: 'Catat Makan', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>) },
               { href: '/main/riwayat', label: 'Riwayat', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>) },
+              { href: '/main/settings', label: 'Pengaturan', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>) },
             ] as const).map(({ href, label, icon }) => {
-              const active = pathname === href
+              const active = pathname === href || pathname.startsWith(href + '/')
               return (
-                <Link key={href} href={href} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: '100%', borderRadius: 999, fontFamily: 'var(--font-inter), sans-serif', fontWeight: active ? 600 : 500, fontSize: 14, textDecoration: 'none', background: active ? C.greenDim : 'transparent', color: active ? C.text : C.muted, transition: 'all .2s' }}>
+                <Link key={href} href={href} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: '100%', borderRadius: 999, fontFamily: 'var(--font-inter), sans-serif', fontWeight: active ? 600 : 500, fontSize: 13, textDecoration: 'none', background: active ? C.greenDim : 'transparent', color: active ? C.text : C.muted, transition: 'all .2s' }}>
                   <span style={{ color: active ? C.green : C.muted }}>{icon}</span>
                   {label}
                 </Link>
@@ -450,6 +450,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {emailSuccess && (
               <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '8px 12px', color: '#15803D', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>✅ Email berhasil disimpan</div>
             )}
+
+            {/* ── Settings link ── */}
+            <Link
+              href="/main/settings"
+              onClick={() => setShowUserMenu(false)}
+              style={{ width: '100%', padding: '13px 16px', borderRadius: 13, marginBottom: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
+            >
+              <span style={{ color: C.muted, display: 'flex', alignItems: 'center' }}>{IconSettings}</span>
+              Pengaturan & Koneksi
+            </Link>
 
             {/* ── Ubah Password button ── */}
             <button
@@ -532,117 +542,73 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div style={{ width: 36, height: 4, background: '#E5E7EB', borderRadius: 4, margin: '0 auto 20px' }} />
 
             {cpSuccess ? (
-              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-                <div style={{ fontSize: 44, marginBottom: 12 }}>✅</div>
-                <div style={{ fontFamily: 'var(--font-montserrat), sans-serif', fontWeight: 700, fontSize: 17, color: C.text, marginBottom: 8 }}>Password Berhasil Diubah!</div>
-                <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.6 }}>Kamu akan otomatis logout dan diarahkan ke halaman login.</div>
+              <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
+                <div style={{ fontSize: 44, marginBottom: 12 }}>🔐</div>
+                <div style={{ fontWeight: 700, fontSize: 17, color: C.text, marginBottom: 8, fontFamily: 'var(--font-montserrat), sans-serif' }}>Password Berhasil Diubah!</div>
+                <div style={{ color: C.muted, fontSize: 14 }}>Kamu akan diarahkan ke halaman login…</div>
               </div>
             ) : (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <div style={{ fontFamily: 'var(--font-montserrat), sans-serif', fontWeight: 700, fontSize: 16, color: C.text, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ color: C.muted, display: 'flex' }}>{IconLock}</span>
-                    Ubah Password
-                  </div>
-                  <button onClick={() => setShowChangePassword(false)} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '6px 12px', color: C.muted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✕ Batal</button>
+                <div style={{ fontWeight: 700, fontSize: 16, color: C.text, marginBottom: 4, fontFamily: 'var(--font-montserrat), sans-serif', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: C.muted, display: 'flex', alignItems: 'center' }}>{IconLock}</span>
+                  Ubah Password
                 </div>
-
-                <div style={{ fontSize: 13, color: C.muted, marginBottom: 18, lineHeight: 1.5 }}>
-                  Masukkan username kamu sebagai konfirmasi identitas, lalu ketik password baru.
-                  Setelah berhasil kamu akan diminta login kembali.
-                </div>
+                <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Masukkan username untuk konfirmasi, lalu password baru kamu.</div>
 
                 {cpError && (
-                  <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 10, padding: '9px 12px', color: C.red, fontSize: 13, marginBottom: 14, display: 'flex', alignItems: 'flex-start', gap: 7 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    {cpError}
-                  </div>
+                  <div style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', borderRadius: 10, padding: '9px 13px', color: C.red, fontSize: 13, fontWeight: 500, marginBottom: 14 }}>{cpError}</div>
                 )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {/* Username konfirmasi */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Username</label>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Username</label>
+                  <input
+                    type="text" value={cpUsername} onChange={e => { setCpUsername(e.target.value); setCpError('') }}
+                    placeholder={`Ketik "${user.username}" untuk konfirmasi`}
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    style={{ ...inputBase, paddingRight: 13 }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Password Baru</label>
+                  <div style={{ position: 'relative' }}>
                     <input
-                      type="text" value={cpUsername}
-                      onChange={e => { setCpUsername(e.target.value); setCpError('') }}
-                      placeholder="Masukkan username kamu"
-                      autoComplete="username"
+                      type={cpShowNew ? 'text' : 'password'} value={cpNew} onChange={e => { setCpNew(e.target.value); setCpError('') }}
+                      placeholder="Minimal 6 karakter"
                       style={inputBase}
                     />
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Untuk konfirmasi bahwa ini akun kamu</div>
+                    <button onClick={() => setCpShowNew(v => !v)} type="button" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center' }}>
+                      <EyeIcon open={cpShowNew} />
+                    </button>
                   </div>
-
-                  {/* Password baru */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Password Baru</label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={cpShowNew ? 'text' : 'password'} value={cpNew}
-                        onChange={e => { setCpNew(e.target.value); setCpError('') }}
-                        placeholder="Minimal 6 karakter"
-                        autoComplete="new-password"
-                        style={inputBase}
-                      />
-                      <button type="button" onClick={() => setCpShowNew(v => !v)}
-                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center', padding: 0 }}
-                        aria-label={cpShowNew ? 'Sembunyikan' : 'Tampilkan'}>
-                        <EyeIcon open={cpShowNew} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Konfirmasi */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>Konfirmasi Password Baru</label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={cpShowConfirm ? 'text' : 'password'} value={cpConfirm}
-                        onChange={e => { setCpConfirm(e.target.value); setCpError('') }}
-                        placeholder="Ulangi password baru"
-                        autoComplete="new-password"
-                        style={{ ...inputBase, borderColor: cpConfirm && cpConfirm !== cpNew ? C.red : C.border }}
-                      />
-                      <button type="button" onClick={() => setCpShowConfirm(v => !v)}
-                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center', padding: 0 }}
-                        aria-label={cpShowConfirm ? 'Sembunyikan' : 'Tampilkan'}>
-                        <EyeIcon open={cpShowConfirm} />
-                      </button>
-                    </div>
-                    {cpConfirm && cpConfirm !== cpNew && (
-                      <div style={{ fontSize: 11, color: C.red, marginTop: 3 }}>Password tidak cocok</div>
-                    )}
-                  </div>
-
-                  {/* Submit */}
-                  <button
-                    onClick={submitChangePassword}
-                    disabled={cpLoading || !cpUsername || !cpNew || !cpConfirm}
-                    style={{
-                      width: '100%', padding: '13px',
-                      background: cpLoading || !cpUsername || !cpNew || !cpConfirm ? '#9CA3AF' : C.green,
-                      color: '#fff', borderRadius: 13, border: 'none',
-                      fontWeight: 700, fontSize: 14, cursor: cpLoading || !cpUsername || !cpNew || !cpConfirm ? 'not-allowed' : 'pointer',
-                      fontFamily: 'var(--font-montserrat), sans-serif',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}
-                  >
-                    {cpLoading ? (
-                      <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Menyimpan…</>
-                    ) : 'Simpan Password Baru'}
-                  </button>
                 </div>
 
-                <div style={{ marginTop: 16, padding: '9px 12px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10 }}>
-                  <div style={{ fontSize: 12, color: C.greenDeep, lineHeight: 1.6 }}>🔒 Setelah berhasil, kamu akan otomatis logout dan perlu login kembali dengan password baru.</div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Konfirmasi Password Baru</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={cpShowConfirm ? 'text' : 'password'} value={cpConfirm} onChange={e => { setCpConfirm(e.target.value); setCpError('') }}
+                      placeholder="Ulangi password baru"
+                      style={inputBase}
+                    />
+                    <button onClick={() => setCpShowConfirm(v => !v)} type="button" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center' }}>
+                      <EyeIcon open={cpShowConfirm} />
+                    </button>
+                  </div>
                 </div>
+
+                <button
+                  onClick={submitChangePassword}
+                  disabled={cpLoading}
+                  style={{ width: '100%', padding: '13px', background: C.green, color: '#fff', borderRadius: 13, border: 'none', fontWeight: 700, fontSize: 14, cursor: cpLoading ? 'not-allowed' : 'pointer', opacity: cpLoading ? 0.65 : 1 }}
+                >
+                  {cpLoading ? 'Menyimpan…' : 'Simpan Password Baru'}
+                </button>
               </>
             )}
           </div>
         </div>
       )}
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </>
   )
 }
