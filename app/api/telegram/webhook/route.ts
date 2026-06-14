@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
     const update = await req.json()
     const bot    = createBot(token)
 
+    // Initialize bot to fetch botInfo (required by grammY before handleUpdate)
+    await bot.init()
+
     // Handle update without polling — single shot
     await bot.handleUpdate(update)
 
