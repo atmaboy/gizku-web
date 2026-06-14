@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, text, integer, numeric, boolean,
-  serial, date, jsonb, timestamp, bigint, index, primaryKey,
+  serial, date, jsonb, timestamp, bigint, index, primaryKey, char,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -22,7 +22,6 @@ export const users = pgTable('users', {
   createdAt:    timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt:    timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 
-  // ── Password audit trail ──────────────────────────────────────────────────
   passwordChangedAt:  timestamp('password_changed_at', { withTimezone: true }),
   passwordChangedBy:  text('password_changed_by'),
   mustChangePassword: boolean('must_change_password').default(false).notNull(),
@@ -39,10 +38,12 @@ export const meals = pgTable('meals', {
   totalFat:      numeric('total_fat',     { precision: 7, scale: 2 }).notNull().default('0'),
   imageUrl:      text('image_url'),
   rawAnalysis:   jsonb('raw_analysis'),
+  source:        text('source').notNull().default('web'), // 'web' | 'telegram'
   loggedAt:      timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
 }, t => ({
   userIdx:   index('idx_meals_user_id').on(t.userId),
   loggedIdx: index('idx_meals_logged_at').on(t.loggedAt),
+  sourceIdx: index('idx_meals_source').on(t.source),
 }))
 
 export const dailyUsage = pgTable('daily_usage', {
@@ -86,7 +87,7 @@ export const landingContent = pgTable('landing_content', {
   activeIdx:  index('idx_landing_active').on(t.isActive, t.section, t.sortOrder),
 }))
 
-// ── NEW: Telegram Users ───────────────────────────────────────────────────────
+// ── Telegram Users ────────────────────────────────────────────────────────────
 export const telegramUsers = pgTable('telegram_users', {
   telegramId:   bigint('telegram_id', { mode: 'bigint' }).primaryKey(),
   userId:       uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
@@ -100,12 +101,27 @@ export const telegramUsers = pgTable('telegram_users', {
   userIdx: index('idx_telegram_users_user_id').on(t.userId),
 }))
 
+// ── Telegram Link Tokens ──────────────────────────────────────────────────────
+// Short-lived OTP tokens used to link a Telegram account to a Gizku web account.
+// Flow: web POST /api/telegram/link → generates token → user sends to bot
+//       bot GET /api/telegram/verify?token=XXX&tgId=YYY → links and deletes token
+export const telegramLinkTokens = pgTable('telegram_link_tokens', {
+  token:     char('token', { length: 6 }).primaryKey(),
+  userId:    uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  userIdx:    index('idx_tg_link_tokens_user').on(t.userId),
+  expiresIdx: index('idx_tg_link_tokens_expires').on(t.expiresAt),
+}))
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
-  meals:         many(meals),
-  dailyUsage:    many(dailyUsage),
-  reports:       many(reports),
-  telegramUsers: many(telegramUsers),
+  meals:              many(meals),
+  dailyUsage:         many(dailyUsage),
+  reports:            many(reports),
+  telegramUsers:      many(telegramUsers),
+  telegramLinkTokens: many(telegramLinkTokens),
 }))
 export const mealsRelations = relations(meals, ({ one }) => ({
   user: one(users, { fields: [meals.userId], references: [users.id] }),
@@ -119,12 +135,16 @@ export const reportsRelations = relations(reports, ({ one }) => ({
 export const telegramUsersRelations = relations(telegramUsers, ({ one }) => ({
   user: one(users, { fields: [telegramUsers.userId], references: [users.id] }),
 }))
+export const telegramLinkTokensRelations = relations(telegramLinkTokens, ({ one }) => ({
+  user: one(users, { fields: [telegramLinkTokens.userId], references: [users.id] }),
+}))
 
-export type User              = typeof users.$inferSelect
-export type NewUser           = typeof users.$inferInsert
-export type Meal              = typeof meals.$inferSelect
-export type Report            = typeof reports.$inferSelect
-export type LandingContent    = typeof landingContent.$inferSelect
-export type NewLandingContent = typeof landingContent.$inferInsert
-export type TelegramUser      = typeof telegramUsers.$inferSelect
-export type NewTelegramUser   = typeof telegramUsers.$inferInsert
+export type User                = typeof users.$inferSelect
+export type NewUser             = typeof users.$inferInsert
+export type Meal                = typeof meals.$inferSelect
+export type Report              = typeof reports.$inferSelect
+export type LandingContent      = typeof landingContent.$inferSelect
+export type NewLandingContent   = typeof landingContent.$inferInsert
+export type TelegramUser        = typeof telegramUsers.$inferSelect
+export type NewTelegramUser     = typeof telegramUsers.$inferInsert
+export type TelegramLinkToken   = typeof telegramLinkTokens.$inferSelect

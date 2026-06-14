@@ -1,8 +1,15 @@
 /**
  * lib/bot.ts
  * Core Telegram bot logic using grammY.
- * Handles: /start, /help, /today, /link, photo messages.
- * Called from app/api/telegram/webhook/route.ts
+ * Handles: /start, /help, /today, /link <token>, photo messages.
+ *
+ * Account Linking Flow:
+ *   1. User visits gizku.com/settings → clicks "Hubungkan Telegram"
+ *   2. Web calls POST /api/telegram/link → returns 6-char token (e.g. AB3X9Z)
+ *   3. User sends "/link AB3X9Z" to bot (or uses deep-link t.me/bot?start=link_AB3X9Z)
+ *   4. Bot calls GET /api/telegram/verify?token=AB3X9Z&tgId=...&firstName=...&username=...
+ *   5. Verify endpoint links telegramUsers.userId = users.id and deletes token
+ *   6. Bot confirms success; future photo analyses are saved to user's meal log
  */
 
 import { Bot, Context } from 'grammy'
@@ -49,8 +56,7 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Get or create a telegram_user row, reset daily count if it's a new day.
- *  Returns null if DB is unavailable — callers must handle null gracefully. */
+/** Get or create a telegram_user row, reset daily count if it's a new day. */
 async function getOrCreateTelegramUser(ctx: Context) {
   const tgId      = ctx.from!.id
   const username  = ctx.from?.username ?? null
@@ -66,18 +72,11 @@ async function getOrCreateTelegramUser(ctx: Context) {
   if (!existing) {
     const [created] = await db
       .insert(telegramUsers)
-      .values({
-        telegramId:   BigInt(tgId),
-        username,
-        firstName,
-        dailyCount:   0,
-        lastUsedDate: today,
-      })
+      .values({ telegramId: BigInt(tgId), username, firstName, dailyCount: 0, lastUsedDate: today })
       .returning()
     return created
   }
 
-  // Reset daily count if last_used_date is not today
   if (existing.lastUsedDate !== today) {
     const [reset] = await db
       .update(telegramUsers)
@@ -101,18 +100,14 @@ async function callWithRetry(
       return await fn()
     } catch (e) {
       lastError = e as AnthropicError
-      const isOverloaded =
-        lastError?.status === 529 ||
-        lastError?.error?.type === 'overloaded_error'
+      const isOverloaded = lastError?.status === 529 || lastError?.error?.type === 'overloaded_error'
       if (!isOverloaded || attempt === maxRetries) throw e
-      const delay = Math.pow(2, attempt) * 1000
-      await new Promise((r) => setTimeout(r, delay))
+      await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000))
     }
   }
   throw lastError
 }
 
-/** Format analysis result into a readable Telegram message */
 function formatAnalysisMessage(
   analysis: AnalysisResult,
   usage: { used: number; limit: number },
@@ -125,8 +120,7 @@ function formatAnalysisMessage(
     .map((d) => `• *${d.name}*${d.portion ? ` (${d.portion})` : ''} — ${d.calories} kkal`)
     .join('\n')
 
-  const scoreEmoji = !healthScore ? '' :
-    healthScore >= 8 ? '🟢' : healthScore >= 5 ? '🟡' : '🔴'
+  const scoreEmoji = !healthScore ? '' : healthScore >= 8 ? '🟢' : healthScore >= 5 ? '🟡' : '🔴'
 
   let msg = `🍽️ *Hasil Analisa Nutrisi*\n\n`
   msg += `${dishLines}\n\n`
@@ -135,24 +129,34 @@ function formatAnalysisMessage(
   msg += `💪 Protein: *${total.protein}g*\n`
   msg += `🌾 Karbo: *${total.carbs}g*\n`
   msg += `🥑 Lemak: *${total.fat}g*\n`
-
-  if (healthScore) {
-    msg += `\n${scoreEmoji} *Health Score: ${healthScore}/10*\n`
-  }
-  if (assessment) {
-    msg += `\n💬 ${assessment}\n`
-  }
-  if (notes) {
-    msg += `\n📝 _${notes}_\n`
-  }
-
+  if (healthScore)  msg += `\n${scoreEmoji} *Health Score: ${healthScore}/10*\n`
+  if (assessment)   msg += `\n💬 ${assessment}\n`
+  if (notes)        msg += `\n📝 _${notes}_\n`
   msg += `\n📈 Analisa hari ini: *${usage.used}/${usage.limit}*\n`
-
-  if (ctaMessage) {
-    msg += `\n${ctaMessage}`
-  }
+  if (ctaMessage)   msg += `\n${ctaMessage}`
 
   return msg
+}
+
+// ─── Internal API helper ─────────────────────────────────────────────────────
+
+async function callVerifyEndpoint(token: string, ctx: Context): Promise<
+  { ok: boolean; alreadyLinked?: boolean } | { error: string; message?: string }
+> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
+  const secret  = process.env.TELEGRAM_WEBHOOK_SECRET ?? ''
+  const params  = new URLSearchParams({
+    token,
+    tgId:      String(ctx.from!.id),
+    firstName: ctx.from?.first_name ?? '',
+    username:  ctx.from?.username  ?? '',
+  })
+
+  const res = await fetch(`${baseUrl}/api/telegram/verify?${params}`, {
+    headers: { 'x-gizku-internal-secret': secret },
+  })
+
+  return res.json()
 }
 
 // ─── Bot Factory ─────────────────────────────────────────────────────────────
@@ -163,24 +167,25 @@ export function createBot(token: string): Bot {
   // ── /start ──────────────────────────────────────────────────────────────
   bot.command('start', async (ctx) => {
     try {
-      let welcome: string | null = null
-      try {
-        welcome = await getCfg('telegram_welcome_message')
-      } catch (cfgErr) {
-        console.error('[bot] /start getCfg error:', cfgErr)
+      // Support deep-link: /start link_AB3X9Z (from t.me/bot?start=link_AB3X9Z)
+      const param = ctx.match as string | undefined
+      if (param?.startsWith('link_')) {
+        const linkToken = param.slice(5).toUpperCase()
+        await handleLinkToken(ctx, linkToken)
+        return
       }
+
+      let welcome: string | null = null
+      try { welcome = await getCfg('telegram_welcome_message') } catch {}
 
       await ctx.reply(
         welcome ??
-          'Halo! 👋 Selamat datang di *Gizku Bot*.\n\nKirim foto makananmu dan aku akan langsung analisa kandungan gizinya! 🥗\n\nKetik /help untuk melihat panduan lengkap.',
+          'Halo! 👋 Selamat datang di *Gizku Bot*.\n\nKirim foto makananmu dan aku akan langsung analisa kandungan gizinya! 🥗\n\n' +
+          '🔗 Ingin data tersimpan otomatis? Ketik */link* untuk menghubungkan akun Gizku-mu.\n\nKetik /help untuk panduan lengkap.',
         { parse_mode: 'Markdown' },
       )
 
-      try {
-        await getOrCreateTelegramUser(ctx)
-      } catch (dbErr) {
-        console.error('[bot] /start DB upsert error:', dbErr)
-      }
+      try { await getOrCreateTelegramUser(ctx) } catch {}
     } catch (e) {
       console.error('[bot] /start handler error:', e)
       try { await ctx.reply('Selamat datang di Gizku Bot! Kirim foto makananmu. 🥗') } catch {}
@@ -191,18 +196,15 @@ export function createBot(token: string): Bot {
   bot.command('help', async (ctx) => {
     try {
       let help: string | null = null
-      try {
-        help = await getCfg('telegram_help_message')
-      } catch (cfgErr) {
-        console.error('[bot] /help getCfg error:', cfgErr)
-      }
+      try { help = await getCfg('telegram_help_message') } catch {}
 
       await ctx.reply(
         help ??
           '📖 *Panduan Gizku Bot*\n\n' +
           '📸 *Analisa Makanan* — Kirim foto makananmu\n' +
           '📊 */today* — Ringkasan nutrisi hari ini\n' +
-          '🔗 */link* — Hubungkan akun Gizku-mu\n' +
+          '🔗 */link \<token\>* — Hubungkan akun Gizku-mu\n' +
+          '🔓 */unlink* — Putuskan akun Gizku\n' +
           '❓ */help* — Tampilkan panduan ini\n\n' +
           '_Gizku menggunakan AI untuk menganalisa kandungan gizi makananmu secara otomatis._',
         { parse_mode: 'Markdown' },
@@ -217,17 +219,21 @@ export function createBot(token: string): Bot {
   bot.command('today', async (ctx) => {
     try {
       let tgUser
-      try {
-        tgUser = await getOrCreateTelegramUser(ctx)
-      } catch (dbErr) {
+      try { tgUser = await getOrCreateTelegramUser(ctx) } catch (dbErr) {
         console.error('[bot] /today DB error:', dbErr)
         await ctx.reply('⚠️ Gagal mengambil data. Coba lagi nanti.')
         return
       }
 
       if (!tgUser.userId) {
+        const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? ''
+        const appUrl      = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
         await ctx.reply(
-          '🔗 Hubungkan akun Gizku-mu terlebih dahulu dengan /link untuk melihat ringkasan harian.',
+          '🔗 Akun Gizku-mu belum terhubung.\n\n' +
+          `1. Login ke *${appUrl}/settings*\n` +
+          '2. Klik *Hubungkan Telegram* untuk mendapatkan kode\n' +
+          '3. Kirim */link \<kode\>* ke sini\n\n' +
+          `Atau langsung klik: ${botUsername ? `t.me/${botUsername}` : 'lihat instruksi di website'}`,
           { parse_mode: 'Markdown' },
         )
         return
@@ -258,9 +264,8 @@ export function createBot(token: string): Bot {
       const totalCarb = todayMeals.reduce((s, m) => s + parseFloat(m.totalCarbs), 0)
       const totalFat  = todayMeals.reduce((s, m) => s + parseFloat(m.totalFat), 0)
 
-      const mealLines = todayMeals
-        .map((m) => `• ${m.dishNames.join(', ')} — ${m.totalCalories} kkal`)
-        .join('\n')
+      const mealLines = todayMeals.map((m) => `• ${m.dishNames.join(', ')} — ${m.totalCalories} kkal`).join('\n')
+      const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
 
       const msg =
         `📊 *Ringkasan Nutrisi Hari Ini*\n\n` +
@@ -268,7 +273,8 @@ export function createBot(token: string): Bot {
         `🔥 Total Kalori: *${totalCal} kkal*\n` +
         `💪 Protein: *${totalProt.toFixed(1)}g*\n` +
         `🌾 Karbo: *${totalCarb.toFixed(1)}g*\n` +
-        `🥑 Lemak: *${totalFat.toFixed(1)}g*`
+        `🥑 Lemak: *${totalFat.toFixed(1)}g*\n\n` +
+        `📱 Detail lengkap: ${appUrl}`
 
       await ctx.reply(msg, { parse_mode: 'Markdown' })
     } catch (e) {
@@ -277,41 +283,82 @@ export function createBot(token: string): Bot {
     }
   })
 
-  // ── /link ───────────────────────────────────────────────────────────────
+  // ── /link <token> ────────────────────────────────────────────────────────
   bot.command('link', async (ctx) => {
-    await ctx.reply(
-      '🔗 Untuk menghubungkan akun Gizku-mu, kunjungi:\nhttps://gizku.com/settings\n\nLogin lalu salin kode link-mu dan kirim ke sini.',
-      { parse_mode: 'Markdown' },
-    )
+    const param = (ctx.match as string | undefined)?.trim().toUpperCase()
+
+    if (!param) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
+      await ctx.reply(
+        '🔗 *Cara Menghubungkan Akun Gizku*\n\n' +
+        `1. Login ke *${appUrl}/settings*\n` +
+        '2. Klik *"Hubungkan Telegram"*\n' +
+        '3. Salin kode 6 karakter yang muncul\n' +
+        '4. Kirim: */link \<kode\>* ke sini\n\n' +
+        '_Kode berlaku 15 menit._',
+        { parse_mode: 'Markdown' },
+      )
+      return
+    }
+
+    await handleLinkToken(ctx, param)
+  })
+
+  // ── /unlink ──────────────────────────────────────────────────────────────
+  bot.command('unlink', async (ctx) => {
+    try {
+      const [tgUser] = await db
+        .select()
+        .from(telegramUsers)
+        .where(eq(telegramUsers.telegramId, BigInt(ctx.from!.id)))
+        .limit(1)
+
+      if (!tgUser || !tgUser.userId) {
+        await ctx.reply('ℹ️ Akun Gizku-mu belum terhubung.')
+        return
+      }
+
+      await db
+        .update(telegramUsers)
+        .set({ userId: null, updatedAt: new Date() })
+        .where(eq(telegramUsers.telegramId, BigInt(ctx.from!.id)))
+
+      await ctx.reply(
+        '✅ Akun Gizku berhasil diputus dari Telegram.\n\n' +
+        'Data analisa Telegram tidak lagi tersimpan ke akun Gizku-mu.\n' +
+        'Ketik /link untuk menghubungkan kembali.',
+      )
+    } catch (e) {
+      console.error('[bot] /unlink error:', e)
+      await ctx.reply('⚠️ Gagal memutus akun. Coba lagi nanti.')
+    }
   })
 
   // ── Photo handler ────────────────────────────────────────────────────────
   bot.on('message:photo', async (ctx) => {
-    // Send typing indicator immediately — fire-and-forget (non-blocking)
-    // This must NOT be awaited so it doesn't eat into the 60s timeout budget
     ctx.replyWithChatAction('upload_photo').catch(() => {})
 
     let tgUser
     try {
       tgUser = await getOrCreateTelegramUser(ctx)
     } catch (dbErr) {
-      console.error('[bot] photo handler DB error (getOrCreate):', dbErr)
+      console.error('[bot] photo handler DB error:', dbErr)
       await ctx.reply('⚠️ Gagal memverifikasi pengguna. Coba lagi nanti.')
       return
     }
 
-    // Get free daily limit from config
+    // Daily limit — linked users get higher limit
     let limit = 3
     try {
-      const limitRaw = await getCfg('telegram_free_daily_limit')
-      limit = parseInt(limitRaw ?? '3', 10)
+      const key = tgUser.userId ? 'telegram_linked_daily_limit' : 'telegram_free_daily_limit'
+      const limitRaw = await getCfg(key)
+      limit = parseInt(limitRaw ?? (tgUser.userId ? '10' : '3'), 10)
     } catch {}
 
-    // Check daily limit
     if (tgUser.dailyCount >= limit) {
       let limitMsg: string | null = null
       try { limitMsg = await getCfg('telegram_limit_reached_message') } catch {}
-      const msg = (limitMsg ?? '⚠️ Batas analisa harianmu sudah tercapai ({used}/{limit}).')
+      const msg = (limitMsg ?? '⚠️ Batas analisa harianmu sudah tercapai ({used}/{limit}).\n\n🔗 Hubungkan akun Gizku untuk kuota lebih besar!')
         .replace('{used}', String(tgUser.dailyCount))
         .replace('{limit}', String(limit))
       await ctx.reply(msg, { parse_mode: 'Markdown' })
@@ -319,19 +366,16 @@ export function createBot(token: string): Bot {
     }
 
     try {
-      // Get highest resolution photo
       const photos   = ctx.message.photo
       const photo    = photos[photos.length - 1]
       const fileInfo = await ctx.api.getFile(photo.file_id)
       const fileUrl  = `https://api.telegram.org/file/bot${token}/${fileInfo.file_path}`
 
-      // Download image
       const imgRes    = await fetch(fileUrl)
       const imgBuf    = await imgRes.arrayBuffer()
       const imgBase64 = Buffer.from(imgBuf).toString('base64')
       const mimeType  = 'image/jpeg'
 
-      // Get Anthropic config
       let apiKey: string | null = process.env.ANTHROPIC_API_KEY ?? null
       let modelId = 'claude-sonnet-4-5'
       try {
@@ -347,36 +391,7 @@ export function createBot(token: string): Bot {
         return
       }
 
-      const prompt = `Kamu adalah analis nutrisi makanan. Tugasmu HANYA menganalisa gambar yang berisi makanan atau minuman.
-
-LANGKAH PERTAMA — validasi gambar:
-- Jika gambar TIDAK mengandung makanan atau minuman sama sekali (misalnya: pemandangan, orang, hewan, benda, teks, selfie, dll), kembalikan TEPAT JSON berikut tanpa teks lain:
-  {"error": "non_food", "message": "Gambar tidak mengandung makanan atau minuman. Silakan foto makananmu."}
-
-- Jika gambar MENGANDUNG makanan atau minuman, lanjutkan ke analisa nutrisi.
-
-LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa teks lain:
-{
-  "dishes": [
-    {
-      "name": "nama makanan",
-      "portion": "estimasi porsi (misal: 1 piring, 200g)",
-      "calories": 300,
-      "protein": 15.5,
-      "carbs": 40.0,
-      "fat": 8.0
-    }
-  ],
-  "total": {
-    "calories": 300,
-    "protein": 15.5,
-    "carbs": 40.0,
-    "fat": 8.0
-  },
-  "notes": "catatan singkat tentang nilai gizi",
-  "healthScore": 7,
-  "assessment": "penilaian singkat dalam 1-2 kalimat"
-}`
+      const prompt = `Kamu adalah analis nutrisi makanan. Tugasmu HANYA menganalisa gambar yang berisi makanan atau minuman.\n\nLANGKAH PERTAMA — validasi gambar:\n- Jika gambar TIDAK mengandung makanan atau minuman sama sekali (misalnya: pemandangan, orang, hewan, benda, teks, selfie, dll), kembalikan TEPAT JSON berikut tanpa teks lain:\n  {"error": "non_food", "message": "Gambar tidak mengandung makanan atau minuman. Silakan foto makananmu."}\n\n- Jika gambar MENGANDUNG makanan atau minuman, lanjutkan ke analisa nutrisi.\n\nLANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa teks lain:\n{\n  "dishes": [\n    {\n      "name": "nama makanan",\n      "portion": "estimasi porsi (misal: 1 piring, 200g)",\n      "calories": 300,\n      "protein": 15.5,\n      "carbs": 40.0,\n      "fat": 8.0\n    }\n  ],\n  "total": {\n    "calories": 300,\n    "protein": 15.5,\n    "carbs": 40.0,\n    "fat": 8.0\n  },\n  "notes": "catatan singkat tentang nilai gizi",\n  "healthScore": 7,\n  "assessment": "penilaian singkat dalam 1-2 kalimat"\n}`
 
       const client   = new Anthropic({ apiKey })
       const response = await callWithRetry(() =>
@@ -386,10 +401,7 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
           messages: [{
             role: 'user',
             content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: mimeType, data: imgBase64 },
-              },
+              { type: 'image', source: { type: 'base64', media_type: mimeType, data: imgBase64 } },
               { type: 'text', text: prompt },
             ],
           }],
@@ -406,9 +418,7 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
       const analysis = JSON.parse(jsonMatch[0]) as AnalysisResult
 
       if (analysis.error === 'non_food') {
-        await ctx.reply(
-          analysis.message ?? 'Gambar tidak mengandung makanan. Silakan foto makananmu. 📸',
-        )
+        await ctx.reply(analysis.message ?? 'Gambar tidak mengandung makanan. Silakan foto makananmu. 📸')
         return
       }
 
@@ -416,19 +426,15 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
       try {
         await db
           .update(telegramUsers)
-          .set({
-            dailyCount:   sql`${telegramUsers.dailyCount} + 1`,
-            lastUsedDate: todayISO(),
-            updatedAt:    new Date(),
-          })
+          .set({ dailyCount: sql`${telegramUsers.dailyCount} + 1`, lastUsedDate: todayISO(), updatedAt: new Date() })
           .where(eq(telegramUsers.telegramId, BigInt(ctx.from!.id)))
       } catch (dbErr) {
-        console.error('[bot] photo handler dailyCount update error:', dbErr)
+        console.error('[bot] dailyCount update error:', dbErr)
       }
 
       const newCount = tgUser.dailyCount + 1
 
-      // Save meal to DB if user has a linked gizku account
+      // Save meal to DB with source='telegram'
       if (tgUser.userId && analysis.total && analysis.dishes) {
         try {
           await db.insert(meals).values({
@@ -439,30 +445,28 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
             totalCarbs:    String(analysis.total.carbs),
             totalFat:      String(analysis.total.fat),
             rawAnalysis:   analysis,
+            source:        'telegram',
           })
         } catch (dbErr) {
-          console.error('[bot] photo handler meal insert error:', dbErr)
+          console.error('[bot] meal insert error:', dbErr)
         }
       }
 
-      // Build CTA message for unlinked users
       let ctaMessage = ''
       if (!tgUser.userId) {
-        try { ctaMessage = await getCfg('telegram_after_analysis_cta') ?? '' } catch {}
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
+        try {
+          ctaMessage = await getCfg('telegram_after_analysis_cta') ??
+            `🔗 *Simpan data & lihat riwayat lengkap di ${appUrl}*\nKetik /link untuk hubungkan akun.`
+        } catch {}
       }
 
-      const replyMsg = formatAnalysisMessage(
-        analysis,
-        { used: newCount, limit },
-        ctaMessage,
-      )
-
+      const replyMsg = formatAnalysisMessage(analysis, { used: newCount, limit }, ctaMessage)
       await ctx.reply(replyMsg, { parse_mode: 'Markdown' })
 
     } catch (e) {
       const error = e as AnthropicError
       console.error('[bot] photo handler error:', e)
-
       if (error?.status === 529 || error?.error?.type === 'overloaded_error') {
         await ctx.reply('⚠️ Server AI sedang sibuk. Tunggu beberapa detik lalu kirim ulang foto.')
         return
@@ -475,7 +479,7 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
     }
   })
 
-  // ── Fallback for non-photo messages ─────────────────────────────────────
+  // ── Fallback for non-photo, non-command messages ─────────────────────────
   bot.on('message', async (ctx) => {
     if (ctx.message?.text && !ctx.message.text.startsWith('/')) {
       await ctx.reply(
@@ -485,4 +489,55 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
   })
 
   return bot
+}
+
+// ── Link token handler (shared by /start deep-link and /link command) ──────
+async function handleLinkToken(ctx: Context, token: string) {
+  try {
+    const tgUser = await getOrCreateTelegramUser(ctx)
+
+    if (tgUser.userId) {
+      await ctx.reply(
+        '✅ Akun Gizku-mu sudah terhubung ke Telegram ini.\n\nKetik /unlink jika ingin memutus koneksi.',
+      )
+      return
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
+    const secret  = process.env.TELEGRAM_WEBHOOK_SECRET ?? ''
+    const params  = new URLSearchParams({
+      token,
+      tgId:      String(ctx.from!.id),
+      firstName: ctx.from?.first_name ?? '',
+      username:  ctx.from?.username  ?? '',
+    })
+
+    const res  = await fetch(`${baseUrl}/api/telegram/verify?${params}`, {
+      headers: { 'x-gizku-internal-secret': secret },
+    })
+    const data = await res.json() as { ok?: boolean; alreadyLinked?: boolean; error?: string; message?: string }
+
+    if (data.ok) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
+      await ctx.reply(
+        '🎉 *Akun Gizku berhasil terhubung!*\n\n' +
+        '✅ Mulai sekarang, setiap foto makanan yang kamu kirim akan otomatis tersimpan ke akun Gizku-mu.\n\n' +
+        `📊 Lihat riwayat nutrisi lengkap di: ${appUrl}\n\n` +
+        'Ketik /today untuk melihat ringkasan hari ini.',
+        { parse_mode: 'Markdown' },
+      )
+    } else if (data.error === 'token_invalid') {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'
+      await ctx.reply(
+        '❌ *Kode tidak valid atau sudah kedaluwarsa.*\n\n' +
+        `Minta kode baru di: *${appUrl}/settings*\n_(kode berlaku 15 menit)_`,
+        { parse_mode: 'Markdown' },
+      )
+    } else {
+      await ctx.reply('⚠️ Gagal menghubungkan akun. Coba lagi nanti.')
+    }
+  } catch (e) {
+    console.error('[bot] handleLinkToken error:', e)
+    await ctx.reply('⚠️ Gagal menghubungkan akun. Coba lagi nanti.')
+  }
 }
