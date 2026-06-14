@@ -36,6 +36,10 @@ export async function GET(req: NextRequest) {
       id: users.id, username: users.username,
       email: users.email,
       dailyLimit: users.dailyLimit, createdAt: users.createdAt,
+      // Telegram link fields — required by Settings page to detect linked state
+      telegramId: users.telegramId,
+      telegramUsername: users.telegramUsername,
+      telegramFirstName: users.telegramFirstName,
     }).from(users).where(eq(users.id, user.userId)).limit(1)
 
     if (!userData) return err('User tidak ditemukan', 404)
