@@ -332,6 +332,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </svg>
   )
 
+  // ── Nav tabs: hanya Catat Makan & Riwayat — Settings hanya via user menu ──
+  const NAV_TABS = [
+    {
+      href: '/main/catat',
+      label: 'Catat Makan',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      ),
+    },
+    {
+      href: '/main/riwayat',
+      label: 'Riwayat',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+      ),
+    },
+  ] as const
+
   return (
     <>
       <div style={{
@@ -360,6 +385,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* ── Kalori hari ini ── */}
               <div style={{ width: 96, height: 40, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ fontFamily: 'var(--font-inter), sans-serif', fontWeight: 600, fontSize: 16, color: C.text, lineHeight: 1.1 }}>
                   {dayKcal !== null ? dayKcal.toLocaleString('id-ID') : '—'}
@@ -367,7 +393,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <span style={{ fontFamily: 'var(--font-inter), sans-serif', fontWeight: 400, fontSize: 11, color: C.muted, lineHeight: 1.1 }}>kkal hari ini</span>
               </div>
 
-              <div onClick={() => setShowUserMenu(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: '5px 10px 5px 7px', cursor: 'pointer', flexShrink: 0, position: 'relative' }}>
+              {/* ── User CTA — satu-satunya entry point ke Settings ── */}
+              <div
+                onClick={() => setShowUserMenu(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: '5px 10px 5px 7px', cursor: 'pointer', flexShrink: 0, position: 'relative' }}
+                role="button"
+                aria-label={`Menu akun ${user.username}`}
+                aria-haspopup="dialog"
+              >
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: C.green, color: '#fff', fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-montserrat), sans-serif' }}>{initial}</div>
                 <span style={{ fontSize: 13, fontWeight: 600, color: C.text, maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.username}</span>
                 {userEmail === null && (
@@ -377,15 +410,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
+          {/* ── Tab Navigation: hanya 2 tab ── */}
           <div style={{ display: 'flex', background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: 4, marginTop: 8, marginBottom: 12, height: 56, alignItems: 'center' }}>
-            {([
-              { href: '/main/catat', label: 'Catat Makan', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>) },
-              { href: '/main/riwayat', label: 'Riwayat', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>) },
-              { href: '/main/settings', label: 'Pengaturan', icon: (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>) },
-            ] as const).map(({ href, label, icon }) => {
+            {NAV_TABS.map(({ href, label, icon }) => {
               const active = pathname === href || pathname.startsWith(href + '/')
               return (
-                <Link key={href} href={href} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, height: '100%', borderRadius: 999, fontFamily: 'var(--font-inter), sans-serif', fontWeight: active ? 600 : 500, fontSize: 13, textDecoration: 'none', background: active ? C.greenDim : 'transparent', color: active ? C.text : C.muted, transition: 'all .2s' }}>
+                <Link
+                  key={href}
+                  href={href}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    height: '100%', borderRadius: 999,
+                    fontFamily: 'var(--font-inter), sans-serif',
+                    fontWeight: active ? 600 : 500, fontSize: 13,
+                    textDecoration: 'none',
+                    background: active ? C.greenDim : 'transparent',
+                    color: active ? C.text : C.muted,
+                    transition: 'all .2s',
+                  }}
+                >
                   <span style={{ color: active ? C.green : C.muted }}>{icon}</span>
                   {label}
                 </Link>
@@ -451,14 +494,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '8px 12px', color: '#15803D', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>✅ Email berhasil disimpan</div>
             )}
 
-            {/* ── Settings link ── */}
+            {/* ── Settings link — satu-satunya entry point ke /main/settings ── */}
             <Link
               href="/main/settings"
               onClick={() => setShowUserMenu(false)}
               style={{ width: '100%', padding: '13px 16px', borderRadius: 13, marginBottom: 8, background: C.bg, border: `1px solid ${C.border}`, color: C.text, fontWeight: 600, fontSize: 14, cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}
             >
               <span style={{ color: C.muted, display: 'flex', alignItems: 'center' }}>{IconSettings}</span>
-              Pengaturan & Koneksi
+              Pengaturan &amp; Koneksi
             </Link>
 
             {/* ── Ubah Password button ── */}
