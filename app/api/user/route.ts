@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { users, meals, dailyUsage } from '@/drizzle/schema'
+import { users, meals, dailyUsage, telegramUsers } from '@/drizzle/schema'
 import { verifyToken, extractToken, hashPassword } from '@/lib/auth'
 import { getGlobalLimit } from '@/lib/admin'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
@@ -32,13 +32,25 @@ export async function GET(req: NextRequest) {
   const action = req.nextUrl.searchParams.get('action') || 'profile'
 
   if (action === 'profile') {
+    // Fetch user row
     const [userData] = await db.select({
-      id: users.id, username: users.username,
-      email: users.email,
-      dailyLimit: users.dailyLimit, createdAt: users.createdAt,
+      id:           users.id,
+      username:     users.username,
+      email:        users.email,
+      dailyLimit:   users.dailyLimit,
+      createdAt:    users.createdAt,
     }).from(users).where(eq(users.id, user.userId)).limit(1)
 
     if (!userData) return err('User tidak ditemukan', 404)
+
+    // Fetch linked Telegram account (if any) via the telegram_users relation table
+    const [tgRow] = await db.select({
+      telegramId:        telegramUsers.telegramId,
+      telegramUsername:  telegramUsers.username,
+      telegramFirstName: telegramUsers.firstName,
+    }).from(telegramUsers)
+      .where(eq(telegramUsers.userId, user.userId))
+      .limit(1)
 
     const globalLimit = await getGlobalLimit()
     const limit       = userData.dailyLimit ?? globalLimit
@@ -54,11 +66,15 @@ export async function GET(req: NextRequest) {
     return ok({
       user: {
         ...userData,
-        dailyLimit: limit,
-        todayUsage: usageRow?.count ?? 0,
-        remaining:  Math.max(0, limit - (usageRow?.count ?? 0)),
-        totalMeals: mealStats.total,
+        dailyLimit:    limit,
+        todayUsage:    usageRow?.count ?? 0,
+        remaining:     Math.max(0, limit - (usageRow?.count ?? 0)),
+        totalMeals:    mealStats.total,
         totalCalories: mealStats.totalCals ?? 0,
+        // Telegram linked account info — null when not linked
+        telegramId:        tgRow?.telegramId?.toString() ?? null,
+        telegramUsername:  tgRow?.telegramUsername  ?? null,
+        telegramFirstName: tgRow?.telegramFirstName ?? null,
       },
     })
   }

@@ -11,6 +11,27 @@ const nextConfig: NextConfig = {
     imageSizes: [64, 128, 256, 384],
   },
 
+  async redirects() {
+    return [
+      // Short URL aliases → full authenticated routes
+      {
+        source: '/settings',
+        destination: '/main/settings',
+        permanent: false,
+      },
+      {
+        source: '/catat',
+        destination: '/main/catat',
+        permanent: false,
+      },
+      {
+        source: '/riwayat',
+        destination: '/main/riwayat',
+        permanent: false,
+      },
+    ]
+  },
+
   async headers() {
     return [
       // ── Next.js static assets (hashed filenames) → immutable forever ──
