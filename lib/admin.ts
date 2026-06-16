@@ -48,8 +48,7 @@ export async function getMaintenance() {
 
 /**
  * Middleware guard untuk API route admin.
- * Membaca cookie `admin_token` dan memverifikasi nilainya terhadap
- * hash yang tersimpan di DB (key: `admin_token_hash`).
+ * Membaca cookie `nl_admin_token` dan memverifikasi menggunakan JWT.
  *
  * Kembalikan NextResponse 401 jika tidak terautentikasi,
  * atau null jika lolos.
@@ -62,14 +61,14 @@ export async function requireAdmin(
   req: NextRequest,
 ): Promise<NextResponse | null> {
   // Coba dari cookie request langsung (App Router API route)
-  const tokenFromReq = req.cookies.get('admin_token')?.value
+  const tokenFromReq = req.cookies.get('nl_admin_token')?.value
 
   // Fallback: cookies() dari next/headers (Server Component / Route Handler)
   let token = tokenFromReq
   if (!token) {
     try {
       const cookieStore = await cookies()
-      token = cookieStore.get('admin_token')?.value
+      token = cookieStore.get('nl_admin_token')?.value
     } catch {
       // cookies() tidak tersedia di konteks ini — abaikan
     }
@@ -79,16 +78,17 @@ export async function requireAdmin(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Verifikasi token terhadap hash yang tersimpan di DB
-  const storedHash = await getCfg('admin_token_hash')
-  if (!storedHash) {
-    // Belum ada token di DB — tolak akses
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { hashPassword: hp } = await import('@/lib/auth')
-  const inputHash = await hp(token, SALT)
-  if (inputHash !== storedHash) {
+  // Verifikasi token menggunakan JWT
+  try {
+    const { jwtVerify } = await import('jose')
+    const secret = new TextEncoder().encode(
+      process.env.JWT_SECRET || 'fallback-change-in-production-32ch'
+    )
+    const { payload } = await jwtVerify(token, secret)
+    if (payload.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+  } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
