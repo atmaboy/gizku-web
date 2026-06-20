@@ -7,6 +7,7 @@
  * DELETE ?action=delete  body: { id: number }
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { landingContent } from '@/drizzle/schema'
 import { eq, asc, and } from 'drizzle-orm'
@@ -56,6 +57,8 @@ export async function POST(req: NextRequest) {
           sortOrder: sortOrder ?? 0,
           updatedAt: new Date(),
         }).where(eq(landingContent.id, id))
+        revalidatePath('/')
+        revalidatePath('/api/landing-content')
         return ok({ message: 'Konten diperbarui' })
       } else {
         // Insert new
@@ -69,6 +72,8 @@ export async function POST(req: NextRequest) {
           isActive:  isActive  ?? true,
           sortOrder: sortOrder ?? 0,
         }).returning({ id: landingContent.id })
+        revalidatePath('/')
+        revalidatePath('/api/landing-content')
         return ok({ message: 'Konten ditambahkan', id: inserted.id })
       }
     }
@@ -79,6 +84,8 @@ export async function POST(req: NextRequest) {
       await db.update(landingContent)
         .set({ isActive, updatedAt: new Date() })
         .where(eq(landingContent.id, id))
+      revalidatePath('/')
+      revalidatePath('/api/landing-content')
       return ok({ message: `Konten ${isActive ? 'diaktifkan' : 'dinonaktifkan'}` })
     }
 
@@ -97,6 +104,8 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json()
     if (!id) return err('id diperlukan', 400)
     await db.delete(landingContent).where(eq(landingContent.id, id))
+    revalidatePath('/')
+    revalidatePath('/api/landing-content')
     return ok({ message: 'Konten dihapus' })
   } catch (e) {
     console.error('[admin/landing DELETE]', e)

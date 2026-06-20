@@ -18,6 +18,8 @@
 - 🔐 **Autentikasi** — sistem login/register dengan JWT, tanpa dependency pihak ketiga
 - 🛠️ **Admin dashboard** — kelola user, limit harian, maintenance mode, laporan masukan
 - 🔧 **Maintenance mode** — admin bisa mengaktifkan mode pemeliharaan; user aktif otomatis di-logout dan melihat pesan pemeliharaan di halaman login
+- 🖼️ **Landing Page CMS** — seluruh konten landing page dapat dikonfigurasi via backoffice tanpa deploy ulang
+- 🔑 **Reset Password** — admin dapat reset password user; user diwajibkan ganti password saat login berikutnya
 - 📈 **Vercel Analytics** — tracking page views dan web vitals secara otomatis
 
 ---
@@ -29,7 +31,7 @@ nutrilog-next/
 │
 ├── app/                          # Next.js App Router
 │   ├── layout.tsx                # Root layout — inject font, Toaster, Vercel Analytics
-│   ├── page.tsx                  # Redirect root → /login
+│   ├── page.tsx                  # Landing page publik (hero, features, how it works, CTA)
 │   ├── globals.css               # CSS variables (dark/light theme tokens)
 │   │
 │   ├── login/
@@ -38,19 +40,31 @@ nutrilog-next/
 │   ├── main/
 │   │   ├── layout.tsx            # Layout aplikasi utama (header, nav tab, auto-logout maintenance)
 │   │   ├── catat/
-│   │   │   └── page.tsx          # Halaman catat makan — upload foto & hasil analisa AI + BrandAnnouncement
-│   │   └── riwayat/
-│   │       └── page.tsx          # Halaman riwayat — daftar meal & ringkasan nutrisi harian
+│   │   │   └── page.tsx          # Halaman catat makan — upload foto & hasil analisa AI
+│   │   ├── riwayat/
+│   │   │   └── page.tsx          # Halaman riwayat — daftar meal & ringkasan nutrisi harian
+│   │   └── force-change-password/
+│   │       └── page.tsx          # Halaman wajib ganti password (setelah admin reset)
 │   │
 │   ├── admin/
-│   │   └── page.tsx              # Dashboard admin — manajemen user, config, laporan
+│   │   ├── login/
+│   │   │   └── page.tsx          # Halaman login admin
+│   │   ├── page.tsx              # Dashboard admin — statistik & recent users
+│   │   ├── users/
+│   │   │   └── page.tsx          # Manajemen user — CRUD, reset password, audit trail
+│   │   ├── reports/
+│   │   │   └── page.tsx          # Laporan masukan user
+│   │   ├── config/
+│   │   │   └── page.tsx          # Konfigurasi global (daily limit, maintenance)
+│   │   └── landing/
+│   │       └── page.tsx          # Editor landing page CMS
 │   │
 │   ├── maintenance/
 │   │   └── page.tsx              # Halaman maintenance (fallback statis)
 │   │
 │   └── api/                      # API Routes (Next.js Route Handlers)
 │       ├── auth/
-│       │   └── route.ts          # POST login, register, verify token
+│       │   └── route.ts          # POST login, register, verify token, change_password, reset_password
 │       ├── analyze/
 │       │   └── route.ts          # POST analisa gambar makanan via Anthropic Claude
 │       ├── history/
@@ -61,20 +75,27 @@ nutrilog-next/
 │       │   └── route.ts          # GET/PATCH data profil user
 │       ├── maintenance/
 │       │   └── route.ts          # GET status maintenance mode
+│       ├── landing-content/
+│       │   └── route.ts          # GET konten landing page dari Supabase (publik)
 │       └── admin/
-│           ├── route.ts          # CRUD admin — user, config, maintenance, laporan
+│           ├── route.ts          # CRUD admin — user, config, maintenance, laporan, reset_user_password
+│           ├── upload-image/
+│           │   └── route.ts      # POST upload hero image ke Supabase Storage
 │           └── migrate/
 │               └── route.ts      # POST migrasi data dari Supabase KV → PostgreSQL
 │
 ├── components/                   # Shared React components
-│   └── BrandAnnouncement.tsx     # Widget notifikasi rebrand NutriLog → Gizku (dismissible)
+│   ├── BrandAnnouncement.tsx     # Widget notifikasi rebrand NutriLog → Gizku (dismissible)
+│   └── GizkuLogo.tsx             # Komponen logo terpusat (bowl+spoon SVG, green circle)
 │
 ├── drizzle/
 │   └── schema.ts                 # Drizzle ORM schema — definisi tabel PostgreSQL
 │
 ├── lib/
 │   ├── auth.ts                   # JWT sign/verify, hashPassword, extractToken
+│   ├── admin.ts                  # Helper admin — requireAdmin guard
 │   ├── db.ts                     # Drizzle client (koneksi ke Supabase PostgreSQL)
+│   ├── supabase-storage.ts       # Helper upload & delete file via Supabase Storage service_role
 │   └── utils.ts                  # Helper: setCors, ok, err, todayISO, dll
 │
 ├── sql/                          # Raw SQL migration scripts (referensi)
@@ -102,7 +123,9 @@ cp .env.example .env.local
 |---|---|
 | `DATABASE_URL` | Connection string PostgreSQL Supabase |
 | `SUPABASE_URL` | URL project Supabase (`https://xxx.supabase.co`) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key Supabase (untuk migrasi data) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key Supabase (untuk migrasi data & storage upload) |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL publik Supabase (untuk client-side storage) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key Supabase (untuk client-side) |
 | `JWT_SECRET` | Secret key untuk signing JWT (min. 32 karakter) |
 | `ANTHROPIC_API_KEY` | API key Anthropic Claude (analisa gambar) |
 | `ADMIN_PASSWORD_HASH` | Bcrypt hash password admin |
@@ -202,7 +225,7 @@ Login dan dapatkan JWT token.
 | `403` | Akun tidak aktif (diblokir admin) |
 | `503` | Maintenance mode aktif |
 
-**Response 200:**
+**Response 200 (normal):**
 ```json
 {
   "ok": true,
@@ -212,6 +235,18 @@ Login dan dapatkan JWT token.
   }
 }
 ```
+
+**Response 200 (wajib ganti password):**
+```json
+{
+  "ok": true,
+  "data": {
+    "token": "eyJ...",
+    "user": { "id": "uuid", "username": "atmaklasik", "mustChangePassword": true }
+  }
+}
+```
+> Jika `mustChangePassword: true`, client harus redirect ke `/main/force-change-password`.
 
 ---
 
@@ -227,6 +262,27 @@ Validasi JWT token yang tersimpan di client.
 |------|---------|
 | `200` | Token valid — mengembalikan data user terkini |
 | `401` | Token tidak ada / tidak valid / kadaluarsa / akun tidak aktif |
+
+---
+
+#### `POST ?action=change_password`
+
+Ganti password user yang sedang login (digunakan di halaman force-change-password dan overlay ganti password).
+
+**Header:** `Authorization: Bearer <token>`
+
+**Body:**
+```json
+{ "newPassword": "string (min 6)", "currentPassword": "string (opsional, untuk non-forced change)" }
+```
+
+**Response Codes:**
+
+| Code | Kondisi |
+|------|---------|
+| `200` | Password berhasil diganti, flag `must_change_password` di-reset |
+| `400` | `newPassword` tidak dikirim atau terlalu pendek |
+| `401` | Token tidak valid atau `currentPassword` salah |
 
 ---
 
@@ -256,7 +312,7 @@ Analisa gambar makanan menggunakan Anthropic Claude Vision. Kuota harian user ak
 | `401` | Token tidak valid |
 | `422` | Gambar tidak mengandung makanan atau minuman |
 | `429` | Batas analisa harian user tercapai, atau rate limit Anthropic |
-| `503` | Server AI sedang overload (`overloaded_error`) / API key tidak valid / maintenance aktif / koneksi timeout |
+| `503` | Server AI sedang overload / API key tidak valid / maintenance aktif / koneksi timeout |
 | `500` | Error tak terduga saat analisa |
 
 **Response 200:**
@@ -285,16 +341,6 @@ Analisa gambar makanan menggunakan Anthropic Claude Vision. Kuota harian user ak
 }
 ```
 
-**Response 422 (bukan makanan):**
-```json
-{ "ok": false, "error": "Gambar tidak mengandung makanan atau minuman. Silakan foto makananmu." }
-```
-
-**Response 503 (AI overload):**
-```json
-{ "ok": false, "error": "Server AI sedang sibuk. Tunggu beberapa detik lalu coba lagi." }
-```
-
 ---
 
 ### `/api/history`
@@ -317,13 +363,6 @@ Ambil daftar riwayat meal dengan pagination.
 #### `GET ?action=today`
 
 Ambil ringkasan nutrisi hari ini beserta status penggunaan kuota.
-
-**Response Codes:**
-
-| Code | Kondisi |
-|------|---------|
-| `200` | Mengembalikan `meals[]`, `summary` nutrisi, `usage` kuota |
-| `401` | Token tidak valid |
 
 **Response 200:**
 ```json
@@ -348,86 +387,36 @@ Simpan hasil analisa sebagai entri riwayat.
 { "analysis": { ... }, "imageDataUrl": "data:image/jpeg;base64,..." }
 ```
 
-**Response Codes:**
-
-| Code | Kondisi |
-|------|---------|
-| `200` | Data berhasil disimpan — mengembalikan `meal` |
-| `400` | Field `analysis` tidak dikirim |
-| `401` | Token tidak valid |
-
 ---
 
 #### `DELETE ?id=<meal_id>`
 
 Hapus satu entri riwayat milik user yang sedang login.
 
-**Response Codes:**
-
-| Code | Kondisi |
-|------|---------|
-| `200` | Data berhasil dihapus |
-| `400` | `id` tidak dikirim |
-| `401` | Token tidak valid |
-| `404` | Meal tidak ditemukan atau bukan milik user |
-
 ---
 
-### `/api/report`
-
-#### `POST`
-
-Kirim laporan / masukan dari user.
-
-**Body:**
-```json
-{ "message": "string (min 10, max 1000 karakter)" }
-```
-
-**Response Codes:**
-
-| Code | Kondisi |
-|------|---------|
-| `200` | Laporan berhasil dikirim — mengembalikan `report` |
-| `400` | Pesan terlalu pendek (< 10 karakter) atau terlalu panjang (> 1000) |
-| `401` | Token tidak valid |
-
----
+### `/api/landing-content`
 
 #### `GET`
 
-Ambil daftar laporan milik user yang login (maks. 20 terakhir).
-
-**Response Codes:**
-
-| Code | Kondisi |
-|------|---------|
-| `200` | Mengembalikan `reports[]` |
-| `401` | Token tidak valid |
-
----
-
-### `/api/maintenance`
-
-#### `GET`
-
-Cek status maintenance mode. Endpoint ini **tidak memerlukan autentikasi**.
-
-**Response Codes:**
-
-| Code | Kondisi |
-|------|---------|
-| `200` | Mengembalikan `enabled`, `title`, `description` |
+Ambil seluruh konten landing page dari tabel `landing_content`. Endpoint ini **tidak memerlukan autentikasi**.
 
 **Response 200:**
 ```json
 {
   "ok": true,
-  "data": {
-    "enabled": false,
-    "title": "Gizku sedang dalam perbaikan",
-    "description": "Kami sedang melakukan peningkatan sistem."
-  }
+  "data": [
+    {
+      "section": "hero",
+      "slug": "hero-main",
+      "title": "Makan Cerdas. Hidup Lebih Baik.",
+      "subtitle": "...",
+      "body": "...",
+      "meta": { "hero_image_url": "...", "benefit_list": [...] },
+      "is_active": true,
+      "sort_order": 0
+    }
+  ]
 }
 ```
 
@@ -439,9 +428,6 @@ Semua endpoint admin memerlukan header:
 ```
 Authorization: Bearer <nl_admin_token>
 ```
-Token admin diperoleh dari `POST /api/admin?action=login` dan disimpan sebagai cookie `HttpOnly`.
-
-> ⚠️ Token admin adalah cookie `HttpOnly` — tidak dapat dibaca oleh JavaScript. Gunakan cookie secara otomatis oleh browser, atau kirim token via header `Authorization` yang disisipkan server-side.
 
 #### `POST ?action=login`
 
@@ -457,16 +443,16 @@ Login admin.
 
 ---
 
-#### `POST ?action=update_report`
+#### `POST ?action=reset_user_password`
 
-Ubah status laporan user (`open` → `resolved`).
+Reset password user oleh admin. User akan diwajibkan ganti password saat login berikutnya.
 
-**Body:** `{ "id": "report_uuid", "status": "resolved" }`
+**Body:** `{ "id": "user_uuid", "newPassword": "string (min 6)" }`
 
 | Code | Kondisi |
 |------|---------|
-| `200` | Status berhasil diperbarui |
-| `400` | `id` tidak dikirim |
+| `200` | Password berhasil di-reset; `must_change_password` di-set `true`, audit trail dicatat |
+| `400` | `id` atau `newPassword` tidak dikirim / terlalu pendek |
 | `401` | Token admin tidak valid |
 
 ---
@@ -477,12 +463,6 @@ Ubah status aktif atau limit harian seorang user.
 
 **Body:** `{ "id": "user_uuid", "isActive": true, "dailyLimit": 10 }`
 
-| Code | Kondisi |
-|------|---------|
-| `200` | User berhasil diperbarui |
-| `400` | `id` tidak dikirim |
-| `401` | Token admin tidak valid |
-
 ---
 
 #### `POST ?action=create_user`
@@ -490,13 +470,6 @@ Ubah status aktif atau limit harian seorang user.
 Buat akun user baru dari admin.
 
 **Body:** `{ "username": "string", "password": "string", "dailyLimit": 5 }`
-
-| Code | Kondisi |
-|------|---------|
-| `200` | User berhasil dibuat |
-| `400` | Username atau password tidak dikirim |
-| `401` | Token admin tidak valid |
-| `409` | Username sudah digunakan |
 
 ---
 
@@ -506,11 +479,6 @@ Ubah konfigurasi global (daily limit default, API key Anthropic).
 
 **Body:** `{ "dailyLimit": 5, "anthropicApiKey": "sk-ant-..." }`
 
-| Code | Kondisi |
-|------|---------|
-| `200` | Konfigurasi berhasil disimpan |
-| `401` | Token admin tidak valid |
-
 ---
 
 #### `POST ?action=update_maintenance`
@@ -519,47 +487,19 @@ Aktifkan / nonaktifkan maintenance mode.
 
 **Body:** `{ "enabled": true, "title": "...", "description": "..." }`
 
-| Code | Kondisi |
-|------|---------|
-| `200` | Status maintenance diperbarui |
-| `401` | Token admin tidak valid |
-
 ---
 
 #### `GET ?action=dashboard`
 
 Ambil statistik ringkasan dashboard admin.
 
-**Response 200:**
-```json
-{
-  "ok": true,
-  "data": {
-    "stats": {
-      "totalUsers": 42,
-      "activeUsers": 40,
-      "totalMeals": 318,
-      "openReports": 2,
-      "totalCalories": 487250,
-      "todayAnalyses": 15
-    },
-    "recentUsers": [...]
-  }
-}
-```
-
 ---
 
 #### `GET ?action=users`
 
-Daftar semua user dengan pagination.
+Daftar semua user dengan pagination. Termasuk kolom audit trail reset password.
 
 **Query Params:** `page`, `per_page` (default: 20)
-
-| Code | Kondisi |
-|------|---------|
-| `200` | Mengembalikan `users[]`, `total`, `page`, `perPage` |
-| `401` | Token admin tidak valid |
 
 ---
 
@@ -569,36 +509,22 @@ Daftar laporan user.
 
 **Query Params:** `status` (`open` / `resolved` / `all`, default: `all`)
 
-| Code | Kondisi |
-|------|---------|
-| `200` | Mengembalikan `reports[]` |
-| `401` | Token admin tidak valid |
-
 ---
 
-#### `DELETE ?action=delete_report&id=<id>`
+### `/api/admin/upload-image`
 
-Hapus laporan user.
+#### `POST`
 
-| Code | Kondisi |
-|------|---------|
-| `200` | Laporan berhasil dihapus |
-| `400` | `id` tidak dikirim |
-| `401` | Token admin tidak valid |
+Upload gambar hero ke Supabase Storage. Hanya bisa diakses oleh admin.
 
----
+**Header:** `Authorization: Bearer <nl_admin_token>`
 
-#### `DELETE ?action=delete_user`
+**Body:** `multipart/form-data` dengan field `file` (image/jpeg, image/png, image/webp, maks. 5MB)
 
-Hapus akun user beserta seluruh data meal-nya.
-
-**Body:** `{ "id": "user_uuid" }`
-
-| Code | Kondisi |
-|------|---------|
-| `200` | User berhasil dihapus |
-| `400` | `id` tidak dikirim |
-| `401` | Token admin tidak valid |
+**Response 200:**
+```json
+{ "ok": true, "data": { "url": "https://xxx.supabase.co/storage/v1/object/public/..." } }
+```
 
 ---
 
@@ -607,8 +533,8 @@ Hapus akun user beserta seluruh data meal-nya.
 ### 1. Fork & Clone
 
 ```bash
-git clone https://github.com/atmaboy/nutrilog-next.git
-cd nutrilog-next
+git clone https://github.com/atmaboy/gizku-web.git
+cd gizku-web
 npm install
 ```
 
@@ -620,57 +546,24 @@ npm install
 
 ### 3. Deploy ke Vercel
 
-#### Via Vercel Dashboard (Rekomendasi)
-
 1. Push repo ke GitHub
 2. Buka [vercel.com/new](https://vercel.com/new) → Import repository
 3. **Framework Preset**: Next.js (auto-detected)
-4. Tambahkan semua environment variables di bagian **Environment Variables**
+4. Tambahkan semua environment variables
 5. Klik **Deploy**
 
-#### Via Vercel CLI
-
-```bash
-npm i -g vercel
-vercel login
-vercel --prod
-```
-
-### 4. Custom Domain
-
-Setelah deploy, tambahkan custom domain di **Vercel Dashboard → Project → Settings → Domains**.
-
-> ⚠️ **Deployment Protection:** Pastikan **Settings → Deployment Protection** di-set ke `Disabled` agar user eksternal bisa mengakses aplikasi tanpa autentikasi Vercel. Jika hanya untuk internal tim, biarkan aktif.
-
-### 5. Jalankan Migrasi Data (Opsional)
-
-Jika kamu memiliki data lama di Supabase KV Store (`kv_store`), jalankan endpoint migrasi:
-
-```bash
-curl -X POST https://<your-domain>/api/admin/migrate \
-  -H "Authorization: Bearer <admin_token>"
-```
-
-### 6. Verifikasi Analytics
-
-Setelah deploy, buka Vercel Dashboard → tab **Analytics** untuk melihat page views dan Web Vitals secara real-time.
+> ⚠️ **Deployment Protection:** Pastikan **Settings → Deployment Protection** di-set ke `Disabled` agar user eksternal bisa mengakses aplikasi.
 
 ---
 
 ## 🖥️ Development Lokal
 
 ```bash
-# Install dependencies
 npm install
-
-# Jalankan dev server
 npm run dev
 # → http://localhost:3000
 
-# Generate/sync schema Drizzle
-npx drizzle-kit push
-
-# Lint
+npx drizzle-kit push   # sync schema
 npm run lint
 ```
 
@@ -678,41 +571,96 @@ npm run lint
 
 ## 📋 Changelog
 
+### v1.5.1 — 2026-05-22
+
+#### 🐛 Bug Fix
+- **CTA label selalu dari CMS** — label tombol CTA di hero landing page tidak lagi di-override oleh status login user; kini selalu mengikuti konfigurasi yang diset admin di backoffice
+
+---
+
+### v1.5.0 — 2026-05-22
+
+#### 🔑 Reset Password (User & Admin)
+- **Admin reset password** — admin dapat reset password user melalui tab "Reset Password" di modal Edit User (backoffice)
+- **Force change password** — setelah admin reset, user di-flag `must_change_password = true` dan diwajibkan ganti password saat login berikutnya sebelum bisa mengakses aplikasi
+- **Halaman `/main/force-change-password`** — halaman dedicated untuk user mengganti password yang di-reset admin
+- **Change-password overlay** di AppLayout sebagai guard tambahan
+- **Audit trail** — kolom baru di tabel `users`: `must_change_password`, `password_changed_at`, `password_changed_by`, `admin_reset_by`
+- **Bug fix** — flag `nl_must_change_password` di localStorage kini tersimpan dengan benar sebelum redirect ke force-change-password
+
+#### 🖼️ Hero Image Upload (Backoffice)
+- Upload hero image via **drag-and-drop** di landing editor
+- Disimpan ke **Supabase Storage**, mengembalikan public URL
+- API endpoint baru: `POST /api/admin/upload-image`
+- Helper baru: `lib/supabase-storage.ts` untuk upload & delete via service_role
+- Preview + delete gambar langsung dari editor
+
+#### 📝 Landing Page CMS
+- Seluruh konten landing page dapat dikonfigurasi via backoffice: **hero, how_it_works, features, stats, CTA**
+- Field `benefit_list` di hero & CTA bottom dapat dikonfigurasi (textarea, 1 item per baris)
+- Array `benefit_list` kosong dihormati — tidak fallback ke teks default
+- Tabel baru `landing_content` di Supabase sebagai sumber data
+- API publik baru: `GET /api/landing-content`
+
+#### 🎨 Branding
+- Komponen `GizkuLogo` terpusat di `components/GizkuLogo.tsx` sebagai single source of truth
+- Logo konsisten di landing page, halaman login user, dan halaman login admin
+
+#### 📱 Mobile Responsive (Admin Backoffice)
+- **Sidebar** → drawer + bottom navigation di mobile (P1)
+- **Halaman Users** → card list view + touch targets yang nyaman (P2)
+- **Dashboard** → header, status badges, tabel recent users (P3)
+- **MealHistoryModal** → touch targets, pagination, header (P4)
+- **Landing editor** → card list, header, modal, touch targets
+- **Reports & Config** → input+button layout, full-width buttons di mobile
+- **Navbar** → user avatar compact, tidak overflow di mobile
+
+#### 🔐 Navbar & Auth
+- Navbar CTA: satu tombol hijau untuk guest, avatar username untuk user yang sudah login
+- Baca auth state dari `localStorage` (`nl_token`, `nl_user`) — menggantikan fetch ke `/api/auth/me` yang tidak ada
+
+#### 🐛 Bug Fixes
+- Fix `requireAdmin` guard di `lib/admin.ts` — memperbaiki build error pada `delete-image` & `upload-image`
+- Fix `<a href="/">` → `<Link>` — memperbaiki `next/no-html-link-for-pages` build error
+- Fix hero `benefit_list` kosong tidak lagi fallback ke default
+- Fix fetch endpoint `/api/landing-content` (sebelumnya salah ke `/api/landing`)
+
+---
+
 ### v1.4.0 — 2026-05-03
 
 #### 🎨 Rebrand: NutriLog → Gizku
 - **Nama aplikasi resmi berganti** dari NutriLog menjadi **Gizku** — seluruh UI, metadata, dan dokumentasi diperbarui
 - **Custom domain** — tidak lagi menggunakan subdomain `vercel.app`; aplikasi kini berjalan di domain sendiri
-- **Fix Vercel 403 Forbidden** — Deployment Protection dinonaktifkan agar user eksternal dapat mengakses aplikasi; solusi jangka panjang dengan migrasi ke custom domain
+- **Fix Vercel 403 Forbidden** — Deployment Protection dinonaktifkan agar user eksternal dapat mengakses aplikasi
 
 #### 🔔 Brand Announcement Widget
-- Komponen baru `components/BrandAnnouncement.tsx` — notifikasi rebrand yang muncul di halaman **Login** dan **Catat Makanan**
+- Komponen baru `components/BrandAnnouncement.tsx` — notifikasi rebrand yang muncul di halaman Login dan Catat Makanan
 - Background oranye on-brand dengan animasi slide-down
-- **Dismissible** — setelah ditutup, disimpan ke `localStorage` (`gizku_brand_notice_dismissed`) sehingga tidak muncul lagi di kunjungan berikutnya
+- **Dismissible** — disimpan ke `localStorage` (`gizku_brand_notice_dismissed`) setelah ditutup
 
 #### 🗓️ UI Riwayat — Kartu Ringkasan Harian
-- **Pembeda visual** antara kartu ringkasan harian (summary) dan kartu item makan (meal list)
-- Summary card kini menggunakan background **amber** (`#FFF7ED`) dengan border oranye (`#FED7AA`) dan label pill **"Total Hari Ini"**
-- Meal card tetap putih bersih — hierarki visual parent/child kini lebih jelas
+- Summary card menggunakan background amber dengan border oranye dan label pill "Total Hari Ini"
+- Meal card tetap putih — hierarki visual parent/child lebih jelas
 
 ---
 
 ### v1.3.0 — 2026-04-26
-- 🛡️ **Validasi gambar non-makanan** — AI menolak foto yang bukan makanan/minuman dengan pesan `422 Unprocessable Entity` yang ramah; kuota harian tidak terpotong
-- ⚡ **Error handling AI** — `overloaded_error` (529), rate limit (429), invalid key (401), dan timeout kini menampilkan pesan user-friendly alih-alih raw JSON error
-- 🔐 **Validasi token saat app load** — `app/main/layout.tsx` memvalidasi token ke server saat mount; jika `401` langsung force-logout
-- 🔄 **Auto-logout global** — semua API call di halaman utama dan analisa kini mendeteksi `401` dan otomatis redirect ke login
+- 🛡️ **Validasi gambar non-makanan** — AI menolak foto bukan makanan/minuman dengan pesan `422`; kuota tidak terpotong
+- ⚡ **Error handling AI** — `overloaded_error`, rate limit, invalid key, timeout kini menampilkan pesan user-friendly
+- 🔐 **Validasi token saat app load** — token divalidasi ke server saat mount; jika `401` langsung force-logout
+- 🔄 **Auto-logout global** — semua API call mendeteksi `401` dan otomatis redirect ke login
 - 📖 **Dokumentasi API lengkap** — README diperbarui dengan seluruh endpoint, error code, dan contoh response
 
 ### v1.2.0 — 2026-04-18
-- ✅ **Vercel Analytics** — tambah `@vercel/analytics` ke root layout untuk tracking otomatis
-- 🔧 **Maintenance auto-logout** — user yang sedang login otomatis di-logout dan diarahkan ke halaman login dengan banner pesan maintenance jika admin mengaktifkan maintenance mode
-- 🛡️ **Maintenance banner di login** — halaman login menampilkan banner kuning informatif saat aplikasi sedang dalam pemeliharaan
+- ✅ **Vercel Analytics** — tambah `@vercel/analytics` ke root layout
+- 🔧 **Maintenance auto-logout** — user aktif otomatis di-logout saat maintenance diaktifkan
+- 🛡️ **Maintenance banner di login** — banner kuning informatif saat aplikasi dalam pemeliharaan
 
 ### v1.1.0 — 2026-04-17
-- 🔄 **Migrasi data** — route `POST /api/admin/migrate` untuk migrasi data dari Supabase KV Store (`kv_store`) ke PostgreSQL
-- 🗺️ **Mapping legacy ID** — konversi `u_xxx` legacy user ID ke UUID PostgreSQL secara deterministik (idempotent)
-- 🚫 **Strip imageData** — base64 image tidak disimpan ke `rawAnalysis` saat migrasi untuk efisiensi storage
+- 🔄 **Migrasi data** — route `POST /api/admin/migrate` untuk migrasi dari Supabase KV Store ke PostgreSQL
+- 🗺️ **Mapping legacy ID** — konversi `u_xxx` legacy user ID ke UUID PostgreSQL secara deterministik
+- 🚫 **Strip imageData** — base64 image tidak disimpan ke `rawAnalysis` saat migrasi
 
 ### v1.0.0 — 2026-04-10
 - 🎉 **Initial release** sebagai NutriLog
@@ -735,6 +683,7 @@ npm run lint
 | ORM | Drizzle ORM |
 | Auth | JWT (jose) — custom, tanpa NextAuth |
 | AI | Anthropic Claude (Vision) |
+| Storage | Supabase Storage (hero image upload) |
 | Analytics | Vercel Analytics |
 | Deploy | Vercel + Custom Domain |
 

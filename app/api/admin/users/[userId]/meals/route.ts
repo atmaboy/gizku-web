@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { meals } from '@/drizzle/schema'
-import { verifyToken, extractToken } from '@/lib/auth'
+import { verifyToken } from '@/lib/auth'
 import { ok, err, setCors } from '@/lib/utils'
 import { eq, desc } from 'drizzle-orm'
 
@@ -11,12 +11,20 @@ export async function OPTIONS() {
 }
 
 async function requireAdmin(req: NextRequest) {
-  const token = extractToken(req.headers.get('Authorization'))
-  if (!token) return null
+  // Baca token dari cookie (browser session) atau Authorization header (fallback)
+  const cookieToken =
+    req.cookies.get('nl_admin_token')?.value ??
+    req.cookies.get('admin_token')?.value ??
+    ''
+
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const raw = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : cookieToken
+
+  if (!raw) return null
   try {
-    const p = await verifyToken(token)
-    if (p.role !== 'admin') return null
-    return p as { userId: string; username: string; role: string }
+    const p = await verifyToken(raw)
+    if (p?.role !== 'admin') return null
+    return p as { userId?: string; username?: string; role: string }
   } catch { return null }
 }
 
