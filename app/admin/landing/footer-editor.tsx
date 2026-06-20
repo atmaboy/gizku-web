@@ -2,61 +2,365 @@
 
 import { useState } from 'react'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type FooterLink = {
-  label: string
+// ─── Types ───────────────────────────────────────────────────────────────────
+export type FooterLink = { label: string; href: string; group?: string }
+export type SocialEntry = {
+  icon: 'instagram' | 'tiktok' | 'twitter' | 'youtube' | 'facebook' | 'linkedin'
   href: string
-  group: string
+  label?: string
 }
-
-export type SocialLink = {
-  icon: string
-  href: string
-  label: string
-}
-
-export type AppLink = {
-  store: 'google_play' | 'app_store'
-  href: string
-}
-
+export type AppLinkEntry = { store: 'google_play' | 'app_store'; href: string }
 export type FooterMeta = {
-  links: FooterLink[]
-  social: SocialLink[]
-  app_links: AppLink[]
+  links:     FooterLink[]
+  social:    SocialEntry[]
+  app_links: AppLinkEntry[]
 }
 
-const SOCIAL_OPTIONS = [
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'twitter',   label: 'X / Twitter' },
-  { value: 'tiktok',    label: 'TikTok' },
-  { value: 'youtube',   label: 'YouTube' },
-  { value: 'facebook',  label: 'Facebook' },
-  { value: 'linkedin',  label: 'LinkedIn' },
-  { value: 'github',    label: 'GitHub' },
+const SOCIAL_ICONS: SocialEntry['icon'][] = [
+  'instagram', 'tiktok', 'twitter', 'youtube', 'facebook', 'linkedin',
 ]
 
-const STORE_OPTIONS = [
-  { value: 'google_play', label: 'Google Play' },
-  { value: 'app_store',   label: 'App Store' },
-]
+const SOCIAL_LABELS: Record<SocialEntry['icon'], string> = {
+  instagram: 'Instagram',
+  tiktok:    'TikTok',
+  twitter:   'X / Twitter',
+  youtube:   'YouTube',
+  facebook:  'Facebook',
+  linkedin:  'LinkedIn',
+}
 
-const LINK_GROUPS_SUGGESTIONS = ['Produk', 'Perusahaan', 'Legal', 'Dukungan']
-
-// ─── FieldLabel ───────────────────────────────────────────────────────────────
-
-function FL({ children, hint }: { children: React.ReactNode; hint?: string }) {
+// ─── Sub-input ────────────────────────────────────────────────────────────────
+function InlineInput({
+  value, onChange, placeholder, type = 'text',
+}: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  type?: string
+}) {
   return (
-    <label className="block text-xs font-semibold text-[#374151] mb-1.5">
-      {children}
-      {hint && <span className="font-normal text-[#9CA3AF] ml-1">— {hint}</span>}
-    </label>
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent"
+      style={{ minHeight: 40, fontSize: 14 }}
+    />
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Links Tab ────────────────────────────────────────────────────────────────
+function LinksTab({
+  links, onChange,
+}: {
+  links: FooterLink[]
+  onChange: (links: FooterLink[]) => void
+}) {
+  function add() {
+    onChange([...links, { label: '', href: '', group: 'Produk' }])
+  }
+  function remove(i: number) {
+    onChange(links.filter((_, idx) => idx !== i))
+  }
+  function update(i: number, key: keyof FooterLink, value: string) {
+    onChange(links.map((l, idx) => idx === i ? { ...l, [key]: value } : l))
+  }
+  function move(i: number, dir: -1 | 1) {
+    const arr = [...links]
+    const target = i + dir
+    if (target < 0 || target >= arr.length) return
+    ;[arr[i], arr[target]] = [arr[target], arr[i]]
+    onChange(arr)
+  }
 
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-[#9CA3AF]">Atur link dan grup kolom yang tampil di footer. Grup yang sama akan dikelompokkan dalam satu kolom.</p>
+
+      {links.length === 0 && (
+        <div className="text-center py-6 text-sm text-[#9CA3AF] border border-dashed border-[#E5E7EB] rounded-xl">
+          Belum ada link. Klik &quot;Tambah Link&quot; untuk mulai.
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {links.map((link, i) => (
+          <div
+            key={i}
+            className="grid gap-2 p-3 rounded-xl border border-[#E5E7EB] bg-[#FAFAFA]"
+            style={{ gridTemplateColumns: '1fr 1fr 120px auto' }}
+          >
+            <InlineInput
+              value={link.label}
+              onChange={v => update(i, 'label', v)}
+              placeholder="Label (mis. Fitur)"
+            />
+            <InlineInput
+              value={link.href}
+              onChange={v => update(i, 'href', v)}
+              placeholder="URL (mis. /#features)"
+            />
+            <InlineInput
+              value={link.group ?? ''}
+              onChange={v => update(i, 'group', v)}
+              placeholder="Grup Kolom"
+            />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => move(i, -1)}
+                disabled={i === 0}
+                aria-label="Pindah ke atas"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] disabled:opacity-30 transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="18 15 12 9 6 15"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => move(i, 1)}
+                disabled={i === links.length - 1}
+                aria-label="Pindah ke bawah"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] disabled:opacity-30 transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label="Hapus link"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={add}
+        className="flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border-2 border-dashed border-[#D1FAE5] text-[#059669] hover:bg-[#F0FDF4] hover:border-[#6EE7B7] transition-colors font-semibold w-full justify-center"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Tambah Link
+      </button>
+    </div>
+  )
+}
+
+// ─── Social Tab ───────────────────────────────────────────────────────────────
+function SocialTab({
+  social, onChange,
+}: {
+  social: SocialEntry[]
+  onChange: (social: SocialEntry[]) => void
+}) {
+  function add() {
+    onChange([...social, { icon: 'instagram', href: '', label: '' }])
+  }
+  function remove(i: number) {
+    onChange(social.filter((_, idx) => idx !== i))
+  }
+  function update(i: number, key: keyof SocialEntry, value: string) {
+    onChange(social.map((s, idx) => idx === i ? { ...s, [key]: value } : s))
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-[#9CA3AF]">Ikon sosial media yang tampil di footer (bawah tagline).</p>
+
+      {social.length === 0 && (
+        <div className="text-center py-6 text-sm text-[#9CA3AF] border border-dashed border-[#E5E7EB] rounded-xl">
+          Belum ada akun sosial.
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {social.map((s, i) => (
+          <div
+            key={i}
+            className="grid gap-2 p-3 rounded-xl border border-[#E5E7EB] bg-[#FAFAFA] items-center"
+            style={{ gridTemplateColumns: '140px 1fr 1fr auto' }}
+          >
+            <select
+              value={s.icon}
+              onChange={e => update(i, 'icon', e.target.value)}
+              className="border border-[#E5E7EB] rounded-lg px-2 py-2 text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] bg-white"
+              style={{ minHeight: 40 }}
+            >
+              {SOCIAL_ICONS.map(ic => (
+                <option key={ic} value={ic}>{SOCIAL_LABELS[ic]}</option>
+              ))}
+            </select>
+            <InlineInput
+              value={s.href}
+              onChange={v => update(i, 'href', v)}
+              placeholder="URL profil"
+              type="url"
+            />
+            <InlineInput
+              value={s.label ?? ''}
+              onChange={v => update(i, 'label', v)}
+              placeholder="Aria label (aksesibilitas)"
+            />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              aria-label="Hapus sosial"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={add}
+        className="flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border-2 border-dashed border-[#D1FAE5] text-[#059669] hover:bg-[#F0FDF4] hover:border-[#6EE7B7] transition-colors font-semibold w-full justify-center"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Tambah Sosial
+      </button>
+    </div>
+  )
+}
+
+// ─── App Links Tab ────────────────────────────────────────────────────────────
+function AppLinksTab({
+  appLinks, onChange,
+}: {
+  appLinks: AppLinkEntry[]
+  onChange: (appLinks: AppLinkEntry[]) => void
+}) {
+  const hasPlay  = appLinks.some(a => a.store === 'google_play')
+  const hasApple = appLinks.some(a => a.store === 'app_store')
+
+  function toggle(store: AppLinkEntry['store']) {
+    if (appLinks.some(a => a.store === store)) {
+      onChange(appLinks.filter(a => a.store !== store))
+    } else {
+      onChange([...appLinks, { store, href: '' }])
+    }
+  }
+  function updateHref(store: AppLinkEntry['store'], href: string) {
+    onChange(appLinks.map(a => a.store === store ? { ...a, href } : a))
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-[#9CA3AF]">Tombol download yang tampil di bawah tagline (opsional).</p>
+
+      {/* Google Play */}
+      <div className="p-3 rounded-xl border border-[#E5E7EB] bg-[#FAFAFA] space-y-2">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hasPlay}
+            onChange={() => toggle('google_play')}
+            className="w-4 h-4 accent-[#2ECC71] cursor-pointer"
+          />
+          <span className="text-sm font-semibold text-[#374151]">Google Play</span>
+        </label>
+        {hasPlay && (
+          <InlineInput
+            value={appLinks.find(a => a.store === 'google_play')?.href ?? ''}
+            onChange={v => updateHref('google_play', v)}
+            placeholder="https://play.google.com/store/apps/details?id=..."
+            type="url"
+          />
+        )}
+      </div>
+
+      {/* App Store */}
+      <div className="p-3 rounded-xl border border-[#E5E7EB] bg-[#FAFAFA] space-y-2">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={hasApple}
+            onChange={() => toggle('app_store')}
+            className="w-4 h-4 accent-[#2ECC71] cursor-pointer"
+          />
+          <span className="text-sm font-semibold text-[#374151]">App Store (iOS)</span>
+        </label>
+        {hasApple && (
+          <InlineInput
+            value={appLinks.find(a => a.store === 'app_store')?.href ?? ''}
+            onChange={v => updateHref('app_store', v)}
+            placeholder="https://apps.apple.com/app/id..."
+            type="url"
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Footer Meta Preview ──────────────────────────────────────────────────────
+function FooterPreview({ value }: { value: FooterMeta }) {
+  const groups = value.links.reduce<Record<string, FooterLink[]>>((acc, l) => {
+    const g = l.group ?? 'Lainnya'
+    if (!acc[g]) acc[g] = []
+    acc[g].push(l)
+    return acc
+  }, {})
+
+  return (
+    <div
+      className="rounded-xl p-4 overflow-hidden"
+      style={{ background: '#0F1A14', minHeight: 120 }}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>Preview Footer</p>
+      <div className="flex gap-6 flex-wrap">
+        {/* Brand */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded" style={{ background: '#2ECC71' }} />
+            <span className="text-white text-xs font-bold">Gizku</span>
+          </div>
+          {value.social.length > 0 && (
+            <div className="flex gap-1.5">
+              {value.social.slice(0, 4).map((s, i) => (
+                <div
+                  key={i}
+                  className="w-5 h-5 rounded"
+                  style={{ background: 'rgba(255,255,255,0.08)' }}
+                  title={s.icon}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Link groups */}
+        {Object.entries(groups).slice(0, 3).map(([g, ls]) => (
+          <div key={g} className="space-y-1">
+            <p className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: 'rgba(255,255,255,0.3)' }}>{g}</p>
+            {ls.slice(0, 4).map(l => (
+              <p key={l.href} className="text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>{l.label || '—'}</p>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Export ──────────────────────────────────────────────────────────────
 export function FooterMetaEditor({
   value,
   onChange,
@@ -64,456 +368,66 @@ export function FooterMetaEditor({
   value: FooterMeta
   onChange: (v: FooterMeta) => void
 }) {
-  const [tab, setTab] = useState<'links' | 'social' | 'apps'>('links')
+  const [tab, setTab] = useState<'links' | 'social' | 'app_links'>('links')
 
-  // ── Links ──────────────────────────────────────────────────────────────────
-
-  function updateLink(i: number, field: keyof FooterLink, val: string) {
-    const next = [...value.links]
-    next[i] = { ...next[i], [field]: val }
-    onChange({ ...value, links: next })
-  }
-
-  function addLink() {
-    onChange({
-      ...value,
-      links: [...value.links, { label: '', href: '/', group: 'Produk' }],
-    })
-  }
-
-  function removeLink(i: number) {
-    onChange({ ...value, links: value.links.filter((_, idx) => idx !== i) })
-  }
-
-  function moveLink(i: number, dir: -1 | 1) {
-    const next = [...value.links]
-    const j = i + dir
-    if (j < 0 || j >= next.length) return
-    ;[next[i], next[j]] = [next[j], next[i]]
-    onChange({ ...value, links: next })
-  }
-
-  // ── Social ─────────────────────────────────────────────────────────────────
-
-  function updateSocial(i: number, field: keyof SocialLink, val: string) {
-    const next = [...value.social]
-    next[i] = { ...next[i], [field]: val }
-    onChange({ ...value, social: next })
-  }
-
-  function addSocial() {
-    onChange({
-      ...value,
-      social: [...value.social, { icon: 'instagram', href: 'https://', label: '' }],
-    })
-  }
-
-  function removeSocial(i: number) {
-    onChange({ ...value, social: value.social.filter((_, idx) => idx !== i) })
-  }
-
-  // ── App Links ──────────────────────────────────────────────────────────────
-
-  function updateAppLink(i: number, field: keyof AppLink, val: string) {
-    const next = [...value.app_links]
-    next[i] = { ...next[i], [field]: val } as AppLink
-    onChange({ ...value, app_links: next })
-  }
-
-  function addAppLink() {
-    const used = new Set(value.app_links.map((a) => a.store))
-    const store = (['google_play', 'app_store'] as const).find((s) => !used.has(s))
-    if (!store) return
-    onChange({
-      ...value,
-      app_links: [...value.app_links, { store, href: 'https://' }],
-    })
-  }
-
-  function removeAppLink(i: number) {
-    onChange({ ...value, app_links: value.app_links.filter((_, idx) => idx !== i) })
-  }
-
-  // ── Live Preview ───────────────────────────────────────────────────────────
-
-  const groupNames = [...new Set(value.links.map((l) => l.group).filter(Boolean))]
-  const linksByGroup = groupNames.reduce<Record<string, FooterLink[]>>((acc, g) => {
-    acc[g] = value.links.filter((l) => l.group === g)
-    return acc
-  }, {})
+  const tabs: { key: typeof tab; label: string; count?: number }[] = [
+    { key: 'links',     label: '🔗 Link',      count: value.links.length },
+    { key: 'social',    label: '📱 Sosial',    count: value.social.length },
+    { key: 'app_links', label: '📲 App Store', count: value.app_links.length },
+  ]
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-[#E5F5EC]">
-      {/* Panel Header */}
-      <div className="flex items-center gap-2 px-4 py-3" style={{ background: '#F0FDF4' }}>
+    <div className="space-y-4">
+      {/* Section label */}
+      <div className="flex items-center gap-2">
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center"
-          style={{ background: '#D1FAE5' }}
+          className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+          style={{ background: '#CCFBF1' }}
         >
-          <svg
-            width="12" height="12" viewBox="0 0 24 24" fill="none"
-            stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-          >
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0F766E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M3 9h18M9 21V9"/>
           </svg>
         </div>
-        <span className="text-xs font-bold text-[#065F46]">Konfigurasi Footer</span>
-        <span className="ml-auto text-[10px] text-[#6EE7B7] bg-[#D1FAE5] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wide">
-          Footer
-        </span>
+        <span className="text-xs font-semibold text-[#374151]">Konfigurasi Footer</span>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#E5E7EB]" style={{ background: '#FAFFFE' }}>
-        {(['links', 'social', 'apps'] as const).map((t) => (
+      <div className="flex gap-1 p-1 rounded-xl" style={{ background: '#F3F4F6' }}>
+        {tabs.map(t => (
           <button
-            key={t}
+            key={t.key}
             type="button"
-            onClick={() => setTab(t)}
-            className="flex-1 py-2.5 text-xs font-semibold transition-colors"
+            onClick={() => setTab(t.key)}
+            className="flex-1 text-xs py-2 px-3 rounded-lg font-semibold transition-all"
             style={{
-              color: tab === t ? '#059669' : '#6B7280',
-              borderBottom: tab === t ? '2px solid #10B981' : '2px solid transparent',
-              background: 'transparent',
+              background: tab === t.key ? '#fff' : 'transparent',
+              color:      tab === t.key ? '#111827' : '#6B7280',
+              boxShadow:  tab === t.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             }}
           >
-            {t === 'links'  && `🔗 Link (${value.links.length})`}
-            {t === 'social' && `📱 Sosial (${value.social.length})`}
-            {t === 'apps'   && `📲 App Store (${value.app_links.length})`}
+            {t.label}
+            {t.count !== undefined && t.count > 0 && (
+              <span
+                className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold"
+                style={{ background: '#2ECC71', color: '#fff' }}
+              >
+                {t.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      <div className="px-4 py-4 space-y-3" style={{ background: '#FAFFFE' }}>
-
-        {/* ── Tab: Links ── */}
-        {tab === 'links' && (
-          <div className="space-y-2">
-            <p className="text-[11px] text-[#6B7280] mb-3">
-              Tambahkan link navigasi dan kelompokkan ke dalam kolom footer berdasarkan Group.
-            </p>
-
-            {/* Quick-add by group */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              <span className="text-[10px] text-[#9CA3AF] mr-1 self-center">Grup saran:</span>
-              {LINK_GROUPS_SUGGESTIONS.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() =>
-                    onChange({ ...value, links: [...value.links, { label: '', href: '/', group: g }] })
-                  }
-                  className="text-[10px] px-2 py-1 rounded-full border border-[#D1FAE5] text-[#059669] hover:bg-[#D1FAE5] transition-colors font-medium"
-                >
-                  + {g}
-                </button>
-              ))}
-            </div>
-
-            {value.links.length === 0 && (
-              <div className="py-6 text-center text-[#9CA3AF] text-xs">
-                Belum ada link. Klik tombol di bawah untuk menambahkan.
-              </div>
-            )}
-
-            {value.links.map((link, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 p-3 rounded-xl border border-[#E5E7EB] bg-white"
-              >
-                {/* Reorder */}
-                <div className="flex flex-col gap-0.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => moveLink(i, -1)}
-                    disabled={i === 0}
-                    className="w-5 h-5 flex items-center justify-center rounded text-[#9CA3AF] hover:text-[#374151] disabled:opacity-25"
-                    aria-label="Naikan"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="18 15 12 9 6 15"/>
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveLink(i, 1)}
-                    disabled={i === value.links.length - 1}
-                    className="w-5 h-5 flex items-center justify-center rounded text-[#9CA3AF] hover:text-[#374151] disabled:opacity-25"
-                    aria-label="Turunkan"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9"/>
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Group */}
-                <input
-                  type="text"
-                  value={link.group}
-                  onChange={(e) => updateLink(i, 'group', e.target.value)}
-                  placeholder="Grup"
-                  list={`footer-groups-${i}`}
-                  className="w-[90px] shrink-0 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                />
-                <datalist id={`footer-groups-${i}`}>
-                  {LINK_GROUPS_SUGGESTIONS.map((g) => <option key={g} value={g} />)}
-                </datalist>
-
-                {/* Label */}
-                <input
-                  type="text"
-                  value={link.label}
-                  onChange={(e) => updateLink(i, 'label', e.target.value)}
-                  placeholder="Label"
-                  className="flex-1 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                />
-
-                {/* Href */}
-                <input
-                  type="text"
-                  value={link.href}
-                  onChange={(e) => updateLink(i, 'href', e.target.value)}
-                  placeholder="/path atau https://"
-                  className="flex-1 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs font-mono text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                />
-
-                {/* Remove */}
-                <button
-                  type="button"
-                  onClick={() => removeLink(i)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                  aria-label="Hapus link"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-            ))}
-
-            <button
-              type="button"
-              onClick={addLink}
-              className="w-full py-2.5 text-xs font-semibold rounded-xl border-2 border-dashed border-[#D1FAE5] text-[#059669] hover:bg-[#F0FDF4] transition-colors"
-            >
-              + Tambah Link
-            </button>
-          </div>
-        )}
-
-        {/* ── Tab: Social ── */}
-        {tab === 'social' && (
-          <div className="space-y-2">
-            <p className="text-[11px] text-[#6B7280] mb-3">Ikon media sosial yang tampil di footer.</p>
-
-            {value.social.length === 0 && (
-              <div className="py-6 text-center text-[#9CA3AF] text-xs">Belum ada akun sosial.</div>
-            )}
-
-            {value.social.map((s, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 p-3 rounded-xl border border-[#E5E7EB] bg-white"
-              >
-                <select
-                  value={s.icon}
-                  onChange={(e) => updateSocial(i, 'icon', e.target.value)}
-                  className="w-[120px] shrink-0 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                >
-                  {SOCIAL_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-
-                <input
-                  type="url"
-                  value={s.href}
-                  onChange={(e) => updateSocial(i, 'href', e.target.value)}
-                  placeholder="https://instagram.com/..."
-                  className="flex-1 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs font-mono text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                />
-
-                <input
-                  type="text"
-                  value={s.label}
-                  onChange={(e) => updateSocial(i, 'label', e.target.value)}
-                  placeholder="Aria label"
-                  className="w-[110px] shrink-0 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => removeSocial(i)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                  aria-label="Hapus"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-            ))}
-
-            {value.social.length < SOCIAL_OPTIONS.length && (
-              <button
-                type="button"
-                onClick={addSocial}
-                className="w-full py-2.5 text-xs font-semibold rounded-xl border-2 border-dashed border-[#D1FAE5] text-[#059669] hover:bg-[#F0FDF4] transition-colors"
-              >
-                + Tambah Akun Sosial
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ── Tab: App Links ── */}
-        {tab === 'apps' && (
-          <div className="space-y-2">
-            <p className="text-[11px] text-[#6B7280] mb-3">Tombol download app di kolom brand footer.</p>
-
-            {value.app_links.length === 0 && (
-              <div className="py-6 text-center text-[#9CA3AF] text-xs">Belum ada link app store.</div>
-            )}
-
-            {value.app_links.map((al, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 p-3 rounded-xl border border-[#E5E7EB] bg-white"
-              >
-                <select
-                  value={al.store}
-                  onChange={(e) => updateAppLink(i, 'store', e.target.value)}
-                  className="w-[130px] shrink-0 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                >
-                  {STORE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-
-                <input
-                  type="url"
-                  value={al.href}
-                  onChange={(e) => updateAppLink(i, 'href', e.target.value)}
-                  placeholder="https://play.google.com/..."
-                  className="flex-1 border border-[#E5E7EB] rounded-lg px-2 py-2 text-xs font-mono text-[#374151] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] min-h-[36px]"
-                  style={{ fontSize: '14px' }}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => removeAppLink(i)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
-                  aria-label="Hapus"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-            ))}
-
-            {value.app_links.length < 2 && (
-              <button
-                type="button"
-                onClick={addAppLink}
-                className="w-full py-2.5 text-xs font-semibold rounded-xl border-2 border-dashed border-[#D1FAE5] text-[#059669] hover:bg-[#F0FDF4] transition-colors"
-              >
-                + Tambah App Store Link
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ── Live Preview (mini dark) ── */}
-        <div className="rounded-xl border border-[#E5E7EB] overflow-hidden mt-4">
-          <div className="flex items-center gap-2 px-3 py-2" style={{ background: '#F9FAFB' }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
-            </svg>
-            <span className="text-[10px] font-semibold text-[#9CA3AF] uppercase tracking-wide">Preview Footer</span>
-          </div>
-          <div className="p-4" style={{ background: '#0F1A14' }}>
-            <div
-              className="grid gap-4"
-              style={{
-                gridTemplateColumns: groupNames.length > 0
-                  ? `2fr repeat(${Math.min(groupNames.length, 3)}, 1fr)`
-                  : '1fr',
-              }}
-            >
-              {/* Brand mini */}
-              <div>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <div
-                    className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
-                    style={{ background: '#2ECC71' }}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/>
-                    </svg>
-                  </div>
-                  <span className="text-[11px] font-bold text-white">Gizku</span>
-                </div>
-                {value.social.length > 0 && (
-                  <div className="flex gap-1">
-                    {value.social.map((s) => (
-                      <div
-                        key={s.href}
-                        className="w-6 h-6 rounded-md flex items-center justify-center"
-                        style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}
-                        title={s.icon}
-                      >
-                        <span className="text-[8px] font-bold uppercase">{s.icon[0]}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {value.app_links.length > 0 && (
-                  <div className="flex gap-1 mt-1.5">
-                    {value.app_links.map((al) => (
-                      <div
-                        key={al.store}
-                        className="text-[8px] px-1.5 py-0.5 rounded font-semibold"
-                        style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}
-                      >
-                        {al.store === 'google_play' ? 'GP' : 'AS'}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Link columns mini */}
-              {groupNames.slice(0, 3).map((g) => (
-                <div key={g}>
-                  <p
-                    className="text-[9px] font-bold uppercase tracking-wider mb-1.5"
-                    style={{ color: 'rgba(255,255,255,0.3)' }}
-                  >
-                    {g}
-                  </p>
-                  {linksByGroup[g]?.slice(0, 4).map((l) => (
-                    <p key={l.href} className="text-[10px] mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      {l.label || '—'}
-                    </p>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      {/* Tab Content */}
+      <div style={{ minHeight: 160 }}>
+        {tab === 'links'     && <LinksTab    links={value.links}         onChange={links     => onChange({ ...value, links })} />}
+        {tab === 'social'    && <SocialTab   social={value.social}       onChange={social    => onChange({ ...value, social })} />}
+        {tab === 'app_links' && <AppLinksTab appLinks={value.app_links}  onChange={app_links => onChange({ ...value, app_links })} />}
       </div>
+
+      {/* Preview */}
+      <FooterPreview value={value} />
     </div>
   )
 }
