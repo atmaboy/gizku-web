@@ -7,12 +7,13 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { landingContent } from '@/drizzle/schema'
 import { eq, and, asc } from 'drizzle-orm'
+import { unstable_cache } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  try {
-    const rows = await db
+const getFooterRows = unstable_cache(
+  async () => {
+    return await db
       .select()
       .from(landingContent)
       .where(
@@ -22,6 +23,14 @@ export async function GET() {
         )
       )
       .orderBy(asc(landingContent.sortOrder))
+  },
+  ['footer-content'],
+  { tags: ['footer-content'], revalidate: false }
+)
+
+export async function GET() {
+  try {
+    const rows = await getFooterRows()
 
     // Kelompokkan per slug agar mudah diakses di frontend
     const bySlug: Record<string, typeof rows[0]> = {}
@@ -31,7 +40,8 @@ export async function GET() {
 
     return NextResponse.json({ data: rows, bySlug }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        // no-store: browser/CDN tidak boleh cache, selalu ambil dari server
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     })
   } catch (e) {

@@ -8,13 +8,18 @@
  * DELETE — hapus satu row  body: { id }
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { db } from '@/lib/db'
 import { landingContent } from '@/drizzle/schema'
 import { eq, asc } from 'drizzle-orm'
 import { ok, err, setCors } from '@/lib/utils'
 
 const SECTION = 'footer'
+
+function invalidateFooterCache() {
+  revalidateTag('footer-content')   // bust unstable_cache tag di footer-content API
+  revalidatePath('/')               // revalidate landing page (SSR/ISR)
+}
 
 export async function OPTIONS() {
   const h = new Headers()
@@ -70,8 +75,8 @@ export async function POST(req: NextRequest) {
           sortOrder: sortOrder ?? 0,
         })
       }
-      revalidatePath('/')
-      revalidatePath('/api/footer-content')
+
+      invalidateFooterCache()
       return ok({ message: id ? 'Footer diperbarui' : 'Item footer ditambahkan' })
     }
 
@@ -81,8 +86,7 @@ export async function POST(req: NextRequest) {
       await db.update(landingContent)
         .set({ isActive, updatedAt: new Date() })
         .where(eq(landingContent.id, id))
-      revalidatePath('/')
-      revalidatePath('/api/footer-content')
+      invalidateFooterCache()
       return ok({ message: `Item ${isActive ? 'diaktifkan' : 'dinonaktifkan'}` })
     }
 
@@ -101,11 +105,12 @@ export async function DELETE(req: NextRequest) {
     const { id } = await req.json()
     if (!id) return err('id diperlukan', 400)
     await db.delete(landingContent).where(eq(landingContent.id, id))
-    revalidatePath('/')
-    revalidatePath('/api/footer-content')
+    invalidateFooterCache()
     return ok({ message: 'Item footer dihapus' })
   } catch (e) {
     console.error('[admin/footer DELETE]', e)
     return err('Gagal menghapus item footer')
   }
 }
+
+export { NextResponse }
