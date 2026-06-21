@@ -7,7 +7,7 @@
  * POST   ?action=toggle_active  body: { id, isActive }
  * DELETE — hapus satu row  body: { id }
  */
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { db } from '@/lib/db'
 import { landingContent } from '@/drizzle/schema'
@@ -112,5 +112,3 @@ export async function DELETE(req: NextRequest) {
     return err('Gagal menghapus item footer')
   }
 }
-
-export { NextResponse }
