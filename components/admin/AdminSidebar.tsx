@@ -48,6 +48,16 @@ const nav = [
     ),
   },
   {
+    href: '/admin/footer',
+    label: 'Footer',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 15h18"/>
+      </svg>
+    ),
+  },
+  {
     href: '/admin/telegram',
     label: 'Telegram Bot',
     icon: (
@@ -102,7 +112,6 @@ export default function AdminSidebar({ mobileOpen = false, onMobileClose }: Admi
           <p className="text-[11px] text-[#6B7280] leading-none mt-0.5">AI Nutrition Companion</p>
         </div>
         <span className="ml-auto text-[11px] bg-[#D4F5E4] text-[#1F9D57] px-2 py-0.5 rounded-full font-medium">Admin</span>
-        {/* Tombol close — hanya tampil di mobile drawer */}
         <button
           onClick={onMobileClose}
           className="ml-2 flex items-center justify-center w-8 h-8 rounded-lg hover:bg-[#F3F4F6] transition-colors md:hidden"
@@ -147,12 +156,9 @@ export default function AdminSidebar({ mobileOpen = false, onMobileClose }: Admi
 
   return (
     <>
-      {/* ── Desktop sidebar ── selalu tampil di md ke atas */}
       <aside className="hidden md:flex w-60 shrink-0 border-r border-[#E5E7EB] bg-white flex-col">
         {sidebarContent}
       </aside>
-
-      {/* ── Mobile drawer sidebar ── slide-in dari kiri */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-40 w-72 bg-white flex flex-col
