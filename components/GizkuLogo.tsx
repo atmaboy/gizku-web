@@ -26,8 +26,8 @@ export default function GizkuLogo({
       role="img"
       className={className}
     >
-      {/* Lingkaran hijau solid */}
-      <circle cx="16" cy="16" r="16" fill="#2ECC71" />
+      {/* Lingkaran hijau solid — brand green Gizku Design System (--green-500) */}
+      <circle cx="16" cy="16" r="16" fill="#4f9142" />
 
       {/* Mangkuk — setengah lingkaran bawah */}
       <path

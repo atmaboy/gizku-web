@@ -3,128 +3,162 @@
 @tailwind utilities;
 
 /* ══════════════════════════════════════════════
-   NUTRILOG — DESIGN TOKENS
-   Strategi: html.dark  → gelap (default)
-             html (no class) → terang
-   Tailwind darkMode: ['class'] sudah di-set.
+   GIZKU DESIGN SYSTEM — TOKENS
+   Earthy palette (brand green + cream/clay/bark neutrals) + Inter type scale.
+   Mirrors gizku-mobile/src/theme/* and the Gizku Design System HTML prototypes.
+   Light mode only — no dark variant.
    ══════════════════════════════════════════════ */
 
-/* ── LIGHT MODE (default / no class) ─────────── */
 :root {
-  /* Custom vars — Main App */
-  --bg:          #f0f4f8;
-  --surface:     #ffffff;
-  --surface2:    #e8f0f7;
-  --text:        #0d2136;
-  --text-muted:  #4a7090;
-  --text-sub:    #2e5a7a;
-  --accent-custom: #00875a;
-  --accent-dim:  rgba(0, 135, 90, 0.08);
-  --border-custom: rgba(0, 80, 140, 0.15);
-  --border2:     rgba(0, 80, 140, 0.25);
-  --warn-bg:     rgba(180, 100, 0, 0.08);
-  --warn-border: rgba(180, 100, 0, 0.2);
-  --warn-text:   #b46400;
-  --protein:     #2563EB;
-  --carbs:       #D97706;
-  --fat:         #DC2626;
+  /* Brand green — derived from the Gizku bowl mark */
+  --green-50:  #f2f7f0;
+  --green-100: #e2edde;
+  --green-200: #c3dbba;
+  --green-300: #9fc494;
+  --green-400: #7bab6d;
+  --green-500: #4f9142; /* logo green */
+  --green-600: #3d7833;
+  --green-700: #305f29;
+  --green-800: #254a20;
+  --green-900: #1c3818;
 
-  /* Tailwind/shadcn HSL vars — LIGHT */
-  --background:             210 40% 96%;
-  --foreground:             210 60% 13%;
-  --card:                   0 0% 100%;
-  --card-foreground:        210 60% 13%;
-  --popover:                0 0% 100%;
-  --popover-foreground:     210 60% 13%;
-  --primary:                158 100% 27%;
-  --primary-foreground:     0 0% 100%;
-  --secondary:              210 30% 90%;
-  --secondary-foreground:   210 60% 20%;
-  --muted:                  210 30% 90%;
-  --muted-foreground:       210 20% 40%;
-  --accent:                 210 30% 90%;
-  --accent-foreground:      210 60% 20%;
-  --destructive:            0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-  --border:                 210 30% 80%;
-  --input:                  210 30% 80%;
-  --ring:                   158 100% 27%;
-  --radius:                 0.5rem;
+  /* Earthy warm neutrals (cream / clay / bark) */
+  --sand-25:  #fdfbf7;
+  --sand-50:  #faf6ef;
+  --sand-100: #f3ecdf;
+  --sand-200: #e7dcc7;
+  --sand-300: #d5c5a8;
+  --sand-400: #b7a382;
+  --clay-500: #8a7862;
+  --clay-600: #6b5c4a;
+  --bark-700: #4a4038;
+  --bark-800: #332b25;
+  --bark-900: #241e19;
 
-  /* Sidebar vars — LIGHT */
-  --sidebar-background:             210 40% 96%;
-  --sidebar-foreground:             210 60% 20%;
-  --sidebar-primary:                158 100% 27%;
-  --sidebar-primary-foreground:     0 0% 100%;
-  --sidebar-accent:                 210 30% 88%;
-  --sidebar-accent-foreground:      210 60% 20%;
-  --sidebar-border:                 210 30% 82%;
-  --sidebar-ring:                   158 100% 27%;
-}
+  /* Accents — nutrient/data highlights, used sparingly */
+  --accent-tomato: #c1603f; /* protein */
+  --accent-honey:  #d99b3f; /* carbs */
+  --accent-sage:   #6f9b7c; /* fat */
+  --accent-rose:   #c25b58; /* danger / alerts */
 
-/* ── DARK MODE (html.dark) ────────────────────── */
-.dark {
-  /* Custom vars — Main App */
-  --bg:          #081520;
-  --surface:     #0f2030;
-  --surface2:    #152840;
-  --text:        #e8f4f8;
-  --text-muted:  #6b9ab8;
-  --text-sub:    #8ab4cc;
-  --accent-custom: #3DFF95;
-  --accent-dim:  rgba(61, 255, 149, 0.08);
-  --border-custom: rgba(61, 149, 255, 0.15);
-  --border2:     rgba(61, 149, 255, 0.25);
-  --warn-bg:     rgba(251, 176, 64, 0.1);
-  --warn-border: rgba(251, 176, 64, 0.25);
-  --warn-text:   #FBB040;
-  --protein:     #60A5FA;
-  --carbs:       #FBB040;
-  --fat:         #F87171;
+  /* Base */
+  --white: #ffffff;
+  --black: #1c1815;
+  --tg-blue: #26a5e4;
 
-  /* Tailwind/shadcn HSL vars — DARK */
-  --background:             208 84% 7%;
-  --foreground:             200 50% 92%;
-  --card:                   208 60% 10%;
-  --card-foreground:        200 50% 92%;
-  --popover:                208 60% 10%;
-  --popover-foreground:     200 50% 92%;
-  --primary:                152 100% 62%;
-  --primary-foreground:     208 84% 7%;
-  --secondary:              208 50% 14%;
-  --secondary-foreground:   200 50% 92%;
-  --muted:                  208 50% 14%;
-  --muted-foreground:       208 30% 55%;
-  --accent:                 208 50% 14%;
-  --accent-foreground:      200 50% 92%;
-  --destructive:            0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
-  --border:                 208 40% 18%;
-  --input:                  208 40% 18%;
-  --ring:                   152 100% 62%;
+  /* ===== Semantic aliases ===== */
+  --color-bg-page:        var(--sand-25);
+  --color-bg-surface:     var(--white);
+  --color-bg-sunken:      var(--sand-50);
+  --color-bg-muted:       var(--sand-100);
+  --color-bg-brand:       var(--green-600);
+  --color-bg-brand-hover: var(--green-700);
+  --color-bg-brand-tint:  var(--green-50);
+  --color-bg-inverse:     var(--bark-900);
+  --color-bg-dialog:      var(--green-50);
+  --color-bg-scrim:       rgba(36,30,25,0.32);
 
-  /* Sidebar vars — DARK */
-  --sidebar-background:             208 60% 10%;
-  --sidebar-foreground:             200 50% 80%;
-  --sidebar-primary:                152 100% 62%;
-  --sidebar-primary-foreground:     208 84% 7%;
-  --sidebar-accent:                 208 50% 16%;
-  --sidebar-accent-foreground:      200 50% 90%;
-  --sidebar-border:                 208 40% 18%;
-  --sidebar-ring:                   152 100% 62%;
+  --color-text-primary:   var(--bark-900);
+  --color-text-secondary: var(--clay-600);
+  --color-text-tertiary:  var(--sand-400);
+  --color-text-onbrand:   var(--white);
+  --color-text-brand:     var(--green-700);
+  --color-text-link:      var(--green-700);
+  --color-text-link-hover:var(--green-800);
+
+  --color-border-default: var(--sand-200);
+  --color-border-strong:  var(--sand-300);
+  --color-border-brand:   var(--green-500);
+
+  --color-icon-default:   var(--bark-900);
+  --color-icon-secondary: var(--clay-600);
+  --color-icon-onbrand:   var(--white);
+  --color-icon-brand:     var(--green-600);
+
+  --color-success: var(--green-600);
+  --color-warning: var(--accent-honey);
+  --color-danger:  var(--accent-rose);
+
+  /* Nutrient/data accents */
+  --color-kcal:    var(--green-600);
+  --color-protein: var(--accent-tomato);
+  --color-carbs:   var(--accent-honey);
+  --color-fat:     var(--accent-sage);
+
+  /* Typography */
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --text-2xs: 10px;
+  --text-xs:  12px;
+  --text-sm:  13px;
+  --text-base: 14px;
+  --text-md:  16px;
+  --text-lg:  17px;
+  --text-xl:  20px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+  --leading-tight: 1.4;
+  --leading-normal: 1.5;
+  --tracking-tight: -0.02em;
+  --tracking-snug: -0.01em;
+
+  /* Spacing */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 16px;
+  --space-8: 20px;
+  --space-9: 24px;
+  --space-10: 32px;
+  --space-11: 44px;
+  --space-12: 48px;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-pill: 1000px;
+  --radius-circle: 50%;
+
+  /* Elevation — mostly hairline borders instead of heavy shadows */
+  --shadow-hairline: inset 0 0 0 1px var(--color-border-default);
+  --shadow-hairline-strong: inset 0 0 0 1px var(--color-border-strong);
+  --shadow-xs: 0px 1px 2px 0px rgba(36,30,25,0.05);
+  --shadow-sm: 0px 1px 3px 0px rgba(36,30,25,0.08);
+  --shadow-md: 0px 4px 16px 0px rgba(36,30,25,0.10);
 }
 
 @layer base {
-  * { @apply border-border; }
   body {
-    background-color: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    transition: background-color 0.25s ease, color 0.25s ease;
+    background-color: var(--color-bg-page);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
   }
 }
 
-/* ── ANIMATIONS ─────────────────────────────── */
+@keyframes gizku-spin { to { transform: rotate(360deg); } }
+
+@keyframes gizku-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.gizku-skeleton {
+  background: linear-gradient(90deg, var(--color-bg-muted) 25%, var(--color-border-default) 50%, var(--color-bg-muted) 75%);
+  background-size: 800px 100%;
+  animation: gizku-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes gizku-snack-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }
   to   { opacity: 1; transform: translateY(0); }
