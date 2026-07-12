@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import StagingBanner from '@/components/StagingBanner'
+import TopLoader from '@/components/ui/TopLoader'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -52,8 +53,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){ document.documentElement.classList.remove('dark'); })();`,
           }}
         />
+
+        {/* Patch history.pushState/replaceState before Next's router bundle loads and
+            captures its own reference — a patch applied later (e.g. in a useEffect)
+            would run after that capture and never see real navigations. Dispatches a
+            DOM event TopLoader listens for to show a progress bar during transitions. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              if (window.__gizkuNavPatched) return;
+              window.__gizkuNavPatched = true;
+              var push = window.history.pushState.bind(window.history);
+              var replace = window.history.replaceState.bind(window.history);
+              window.history.pushState = function() {
+                window.dispatchEvent(new Event('gizku:nav-start'));
+                return push.apply(null, arguments);
+              };
+              window.history.replaceState = function() {
+                window.dispatchEvent(new Event('gizku:nav-start'));
+                return replace.apply(null, arguments);
+              };
+            })();`,
+          }}
+        />
       </head>
       <body style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+        <TopLoader />
         <StagingBanner />
         {children}
         <Toaster

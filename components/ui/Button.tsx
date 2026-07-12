@@ -28,6 +28,7 @@ export default function Button({
 }) {
   const isDisabled = disabled || loading
   const height = size === 'lg' ? 'h-[52px]' : 'h-10'
+  const paddingX = size === 'lg' ? 'px-6' : 'px-5'
   const radius = size === 'lg' ? 'rounded-xl' : 'rounded-lg'
 
   const variantClass = {
@@ -44,7 +45,7 @@ export default function Button({
       type={type}
       onClick={onClick}
       disabled={isDisabled}
-      className={`${fullWidth ? 'w-full' : ''} ${height} ${radius} ${variantClass} flex items-center justify-center gap-2 font-semibold text-base transition-opacity ${isDisabled ? 'opacity-55 cursor-not-allowed' : 'cursor-pointer hover:opacity-90'} ${className}`}
+      className={`${fullWidth ? 'w-full' : ''} ${height} ${paddingX} ${radius} ${variantClass} flex items-center justify-center gap-2 font-semibold text-base whitespace-nowrap transition-opacity ${isDisabled ? 'opacity-55 cursor-not-allowed' : 'cursor-pointer hover:opacity-90'} ${className}`}
     >
       {loading ? (
         <span
