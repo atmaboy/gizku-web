@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import Chip from '@/components/ui/Chip'
 import Button from '@/components/ui/Button'
 import { IconCalendar, IconChevronRight, IconChevronDown, IconMeal } from '@/components/ui/icons'
+import { useCapture, MEAL_SAVED_EVENT } from '@/components/capture/CaptureContext'
 
 type Dish = { name: string; portion: string; calories: number; protein: number; carbs: number; fat: number }
 type Meal = {
@@ -31,6 +31,17 @@ function fmtTime(iso: string) {
 }
 function fmtDateStr(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+function localDateStr(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+function todayStr() {
+  // Local calendar date, not UTC — toISOString() would shift the day for
+  // timezones ahead of UTC (e.g. WIB) around midnight.
+  return localDateStr(new Date())
 }
 
 function SourceBadge({ source }: { source?: string }) {
@@ -71,18 +82,18 @@ function NutritionSummary({ label, kcal, protein, carbs, fat }: { label: string;
 
 export default function RiwayatPage() {
   const router = useRouter()
+  const { openCaptureMenu } = useCapture()
   const [history, setHistory] = useState<HistoryData | null>(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [paging, setPaging] = useState(false)
-  const [filterDate, setFilterDate] = useState('')
+  const [filterDate, setFilterDate] = useState(todayStr())
 
-  const load = useCallback(async (p: number, isPaging = false, date = '') => {
+  const load = useCallback(async (p: number, isPaging = false, date = todayStr()) => {
     if (isPaging) setPaging(true)
     else setLoading(true)
     try {
-      const dateQuery = date ? `&date=${date}` : ''
-      const res = await fetch(`/api/history?action=list&page=${p}&per_page=10${dateQuery}`, { headers: authHeaders() })
+      const res = await fetch(`/api/history?action=list&page=${p}&per_page=10&date=${date}`, { headers: authHeaders() })
       if (res.status === 401) { router.replace('/login'); return }
       const data = await res.json()
       setHistory(data)
@@ -93,17 +104,24 @@ export default function RiwayatPage() {
     }
   }, [router])
 
-  useEffect(() => { load(1) }, [load])
+  useEffect(() => { load(1, false, todayStr()) }, [load])
+
+  // Silently refresh the current view whenever a meal is saved via the FAB capture overlay.
+  useEffect(() => {
+    const handler = () => load(1, true, filterDate)
+    window.addEventListener(MEAL_SAVED_EVENT, handler)
+    return () => window.removeEventListener(MEAL_SAVED_EVENT, handler)
+  }, [load, filterDate])
 
   function handleDateChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value
+    const val = e.target.value || todayStr()
     setFilterDate(val)
     load(1, true, val)
   }
 
   function goToday() {
-    setFilterDate('')
-    load(1, true, '')
+    setFilterDate(todayStr())
+    load(1, true, todayStr())
   }
 
   function openDetail(meal: Meal) {
@@ -112,13 +130,13 @@ export default function RiwayatPage() {
   }
 
   const grouped = history?.meals.reduce((acc, meal) => {
-    const date = new Date(meal.loggedAt).toISOString().split('T')[0]
+    const date = localDateStr(new Date(meal.loggedAt))
     if (!acc[date]) acc[date] = []
     acc[date].push(meal)
     return acc
   }, {} as Record<string, Meal[]>) ?? {}
 
-  const isFiltering = filterDate !== ''
+  const notToday = filterDate !== todayStr()
   const noMeals = !loading && !paging && history && history.meals.length === 0
 
   return (
@@ -139,20 +157,20 @@ export default function RiwayatPage() {
             <div className="flex items-center gap-2 h-10 px-3.5 rounded-pill bg-sunken pointer-events-none select-none">
               <IconCalendar size={16} color="var(--color-text-secondary)" />
               <span className="text-sm font-medium text-primary whitespace-nowrap">
-                {isFiltering ? fmtDateStr(filterDate) : 'Semua Tanggal'}
+                {notToday ? fmtDateStr(filterDate) : 'Hari Ini'}
               </span>
               <IconChevronDown size={10} color="var(--color-text-secondary)" />
             </div>
             <input
               type="date"
               value={filterDate}
-              max={new Date().toISOString().split('T')[0]}
+              max={todayStr()}
               onChange={handleDateChange}
               aria-label="Filter tanggal"
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
             />
           </div>
-          {isFiltering && <Chip label="Hari Ini" onClick={goToday} />}
+          {notToday && <Chip label="Hari Ini" onClick={goToday} />}
         </div>
 
         {(loading && !history) && (
@@ -169,7 +187,7 @@ export default function RiwayatPage() {
           </div>
         )}
 
-        {noMeals && isFiltering && (
+        {noMeals && notToday && (
           <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
             <IconCalendar size={40} color="var(--color-text-tertiary)" strokeWidth={1.8} />
             <div className="text-lg font-semibold text-primary">Tidak ada riwayat makanan</div>
@@ -182,15 +200,13 @@ export default function RiwayatPage() {
           </div>
         )}
 
-        {noMeals && !isFiltering && (
+        {noMeals && !notToday && (
           <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
             <IconMeal size={40} color="var(--color-text-tertiary)" strokeWidth={1.6} />
             <div className="text-lg font-semibold text-primary">Belum Ada Catatan Makan</div>
             <div className="text-sm text-secondary leading-normal max-w-[260px]">Foto makananmu dan AI akan mencatat kandungan gizinya.</div>
             <div className="mt-2">
-              <Link href="/main/catat">
-                <Button size="md" fullWidth={false}>Ambil Foto Sekarang</Button>
-              </Link>
+              <Button size="md" fullWidth={false} onClick={openCaptureMenu}>Ambil Foto Sekarang</Button>
             </div>
           </div>
         )}

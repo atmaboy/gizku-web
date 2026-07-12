@@ -48,7 +48,7 @@ const FALLBACK: SectionMap = {
       cta_label: 'Mulai Sekarang',
       cta_note: DEFAULT_CTA_NOTE,
       cta_url_guest: '/login',
-      cta_url_auth: '/main/catat',
+      cta_url_auth: '/main/riwayat',
       benefit_list: DEFAULT_PERKS,
     },
     isActive: true, sortOrder: 0,
@@ -78,7 +78,7 @@ const FALLBACK: SectionMap = {
       cta_label: 'Mulai Sekarang',
       cta_note: DEFAULT_CTA_NOTE,
       cta_url_guest: '/login',
-      cta_url_auth: '/main/catat',
+      cta_url_auth: '/main/riwayat',
       benefit_list: DEFAULT_PERKS,
     },
     isActive: true, sortOrder: 0,
@@ -258,7 +258,7 @@ function PerkList({ perks }: { perks: string[] }) {
 function UserAvatar({ username }: { username: string }) {
   const initials = username.slice(0, 2).toUpperCase()
   return (
-    <Link href="/main/catat" className="gk-user-avatar" aria-label={`Profil ${username} — buka aplikasi`} title={username}>
+    <Link href="/main/riwayat" className="gk-user-avatar" aria-label={`Profil ${username} — buka aplikasi`} title={username}>
       <span className="gk-user-initials">{initials}</span>
       <span className="gk-user-name">{username}</span>
     </Link>
@@ -372,7 +372,7 @@ export default function HomePage() {
 
   function ctaUrl(meta: Record<string, unknown> | null | undefined) {
     if (!hydrated) return metaStr(meta, 'cta_url_guest', '/login')
-    return isLoggedIn ? metaStr(meta, 'cta_url_auth', '/main/catat') : metaStr(meta, 'cta_url_guest', '/login')
+    return isLoggedIn ? metaStr(meta, 'cta_url_auth', '/main/riwayat') : metaStr(meta, 'cta_url_guest', '/login')
   }
 
   const hero     = content.hero?.[0]

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import BottomNav from '@/components/ui/BottomNav'
+import CaptureProvider from '@/components/capture/CaptureProvider'
 
 type User = { id: string; username: string }
 
@@ -94,9 +95,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const showBottomNav = BOTTOM_NAV_ROUTES.includes(pathname)
 
   return (
-    <div className="max-w-[480px] mx-auto min-h-dvh flex flex-col bg-page">
-      <main className="flex-1 flex flex-col min-h-0">{children}</main>
-      {showBottomNav && <BottomNav />}
+    <div className="max-w-[480px] mx-auto min-h-dvh flex flex-col bg-page relative">
+      <CaptureProvider>
+        <main className="flex-1 flex flex-col min-h-0">{children}</main>
+        {showBottomNav && <BottomNav />}
+      </CaptureProvider>
     </div>
   )
 }
