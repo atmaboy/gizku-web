@@ -44,8 +44,16 @@ function todayStr() {
   return localDateStr(new Date())
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  telegram:      'Telegram',
+  'app-ios':     'iOS',
+  'app-android': 'Android',
+  web:           'Web',
+}
+
 function SourceBadge({ source }: { source?: string }) {
   const isTelegram = source === 'telegram'
+  const label = SOURCE_LABELS[source ?? 'web'] ?? 'Web'
   return (
     <span
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill text-2xs font-semibold"
@@ -54,7 +62,7 @@ function SourceBadge({ source }: { source?: string }) {
         color: isTelegram ? 'var(--tg-blue)' : 'var(--color-text-secondary)',
       }}
     >
-      {isTelegram ? 'Telegram' : 'Web'}
+      {label}
     </span>
   )
 }
