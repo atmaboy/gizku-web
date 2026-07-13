@@ -38,7 +38,7 @@ export const meals = pgTable('meals', {
   totalFat:      numeric('total_fat',     { precision: 7, scale: 2 }).notNull().default('0'),
   imageUrl:      text('image_url'),
   rawAnalysis:   jsonb('raw_analysis'),
-  source:        text('source').notNull().default('web'), // 'web' | 'telegram'
+  source:        text('source').notNull().default('web'), // 'web' | 'telegram' | 'app-ios' | 'app-android'
   loggedAt:      timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
 }, t => ({
   userIdx:   index('idx_meals_user_id').on(t.userId),
