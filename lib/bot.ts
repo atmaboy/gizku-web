@@ -506,6 +506,7 @@ export function createBot(token: string): Bot {
             totalProtein:  String(analysis.total.protein),
             totalCarbs:    String(analysis.total.carbs),
             totalFat:      String(analysis.total.fat),
+            imageUrl:      `data:${mimeType};base64,${imgBase64}`,
             rawAnalysis:   analysis,
             source:        'telegram',
           })
