@@ -1,22 +1,15 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Montserrat } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import StagingBanner from '@/components/StagingBanner'
+import TopLoader from '@/components/ui/TopLoader'
 
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
-  display: 'swap',
-  preload: true,
-})
-
-const montserrat = Montserrat({
-  subsets: ['latin'],
-  weight: ['600', '700'],
-  variable: '--font-montserrat',
   display: 'swap',
   preload: true,
 })
@@ -43,12 +36,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#2ECC71',
+  themeColor: '#3d7833',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id" suppressHydrationWarning className={`${inter.variable} ${montserrat.variable}`}>
+    <html lang="id" suppressHydrationWarning className={inter.variable}>
       <head>
         {/* DNS prefetch + preconnect untuk Google Fonts CDN */}
         <link rel="dns-prefetch" href="//fonts.gstatic.com" />
@@ -60,11 +53,45 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){ document.documentElement.classList.remove('dark'); })();`,
           }}
         />
+
+        {/* Patch history.pushState/replaceState before Next's router bundle loads and
+            captures its own reference — a patch applied later (e.g. in a useEffect)
+            would run after that capture and never see real navigations. Dispatches a
+            DOM event TopLoader listens for to show a progress bar during transitions. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              if (window.__gizkuNavPatched) return;
+              window.__gizkuNavPatched = true;
+              var push = window.history.pushState.bind(window.history);
+              var replace = window.history.replaceState.bind(window.history);
+              window.history.pushState = function() {
+                window.dispatchEvent(new Event('gizku:nav-start'));
+                return push.apply(null, arguments);
+              };
+              window.history.replaceState = function() {
+                window.dispatchEvent(new Event('gizku:nav-start'));
+                return replace.apply(null, arguments);
+              };
+            })();`,
+          }}
+        />
       </head>
       <body style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+        <TopLoader />
         <StagingBanner />
         {children}
-        <Toaster richColors position="top-center" />
+        <Toaster
+          richColors
+          position="top-center"
+          toastOptions={{
+            style: {
+              borderRadius: 'var(--radius-lg)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-sm)',
+            },
+          }}
+        />
         <Analytics />
         <SpeedInsights />
       </body>

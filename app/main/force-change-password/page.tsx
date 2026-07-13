@@ -25,7 +25,7 @@ export default function ForceChangePasswordPage() {
       // Cek flag mustChangePassword di localStorage (disimpan saat login)
       const mustChange = localStorage.getItem('nl_must_change_password')
       if (mustChange !== 'true') {
-        router.replace('/main/catat')
+        router.replace('/main/riwayat')
         return
       }
       setStoredUsername(u.username ?? '')

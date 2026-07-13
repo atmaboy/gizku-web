@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none">
-  <rect width="180" height="180" rx="40" fill="#2ECC71"/>
+  <rect width="180" height="180" rx="40" fill="#4f9142"/>
   <!-- bowl base -->
   <path d="M45 90 Q45 129 90 129 Q135 129 135 90" stroke="white" stroke-width="10" stroke-linecap="round" fill="none"/>
   <!-- bowl rim -->
