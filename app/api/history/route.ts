@@ -118,16 +118,18 @@ export async function DELETE(req: NextRequest) {
   return ok({ message: 'Data berhasil dihapus' })
 }
 
+const ALLOWED_CLIENT_SOURCES = new Set(['app-ios', 'app-android'])
+
 export async function POST(req: NextRequest) {
   const user = await authUser(req)
   if (!user) return err('Token tidak valid', 401)
 
   const body = await req.json()
-  const { analysis, imageDataUrl } = body
+  const { analysis, imageDataUrl, source } = body
 
   if (!analysis) return err('Data analisis diperlukan')
 
-  const [meal] = await db.insert(meals).values({
+  const values: typeof meals.$inferInsert = {
     userId:        user.userId,
     dishNames:     analysis.dishes?.map((d: MealDish) => d.name) ?? [],
     totalCalories: Math.round(analysis.total?.calories ?? 0),
@@ -136,7 +138,12 @@ export async function POST(req: NextRequest) {
     totalFat:      String(analysis.total?.fat ?? 0),
     imageUrl:      imageDataUrl ?? null,
     rawAnalysis:   analysis,
-  }).returning()
+  }
+  if (ALLOWED_CLIENT_SOURCES.has(source)) {
+    values.source = source
+  }
+
+  const [meal] = await db.insert(meals).values(values).returning()
 
   return ok({ meal })
 }

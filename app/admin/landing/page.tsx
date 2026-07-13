@@ -96,7 +96,7 @@ function toEditRow(row?: ContentRow): EditRow {
       ? (meta.benefit_list as string[]).join('\n')
       : 'Gratis selamanya\nTanpa kartu kredit\nLangsung bisa dipakai',
     ctaUrlGuest:  (meta.cta_url_guest  as string) ?? '/login',
-    ctaUrlAuth:   (meta.cta_url_auth   as string) ?? '/main/catat',
+    ctaUrlAuth:   (meta.cta_url_auth   as string) ?? '/main/riwayat',
     heroImageUrl: (meta.hero_image_url as string) ?? '',
   }
 }
@@ -1235,7 +1235,7 @@ export default function LandingEditorPage() {
                           type="text"
                           value={editRow.ctaUrlAuth}
                           onChange={e => updateField('ctaUrlAuth', e.target.value)}
-                          placeholder="/main/catat"
+                          placeholder="/main/riwayat"
                           className="w-full border border-[#D1FAE5] rounded-xl px-3 py-3 text-sm text-[#111827] font-mono focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition-shadow min-h-[44px]"
                           style={{ background: '#fff', fontSize: '16px' }}
                         />
