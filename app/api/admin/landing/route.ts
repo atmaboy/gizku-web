@@ -7,7 +7,7 @@
  * DELETE ?action=delete  body: { id: number }
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { db } from '@/lib/db'
 import { landingContent } from '@/drizzle/schema'
 import { eq, asc, and } from 'drizzle-orm'
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
         }).where(eq(landingContent.id, id))
         revalidatePath('/')
         revalidatePath('/api/landing-content')
+        revalidateTag('footer-content')
         return ok({ message: 'Konten diperbarui' })
       } else {
         // Insert new
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
         }).returning({ id: landingContent.id })
         revalidatePath('/')
         revalidatePath('/api/landing-content')
+        revalidateTag('footer-content')
         return ok({ message: 'Konten ditambahkan', id: inserted.id })
       }
     }
@@ -86,6 +88,7 @@ export async function POST(req: NextRequest) {
         .where(eq(landingContent.id, id))
       revalidatePath('/')
       revalidatePath('/api/landing-content')
+      revalidateTag('footer-content')
       return ok({ message: `Konten ${isActive ? 'diaktifkan' : 'dinonaktifkan'}` })
     }
 
@@ -106,6 +109,7 @@ export async function DELETE(req: NextRequest) {
     await db.delete(landingContent).where(eq(landingContent.id, id))
     revalidatePath('/')
     revalidatePath('/api/landing-content')
+    revalidateTag('footer-content')
     return ok({ message: 'Konten dihapus' })
   } catch (e) {
     console.error('[admin/landing DELETE]', e)

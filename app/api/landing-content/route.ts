@@ -27,7 +27,10 @@ export async function GET() {
 
     return NextResponse.json({ data: grouped }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        // no-store: the admin's revalidatePath() calls don't purge a Route
+        // Handler's CDN-level cache, so a shared Cache-Control here can
+        // serve stale content for minutes after an admin edit.
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
       },
     })
   } catch (e) {
