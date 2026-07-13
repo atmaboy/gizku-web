@@ -20,11 +20,6 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       {
-        source: '/catat',
-        destination: '/main/catat',
-        permanent: false,
-      },
-      {
         source: '/riwayat',
         destination: '/main/riwayat',
         permanent: false,
