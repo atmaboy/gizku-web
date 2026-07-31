@@ -1,17 +1,18 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { fmtDateTime } from '@/lib/utils'
-import BlastComposeModal from '@/components/admin/BlastComposeModal'
-import BlastDetailModal from '@/components/admin/BlastDetailModal'
 
 type Blast = {
   id: string
   batchName: string
+  channel: 'push' | 'telegram'
   title: string
   targetType: string
   targetUsernames: string[] | null
-  status: 'scheduled' | 'sending' | 'sent' | 'canceled' | 'failed'
+  status: 'scheduled' | 'sending' | 'completed' | 'cancelled' | 'failed'
   scheduledAt: string | null
   sentAt: string | null
   sentCount: number
@@ -20,32 +21,39 @@ type Blast = {
 }
 
 const STATUS_LABEL: Record<Blast['status'], string> = {
-  scheduled: 'Dijadwalkan',
+  scheduled: 'Terjadwal',
   sending: 'Mengirim',
-  sent: 'Terkirim',
-  canceled: 'Dibatalkan',
+  completed: 'Selesai',
+  cancelled: 'Dibatalkan',
   failed: 'Gagal',
 }
 const STATUS_STYLE: Record<Blast['status'], string> = {
-  scheduled: 'bg-blue-50 text-blue-600',
+  scheduled: 'bg-[#F3EFE7] text-[#92715A]',
   sending: 'bg-amber-50 text-amber-600',
-  sent: 'bg-[#D4F5E4] text-[#1F9D57]',
-  canceled: 'bg-[#F3F4F6] text-[#6B7280]',
+  completed: 'bg-[#D4F5E4] text-[#1F9D57]',
+  cancelled: 'bg-[#F3F4F6] text-[#6B7280]',
   failed: 'bg-red-50 text-red-600',
+}
+const CHANNEL_LABEL: Record<Blast['channel'], string> = {
+  push: 'Push Notifikasi',
+  telegram: 'Telegram',
+}
+const CHANNEL_STYLE: Record<Blast['channel'], string> = {
+  push: 'bg-[#D4F5E4] text-[#1F9D57]',
+  telegram: 'bg-[#EAF4FC] text-[#2B7FC1]',
 }
 
 function targetLabel(b: Blast) {
   return b.targetType === 'all' ? 'Seluruh User' : `${(b.targetUsernames ?? []).length} username`
 }
 
-export default function BlastPage() {
+export default function BlastHistoryPage() {
+  const router = useRouter()
   const [blasts, setBlasts] = useState<Blast[]>([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [showCompose, setShowCompose] = useState(false)
-  const [detailId, setDetailId] = useState<string | null>(null)
   const [canceling, setCanceling] = useState<string | null>(null)
 
   const load = useCallback(async (p: number) => {
@@ -77,17 +85,22 @@ export default function BlastPage() {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827]">Blast Push Notifikasi</h1>
-          <p className="text-sm text-[#6B7280] mt-1">{total} batch terkirim/terjadwal</p>
+          <h1 className="text-2xl font-bold text-[#111827]">Blast Notifikasi</h1>
+          <p className="text-sm text-[#6B7280] mt-1">Kirim notifikasi push atau Telegram ke seluruh atau sebagian user Gizku, langsung atau terjadwal.</p>
         </div>
-        <button
-          onClick={() => setShowCompose(true)}
-          className="shrink-0 bg-[#2ECC71] text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-[#28B765] transition min-h-[44px]"
-        >
-          + Kirim Baru
-        </button>
+        <div className="inline-flex gap-0.5 bg-[#F3F4F6] p-0.5 rounded-xl">
+          <Link
+            href="/admin/blast/new"
+            className="text-sm font-semibold px-4 py-2 rounded-lg transition text-[#6B7280] hover:text-[#111827]"
+          >
+            Kirim Baru
+          </Link>
+          <span className="text-sm font-semibold px-4 py-2 rounded-lg bg-white text-[#111827] shadow-[0_1px_4px_rgba(16,24,40,0.06)]">
+            Riwayat Batch ({total})
+          </span>
+        </div>
       </div>
 
       {/* Desktop table */}
@@ -96,47 +109,56 @@ export default function BlastPage() {
           <thead className="bg-[#F9FAFB] text-[#6B7280] text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Nama Batch</th>
+              <th className="text-left px-4 py-3">Channel</th>
               <th className="text-left px-4 py-3">Notifikasi</th>
               <th className="text-left px-4 py-3">Target</th>
               <th className="text-left px-4 py-3">Status</th>
               <th className="text-left px-4 py-3">Waktu Pengiriman</th>
-              <th className="text-left px-4 py-3">Terkirim</th>
-              <th className="text-left px-4 py-3">Diklik</th>
-              <th className="text-left px-4 py-3">Dibaca</th>
+              <th className="text-right px-4 py-3">Terkirim</th>
+              <th className="text-right px-4 py-3">Diklik</th>
+              <th className="text-right px-4 py-3">Dibaca</th>
               <th className="text-left px-4 py-3">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {!loading && blasts.map((b, i) => (
-              <tr key={b.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]'}>
-                <td className="px-4 py-3 font-medium text-[#111827]">{b.batchName}</td>
-                <td className="px-4 py-3 text-[#6B7280] max-w-[200px] truncate">{b.title}</td>
-                <td className="px-4 py-3 text-[#6B7280]">{targetLabel(b)}</td>
+              <tr
+                key={b.id}
+                className={`cursor-pointer ${i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]'}`}
+                onClick={() => router.push(`/admin/blast/${b.id}`)}
+              >
+                <td className="px-4 py-3 font-medium text-[#111827] max-w-[220px] truncate">{b.batchName}</td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${CHANNEL_STYLE[b.channel]}`}>
+                    {CHANNEL_LABEL[b.channel]}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-[#6B7280] max-w-[200px] truncate">{b.title || '—'}</td>
+                <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{targetLabel(b)}</td>
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[b.status]}`}>
                     {STATUS_LABEL[b.status]}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">
-                  {b.scheduledAt ? fmtDateTime(b.scheduledAt) : 'Segera'}
+                  {b.scheduledAt && b.status === 'scheduled' ? fmtDateTime(b.scheduledAt) : (b.sentAt ? fmtDateTime(b.sentAt) : '—')}
                 </td>
-                <td className="px-4 py-3 tabular-nums text-[#111827]">{b.sentCount}</td>
-                <td className="px-4 py-3 tabular-nums text-[#111827]">{b.clickedCount}</td>
-                <td className="px-4 py-3 tabular-nums text-[#111827]">{b.readCount}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    {b.status === 'scheduled' && (
-                      <button
-                        onClick={() => cancelBlast(b.id)}
-                        disabled={canceling === b.id}
-                        className="text-xs px-2.5 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition min-h-[36px] disabled:opacity-50"
-                      >Batalkan</button>
-                    )}
+                <td className="px-4 py-3 tabular-nums text-right text-[#111827]">{b.sentCount}</td>
+                <td className="px-4 py-3 tabular-nums text-right text-[#111827]">{b.clickedCount}</td>
+                <td className="px-4 py-3 tabular-nums text-right text-[#111827]">{b.readCount}</td>
+                <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                  {b.status === 'scheduled' ? (
                     <button
-                      onClick={() => setDetailId(b.id)}
-                      className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[36px]"
-                    >Detail</button>
-                  </div>
+                      onClick={() => cancelBlast(b.id)}
+                      disabled={canceling === b.id}
+                      className="text-xs px-2.5 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition min-h-[36px] disabled:opacity-50"
+                    >Batalkan</button>
+                  ) : (
+                    <Link
+                      href={`/admin/blast/${b.id}`}
+                      className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition inline-block min-h-[36px]"
+                    >Detail</Link>
+                  )}
                 </td>
               </tr>
             ))}
@@ -157,11 +179,13 @@ export default function BlastPage() {
           <div className="text-center py-12 text-[#9CA3AF] text-sm">Belum ada batch notifikasi.</div>
         )}
         {!loading && blasts.map(b => (
-          <div key={b.id} className="bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-[0_1px_4px_rgba(16,24,40,0.04)] overflow-hidden">
+          <Link key={b.id} href={`/admin/blast/${b.id}`} className="block bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-[0_1px_4px_rgba(16,24,40,0.04)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[#F3F4F6] flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-semibold text-[#111827] text-sm truncate">{b.batchName}</p>
-                <p className="text-xs text-[#6B7280] truncate">{b.title}</p>
+                <span className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full font-semibold ${CHANNEL_STYLE[b.channel]}`}>
+                  {CHANNEL_LABEL[b.channel]}
+                </span>
               </div>
               <span className={`shrink-0 text-xs px-2 py-1 rounded-full font-medium ${STATUS_STYLE[b.status]}`}>
                 {STATUS_LABEL[b.status]}
@@ -183,22 +207,16 @@ export default function BlastPage() {
             </div>
             <div className="px-4 py-2.5 text-xs text-[#6B7280] flex items-center justify-between">
               <span>{targetLabel(b)}</span>
-              <span>{b.scheduledAt ? fmtDateTime(b.scheduledAt) : 'Segera'}</span>
+              <span>{b.scheduledAt && b.status === 'scheduled' ? fmtDateTime(b.scheduledAt) : (b.sentAt ? fmtDateTime(b.sentAt) : '—')}</span>
             </div>
-            <div className="flex border-t border-[#F3F4F6]">
-              {b.status === 'scheduled' && (
-                <button
-                  onClick={() => cancelBlast(b.id)}
-                  disabled={canceling === b.id}
-                  className="flex-1 py-3 text-sm font-medium text-red-500 hover:bg-red-50 transition min-h-[48px] disabled:opacity-50"
-                >Batalkan</button>
-              )}
+            {b.status === 'scheduled' && (
               <button
-                onClick={() => setDetailId(b.id)}
-                className="flex-1 py-3 text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[48px]"
-              >Detail</button>
-            </div>
-          </div>
+                onClick={e => { e.preventDefault(); cancelBlast(b.id) }}
+                disabled={canceling === b.id}
+                className="w-full py-3 text-sm font-medium text-red-500 hover:bg-red-50 transition min-h-[48px] disabled:opacity-50 border-t border-[#F3F4F6]"
+              >Batalkan</button>
+            )}
+          </Link>
         ))}
       </div>
 
@@ -214,16 +232,6 @@ export default function BlastPage() {
             <button disabled={page >= totalPages} onClick={() => load(page + 1)} className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40">Berikutnya →</button>
           </div>
         </div>
-      )}
-
-      {showCompose && (
-        <BlastComposeModal
-          onClose={() => setShowCompose(false)}
-          onCreated={() => { setShowCompose(false); load(1) }}
-        />
-      )}
-      {detailId && (
-        <BlastDetailModal id={detailId} onClose={() => setDetailId(null)} />
       )}
     </div>
   )

@@ -1,9 +1,9 @@
 /**
- * Admin backoffice — Blast Push Notifikasi.
+ * Admin backoffice — Blast Notifikasi (push notification atau Telegram).
  *
  * GET  ?action=list&page=&per_page=       — riwayat batch, terbaru dulu
- * GET  ?action=detail&id=                 — detail satu batch + rincian kegagalan
- * GET  ?action=estimate&target_type=&usernames=a,b,c — estimasi penerima saat compose
+ * GET  ?action=detail&id=                 — detail satu batch + provider breakdown + rincian kegagalan
+ * GET  ?action=estimate&channel=&target_type=&usernames=a,b,c — estimasi penerima saat compose
  * GET  ?action=lookup_username&q=         — cari username aktif (untuk chip target spesifik)
  * POST ?action=create                     — buat + kirim/jadwalkan batch baru
  * POST ?action=cancel                     — batalkan batch yang masih 'scheduled'
@@ -13,7 +13,7 @@ import { db } from '@/lib/db'
 import { users, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
 import { requireAdmin } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
-import { dispatchBlast, estimateRecipients } from '@/lib/push'
+import { dispatchBlast, estimateRecipients, getProviderBreakdown } from '@/lib/blast'
 import { eq, and, desc, count, ilike, inArray } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
@@ -60,14 +60,17 @@ export async function GET(req: NextRequest) {
       .groupBy(notificationBlastRecipients.errorMessage)
       .orderBy(desc(count()))
 
-    return ok({ blast, failures })
+    const providers = await getProviderBreakdown(id)
+
+    return ok({ blast, failures, providers })
   }
 
   if (action === 'estimate') {
+    const channel = req.nextUrl.searchParams.get('channel') === 'telegram' ? 'telegram' : 'push'
     const targetType = req.nextUrl.searchParams.get('target_type') || 'all'
     const usernamesParam = req.nextUrl.searchParams.get('usernames') || ''
     const usernames = usernamesParam.split(',').map(u => u.trim().toLowerCase()).filter(Boolean)
-    const estimate = await estimateRecipients(targetType, targetType === 'specific' ? usernames : null)
+    const estimate = await estimateRecipients(channel, targetType, targetType === 'specific' ? usernames : null)
     return ok(estimate)
   }
 
@@ -92,15 +95,16 @@ export async function POST(req: NextRequest) {
 
   if (action === 'create') {
     const body = await req.json()
+    const channel = body.channel === 'telegram' ? 'telegram' : 'push'
     const batchName = String(body.batchName ?? '').trim()
-    const title = String(body.title ?? '').trim()
+    const title = channel === 'push' ? String(body.title ?? '').trim() : ''
     const messageBody = String(body.body ?? '').trim()
     const targetType = body.targetType === 'specific' ? 'specific' : 'all'
     const scheduledAtRaw = body.scheduledAt ? new Date(body.scheduledAt) : null
 
     if (!batchName) return err('Nama batch diperlukan')
-    if (!title) return err('Judul notifikasi diperlukan')
-    if (!messageBody) return err('Isi pesan diperlukan')
+    if (channel === 'push' && !title) return err('Judul notifikasi diperlukan')
+    if (!messageBody) return err(channel === 'push' ? 'Isi pesan diperlukan' : 'Isi chat Telegram diperlukan')
     if (scheduledAtRaw && isNaN(scheduledAtRaw.getTime())) return err('Waktu pengiriman tidak valid')
     if (scheduledAtRaw && scheduledAtRaw.getTime() < Date.now() - 60_000) return err('Waktu pengiriman tidak boleh di masa lalu')
 
@@ -122,6 +126,7 @@ export async function POST(req: NextRequest) {
 
     const [blast] = await db.insert(notificationBlasts).values({
       batchName,
+      channel,
       title,
       body: messageBody,
       targetType,
@@ -144,7 +149,7 @@ export async function POST(req: NextRequest) {
     if (!id) return err('id diperlukan')
 
     const updated = await db.update(notificationBlasts)
-      .set({ status: 'canceled', updatedAt: new Date() })
+      .set({ status: 'cancelled', updatedAt: new Date() })
       .where(and(eq(notificationBlasts.id, id), eq(notificationBlasts.status, 'scheduled')))
       .returning({ id: notificationBlasts.id })
 

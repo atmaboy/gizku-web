@@ -132,15 +132,17 @@ export const pushTokens = pgTable('push_tokens', {
 }))
 
 // ── Notification Blasts ──────────────────────────────────────────────────────
-// A push notification batch composed and sent from the admin backoffice.
+// A blast notification batch composed and sent from the admin backoffice,
+// over one of two channels: push notification or Telegram (Bot Gizku).
 export const notificationBlasts = pgTable('notification_blasts', {
   id:              uuid('id').primaryKey().defaultRandom(),
   batchName:       text('batch_name').notNull(),
-  title:           text('title').notNull(),
+  channel:         text('channel').notNull().default('push'), // 'push' | 'telegram'
+  title:           text('title').notNull().default(''), // push only; empty string for telegram
   body:            text('body').notNull(),
   targetType:      text('target_type').notNull(), // 'all' | 'specific'
   targetUsernames: text('target_usernames').array(), // up to 10, null when targetType = 'all'
-  status:          text('status').notNull().default('scheduled'), // scheduled|sending|sent|canceled|failed
+  status:          text('status').notNull().default('scheduled'), // scheduled|sending|completed|cancelled|failed
   scheduledAt:     timestamp('scheduled_at', { withTimezone: true }),
   sentAt:          timestamp('sent_at', { withTimezone: true }),
   createdBy:       text('created_by'),
@@ -154,6 +156,7 @@ export const notificationBlasts = pgTable('notification_blasts', {
 }, t => ({
   statusIdx:      index('idx_notification_blasts_status').on(t.status),
   scheduledIdx:   index('idx_notification_blasts_scheduled_at').on(t.scheduledAt),
+  channelIdx:     index('idx_notification_blasts_channel').on(t.channel),
 }))
 
 // ── Notification Blast Recipients ────────────────────────────────────────────
@@ -163,6 +166,7 @@ export const notificationBlastRecipients = pgTable('notification_blast_recipient
   blastId:     uuid('blast_id').notNull().references(() => notificationBlasts.id, { onDelete: 'cascade' }),
   userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   pushTokenId: uuid('push_token_id').references(() => pushTokens.id, { onDelete: 'set null' }),
+  provider:    text('provider'), // 'fcm' | 'apns' | 'telegram' — set once dispatch resolves a delivery path
   status:      text('status').notNull().default('pending'), // pending|sent|failed|clicked|read
   errorMessage: text('error_message'),
   sentAt:      timestamp('sent_at', { withTimezone: true }),

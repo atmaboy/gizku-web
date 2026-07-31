@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { notificationBlasts } from '@/drizzle/schema'
 import { and, eq, lte } from 'drizzle-orm'
-import { dispatchBlast } from '@/lib/push'
+import { dispatchBlast } from '@/lib/blast'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60

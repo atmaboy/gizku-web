@@ -10,7 +10,7 @@ import { db } from '@/lib/db'
 import { pushTokens } from '@/drizzle/schema'
 import { verifyToken, extractToken } from '@/lib/auth'
 import { ok, err, setCors } from '@/lib/utils'
-import { ackBlastRecipient } from '@/lib/push'
+import { ackBlastRecipient } from '@/lib/blast'
 import { eq, and } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
