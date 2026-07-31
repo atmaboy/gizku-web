@@ -54,17 +54,26 @@ export default function BlastHistoryPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [canceling, setCanceling] = useState<string | null>(null)
 
   const load = useCallback(async (p: number) => {
     setLoading(true)
-    const res = await fetch(`/api/admin/blast?action=list&page=${p}&per_page=15`)
-    const d = await res.json()
-    setBlasts(d.blasts ?? [])
-    setPage(d.page ?? p)
-    setTotalPages(d.totalPages ?? 1)
-    setTotal(d.total ?? 0)
-    setLoading(false)
+    setLoadError(null)
+    try {
+      const res = await fetch(`/api/admin/blast?action=list&page=${p}&per_page=15`)
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || `Gagal memuat data (${res.status})`)
+      setBlasts(d.blasts ?? [])
+      setPage(d.page ?? p)
+      setTotalPages(d.totalPages ?? 1)
+      setTotal(d.total ?? 0)
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Gagal memuat riwayat batch')
+      setBlasts([])
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load(1) }, [load])
@@ -85,12 +94,10 @@ export default function BlastHistoryPage() {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-[#111827]">Blast Notifikasi</h1>
-          <p className="text-sm text-[#6B7280] mt-1">Kirim notifikasi push atau Telegram ke seluruh atau sebagian user Gizku, langsung atau terjadwal.</p>
-        </div>
-        <div className="inline-flex gap-0.5 bg-[#F3F4F6] p-0.5 rounded-xl">
+      <div>
+        <h1 className="text-2xl font-bold text-[#111827]">Blast Notifikasi</h1>
+        <p className="text-sm text-[#6B7280] mt-1">Kirim notifikasi push atau Telegram ke seluruh atau sebagian user Gizku, langsung atau terjadwal.</p>
+        <div className="inline-flex gap-0.5 bg-[#F3F4F6] p-0.5 rounded-xl mt-5">
           <Link
             href="/admin/blast/new"
             className="text-sm font-semibold px-4 py-2 rounded-lg transition text-[#6B7280] hover:text-[#111827]"
@@ -164,7 +171,13 @@ export default function BlastHistoryPage() {
             ))}
           </tbody>
         </table>
-        {!loading && blasts.length === 0 && (
+        {!loading && loadError && (
+          <div className="text-center py-12 text-sm">
+            <p className="text-red-500 font-medium">{loadError}</p>
+            <button onClick={() => load(page)} className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition">Coba lagi</button>
+          </div>
+        )}
+        {!loading && !loadError && blasts.length === 0 && (
           <div className="text-center py-12 text-[#9CA3AF] text-sm">Belum ada batch notifikasi.</div>
         )}
         {loading && (
@@ -175,7 +188,13 @@ export default function BlastHistoryPage() {
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
         {loading && <div className="text-center py-12 text-[#9CA3AF] text-sm">Memuat…</div>}
-        {!loading && blasts.length === 0 && (
+        {!loading && loadError && (
+          <div className="text-center py-12 text-sm">
+            <p className="text-red-500 font-medium">{loadError}</p>
+            <button onClick={() => load(page)} className="mt-3 text-xs px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition">Coba lagi</button>
+          </div>
+        )}
+        {!loading && !loadError && blasts.length === 0 && (
           <div className="text-center py-12 text-[#9CA3AF] text-sm">Belum ada batch notifikasi.</div>
         )}
         {!loading && blasts.map(b => (

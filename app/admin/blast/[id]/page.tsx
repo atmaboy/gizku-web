@@ -67,14 +67,19 @@ export default function BlastDetailPage() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/admin/blast?action=detail&id=${params.id}`)
-      const d = await res.json()
-      if (res.ok) {
-        setBlast(d.blast); setFailures(d.failures ?? []); setProviders(d.providers ?? [])
-      } else {
+      try {
+        const res = await fetch(`/api/admin/blast?action=detail&id=${params.id}`)
+        const d = await res.json()
+        if (res.ok) {
+          setBlast(d.blast); setFailures(d.failures ?? []); setProviders(d.providers ?? [])
+        } else {
+          setNotFound(true)
+        }
+      } catch {
         setNotFound(true)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     })()
   }, [params.id])
 

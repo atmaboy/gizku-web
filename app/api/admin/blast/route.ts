@@ -20,6 +20,12 @@ export const runtime = 'nodejs'
 
 const MAX_SPECIFIC_TARGETS = 10
 
+function jsonErr(msg: string, status = 500) {
+  const h = new Headers()
+  setCors(h)
+  return Response.json({ error: msg }, { status, headers: h })
+}
+
 export async function OPTIONS() {
   const h = new Headers(); setCors(h)
   return new Response(null, { status: 204, headers: h })
@@ -29,6 +35,15 @@ export async function GET(req: NextRequest) {
   const authError = await requireAdmin(req)
   if (authError) return authError
 
+  try {
+    return await handleGet(req)
+  } catch (e) {
+    console.error('[admin/blast GET]', e)
+    return jsonErr('Gagal memuat data blast notifikasi. Pastikan migration sql/004_create_push_notifications.sql sudah dijalankan di database ini.')
+  }
+}
+
+async function handleGet(req: NextRequest) {
   const action = req.nextUrl.searchParams.get('action')
 
   if (action === 'list') {
@@ -91,6 +106,15 @@ export async function POST(req: NextRequest) {
   const authError = await requireAdmin(req)
   if (authError) return authError
 
+  try {
+    return await handlePost(req)
+  } catch (e) {
+    console.error('[admin/blast POST]', e)
+    return jsonErr('Gagal memproses permintaan blast notifikasi. Pastikan migration sql/004_create_push_notifications.sql sudah dijalankan di database ini.')
+  }
+}
+
+async function handlePost(req: NextRequest) {
   const action = req.nextUrl.searchParams.get('action')
 
   if (action === 'create') {

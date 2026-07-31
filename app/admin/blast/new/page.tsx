@@ -44,9 +44,13 @@ export default function BlastComposePage() {
     const q = usernameInput.trim()
     if (q.length < 2) { setSuggestions([]); return }
     const t = setTimeout(async () => {
-      const res = await fetch(`/api/admin/blast?action=lookup_username&q=${encodeURIComponent(q)}`)
-      const d = await res.json()
-      setSuggestions((d.usernames ?? []).filter((u: string) => !usernames.includes(u)))
+      try {
+        const res = await fetch(`/api/admin/blast?action=lookup_username&q=${encodeURIComponent(q)}`)
+        const d = await res.json()
+        if (res.ok) setSuggestions((d.usernames ?? []).filter((u: string) => !usernames.includes(u)))
+      } catch {
+        // pencarian username gagal — biarkan daftar saran kosong, tidak fatal
+      }
     }, 250)
     return () => clearTimeout(t)
   }, [usernameInput, usernames])
@@ -57,11 +61,15 @@ export default function BlastComposePage() {
         setEstimate({ targeted: 0, reachable: 0, platforms: { ios: 0, android: 0 } })
         return
       }
-      const params = new URLSearchParams({ channel, target_type: targetType })
-      if (targetType === 'specific') params.set('usernames', usernames.join(','))
-      const res = await fetch(`/api/admin/blast?action=estimate&${params.toString()}`)
-      const d = await res.json()
-      setEstimate(d)
+      try {
+        const params = new URLSearchParams({ channel, target_type: targetType })
+        if (targetType === 'specific') params.set('usernames', usernames.join(','))
+        const res = await fetch(`/api/admin/blast?action=estimate&${params.toString()}`)
+        const d = await res.json()
+        if (res.ok) setEstimate(d)
+      } catch {
+        // estimasi gagal dimuat — biarkan nilai sebelumnya, tidak fatal
+      }
     }, 300)
     return () => clearTimeout(t)
   }, [channel, targetType, usernames])
@@ -101,27 +109,32 @@ export default function BlastComposePage() {
 
   async function submit() {
     setSubmitting(true)
-    const res = await fetch('/api/admin/blast?action=create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channel,
-        batchName: batchName.trim(),
-        title: channel === 'push' ? title.trim() : undefined,
-        body: body.trim(),
-        targetType,
-        targetUsernames: targetType === 'specific' ? usernames : undefined,
-        scheduledAt: scheduledAtIso,
-      }),
-    })
-    const d = await res.json()
-    setSubmitting(false)
-    setShowConfirm(false)
-    if (res.ok) {
-      toast.success(sendMode === 'now' ? 'Notifikasi sedang dikirim' : 'Notifikasi dijadwalkan')
-      router.push('/admin/blast')
-    } else {
+    try {
+      const res = await fetch('/api/admin/blast?action=create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel,
+          batchName: batchName.trim(),
+          title: channel === 'push' ? title.trim() : undefined,
+          body: body.trim(),
+          targetType,
+          targetUsernames: targetType === 'specific' ? usernames : undefined,
+          scheduledAt: scheduledAtIso,
+        }),
+      })
+      const d = await res.json()
+      if (res.ok) {
+        toast.success(sendMode === 'now' ? 'Notifikasi sedang dikirim' : 'Notifikasi dijadwalkan')
+        setShowConfirm(false)
+        router.push('/admin/blast')
+        return
+      }
       toast.error(d.error)
+    } catch {
+      toast.error('Gagal mengirim permintaan. Periksa koneksi lalu coba lagi.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
