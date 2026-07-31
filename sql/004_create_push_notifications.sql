@@ -37,6 +37,15 @@ CREATE TABLE IF NOT EXISTS notification_blasts (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Patches for tables created by an earlier revision of this migration
+-- (CREATE TABLE IF NOT EXISTS above is a no-op if the table already exists,
+-- so these columns need to be added separately for a safe re-run).
+ALTER TABLE notification_blasts ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'push';
+ALTER TABLE notification_blasts ALTER COLUMN title SET DEFAULT '';
+UPDATE notification_blasts SET title = '' WHERE title IS NULL;
+ALTER TABLE notification_blasts ALTER COLUMN title SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_notification_blasts_status       ON notification_blasts(status);
 CREATE INDEX IF NOT EXISTS idx_notification_blasts_scheduled_at ON notification_blasts(scheduled_at);
 CREATE INDEX IF NOT EXISTS idx_notification_blasts_channel      ON notification_blasts(channel);
@@ -57,6 +66,10 @@ CREATE TABLE IF NOT EXISTS notification_blast_recipients (
   read_at       TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Patch for tables created by an earlier revision of this migration (see note above).
+ALTER TABLE notification_blast_recipients ADD COLUMN IF NOT EXISTS provider TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_blast_recipients_blast_id ON notification_blast_recipients(blast_id);
 CREATE INDEX IF NOT EXISTS idx_blast_recipients_user_id  ON notification_blast_recipients(user_id);
 CREATE INDEX IF NOT EXISTS idx_blast_recipients_status   ON notification_blast_recipients(blast_id, status);
