@@ -4,7 +4,8 @@
  * GET  ?action=list&page=&per_page=       — riwayat batch, terbaru dulu
  * GET  ?action=detail&id=                 — detail satu batch + provider breakdown + rincian kegagalan
  * GET  ?action=estimate&channel=&target_type=&usernames=a,b,c — estimasi penerima saat compose
- * GET  ?action=lookup_username&q=         — cari username aktif (untuk chip target spesifik)
+ * GET  ?action=lookup_username&channel=&q= — cari username/telegram handle (untuk chip target spesifik)
+ * GET  ?action=resolve_username&channel=&value= — cocokkan 1 input admin ke username app secara persis
  * POST ?action=create                     — buat + kirim/jadwalkan batch baru
  * POST ?action=cancel                     — batalkan batch yang masih 'scheduled'
  */
@@ -13,8 +14,8 @@ import { db } from '@/lib/db'
 import { users, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
 import { requireAdmin } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
-import { dispatchBlast, estimateRecipients, getProviderBreakdown } from '@/lib/blast'
-import { eq, and, desc, count, ilike, inArray } from 'drizzle-orm'
+import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel } from '@/lib/blast'
+import { eq, and, desc, count, inArray } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
 
@@ -90,13 +91,23 @@ async function handleGet(req: NextRequest) {
   }
 
   if (action === 'lookup_username') {
+    const channel = req.nextUrl.searchParams.get('channel') === 'telegram' ? 'telegram' : 'push'
     const q = (req.nextUrl.searchParams.get('q') || '').trim()
-    if (q.length < 2) return ok({ usernames: [] })
-    const rows = await db.select({ username: users.username })
-      .from(users)
-      .where(and(ilike(users.username, `%${q}%`), eq(users.isActive, true)))
-      .limit(8)
-    return ok({ usernames: rows.map(r => r.username) })
+    if (q.length < 2) return ok({ suggestions: [] })
+    const suggestions = await searchUsernamesForChannel(channel, q)
+    return ok({ suggestions })
+  }
+
+  if (action === 'resolve_username') {
+    const channel = req.nextUrl.searchParams.get('channel') === 'telegram' ? 'telegram' : 'push'
+    const value = req.nextUrl.searchParams.get('value') || ''
+    const resolved = await resolveUsernameForChannel(channel, value)
+    if (!resolved) {
+      return err(channel === 'telegram'
+        ? `Username Telegram tidak ditemukan atau akunnya belum terhubung: ${value}`
+        : `Username tidak ditemukan: ${value}`, 404)
+    }
+    return ok(resolved)
   }
 
   return err('Action tidak dikenal')
@@ -134,13 +145,17 @@ async function handlePost(req: NextRequest) {
 
     let targetUsernames: string[] | null = null
     if (targetType === 'specific') {
+      // Chip di form compose selalu sudah di-resolve ke username app di sisi
+      // client (lookup_username/resolve_username menerjemahkan username
+      // Telegram → username app untuk channel telegram) — jadi di sini cukup
+      // pastikan setiap entri memang username app yang valid & aktif.
       const raw: unknown[] = Array.isArray(body.targetUsernames) ? body.targetUsernames : []
       const cleaned = Array.from(new Set(raw.map(u => String(u).trim().toLowerCase()).filter(Boolean)))
       if (cleaned.length === 0) return err('Minimal 1 username target diperlukan')
       if (cleaned.length > MAX_SPECIFIC_TARGETS) return err(`Maksimum ${MAX_SPECIFIC_TARGETS} username per batch`)
 
       const found = await db.select({ username: users.username }).from(users)
-        .where(inArray(users.username, cleaned))
+        .where(and(inArray(users.username, cleaned), eq(users.isActive, true)))
       const foundSet = new Set(found.map(f => f.username))
       const missing = cleaned.filter(u => !foundSet.has(u))
       if (missing.length > 0) return err(`Username tidak ditemukan: ${missing.join(', ')}`)

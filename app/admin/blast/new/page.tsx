@@ -30,9 +30,10 @@ export default function BlastComposePage() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [targetType, setTargetType] = useState<'all' | 'specific'>('all')
-  const [usernames, setUsernames] = useState<string[]>([])
+  const [usernames, setUsernames] = useState<{ value: string; label: string }[]>([])
   const [usernameInput, setUsernameInput] = useState('')
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<{ value: string; label: string }[]>([])
+  const [resolving, setResolving] = useState(false)
   const [sendMode, setSendMode] = useState<'now' | 'schedule'>('now')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
@@ -45,15 +46,16 @@ export default function BlastComposePage() {
     if (q.length < 2) { setSuggestions([]); return }
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/admin/blast?action=lookup_username&q=${encodeURIComponent(q)}`)
+        const res = await fetch(`/api/admin/blast?action=lookup_username&channel=${channel}&q=${encodeURIComponent(q)}`)
         const d = await res.json()
-        if (res.ok) setSuggestions((d.usernames ?? []).filter((u: string) => !usernames.includes(u)))
+        const addedValues = usernames.map(u => u.value)
+        if (res.ok) setSuggestions((d.suggestions ?? []).filter((s: { value: string }) => !addedValues.includes(s.value)))
       } catch {
         // pencarian username gagal — biarkan daftar saran kosong, tidak fatal
       }
     }, 250)
     return () => clearTimeout(t)
-  }, [usernameInput, usernames])
+  }, [usernameInput, usernames, channel])
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -63,7 +65,7 @@ export default function BlastComposePage() {
       }
       try {
         const params = new URLSearchParams({ channel, target_type: targetType })
-        if (targetType === 'specific') params.set('usernames', usernames.join(','))
+        if (targetType === 'specific') params.set('usernames', usernames.map(u => u.value).join(','))
         const res = await fetch(`/api/admin/blast?action=estimate&${params.toString()}`)
         const d = await res.json()
         if (res.ok) setEstimate(d)
@@ -74,23 +76,55 @@ export default function BlastComposePage() {
     return () => clearTimeout(t)
   }, [channel, targetType, usernames])
 
-  function addUsername(u: string) {
-    const clean = u.trim().replace(/^@/, '').toLowerCase()
-    if (!clean) return
-    if (usernames.includes(clean)) { setUsernameInput(''); return }
+  function commitUsername(resolved: { value: string; label: string }) {
+    if (usernames.some(u => u.value === resolved.value)) { setUsernameInput(''); return }
     if (usernames.length >= MAX_TARGETS) { toast.error(`Maksimum ${MAX_TARGETS} username per batch`); return }
-    setUsernames(prev => [...prev, clean])
+    setUsernames(prev => [...prev, resolved])
     setUsernameInput('')
     setSuggestions([])
   }
-  function removeUsername(u: string) {
-    setUsernames(prev => prev.filter(x => x !== u))
+
+  /** Klik dari daftar saran — value sudah pasti username app yang valid. */
+  function addFromSuggestion(s: { value: string; label: string }) {
+    commitUsername(s)
+  }
+
+  /**
+   * Enter tanpa memilih saran — dicocokkan ke identitas channel yang dipilih
+   * (username app untuk push, username Telegram untuk telegram) di server.
+   */
+  async function addByRawInput(raw: string) {
+    const clean = raw.trim().replace(/^@/, '')
+    if (!clean) return
+    setResolving(true)
+    try {
+      const res = await fetch(`/api/admin/blast?action=resolve_username&channel=${channel}&value=${encodeURIComponent(clean)}`)
+      const d = await res.json()
+      if (res.ok) commitUsername(d)
+      else toast.error(d.error)
+    } catch {
+      toast.error('Gagal memeriksa username, coba lagi')
+    } finally {
+      setResolving(false)
+    }
+  }
+
+  function removeUsername(value: string) {
+    setUsernames(prev => prev.filter(x => x.value !== value))
   }
 
   function resetForm() {
     setChannel('push'); setBatchName(''); setTitle(''); setBody('')
     setTargetType('all'); setUsernames([]); setUsernameInput('')
     setSendMode('now'); setDate(''); setTime('')
+  }
+
+  function changeChannel(next: Channel) {
+    setChannel(next)
+    // Chip yang sudah dipilih dicari berdasarkan identitas channel sebelumnya
+    // (username app untuk push, username Telegram untuk telegram) — reset
+    // supaya tidak ada chip dengan label yang jadi tidak relevan.
+    setUsernames([])
   }
 
   const canSubmit = batchName.trim() !== '' && body.trim() !== ''
@@ -119,7 +153,7 @@ export default function BlastComposePage() {
           title: channel === 'push' ? title.trim() : undefined,
           body: body.trim(),
           targetType,
-          targetUsernames: targetType === 'specific' ? usernames : undefined,
+          targetUsernames: targetType === 'specific' ? usernames.map(u => u.value) : undefined,
           scheduledAt: scheduledAtIso,
         }),
       })
@@ -163,8 +197,8 @@ export default function BlastComposePage() {
             <h2 className="text-[15px] font-semibold text-[#111827] mb-1">Channel Notifikasi</h2>
             <p className="text-xs text-[#6B7280] mb-4">Pilih saluran pengiriman blast ini.</p>
             <div className="flex gap-2">
-              <Chip label="Push Notifikasi" selected={channel === 'push'} onClick={() => setChannel('push')} />
-              <Chip label="Telegram (Bot Gizku)" selected={channel === 'telegram'} onClick={() => setChannel('telegram')} />
+              <Chip label="Push Notifikasi" selected={channel === 'push'} onClick={() => changeChannel('push')} />
+              <Chip label="Telegram (Bot Gizku)" selected={channel === 'telegram'} onClick={() => changeChannel('telegram')} />
             </div>
           </div>
 
@@ -242,9 +276,9 @@ export default function BlastComposePage() {
                     <input
                       value={usernameInput}
                       onChange={e => setUsernameInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addUsername(usernameInput) } }}
-                      disabled={usernames.length >= MAX_TARGETS}
-                      placeholder="ketik username lalu tekan Enter"
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addByRawInput(usernameInput) } }}
+                      disabled={usernames.length >= MAX_TARGETS || resolving}
+                      placeholder={channel === 'telegram' ? 'ketik username app atau username Telegram lalu Enter' : 'ketik username lalu tekan Enter'}
                       className="flex-1 border-none outline-none text-sm text-[#111827] bg-transparent disabled:bg-transparent"
                     />
                     <span className={`text-xs font-semibold whitespace-nowrap ${usernames.length >= MAX_TARGETS ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
@@ -255,21 +289,24 @@ export default function BlastComposePage() {
                     <div className="absolute z-10 mt-1 w-full bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-lg overflow-hidden">
                       {suggestions.map(s => (
                         <button
-                          key={s} onClick={() => addUsername(s)}
+                          key={s.value} onClick={() => addFromSuggestion(s)}
                           className="w-full text-left px-3 py-2 text-sm text-[#111827] hover:bg-[#F0FDF4] transition"
-                        >@{s}</button>
+                        >{s.label}</button>
                       ))}
                     </div>
                   )}
                 </div>
+                {channel === 'telegram' && (
+                  <p className="text-xs text-[#9CA3AF] mt-1.5">Dicari berdasarkan username Telegram — akun harus sudah pernah menghubungkan Telegram.</p>
+                )}
                 {usernames.length >= MAX_TARGETS && (
                   <p className="text-xs text-amber-600 mt-1.5">Maksimum 10 username per batch tercapai.</p>
                 )}
                 <div className="flex flex-wrap gap-2 mt-3">
                   {usernames.map(u => (
-                    <span key={u} className="inline-flex items-center gap-1.5 bg-[#D4F5E4] text-[#1F9D57] text-xs font-semibold pl-3 pr-1.5 py-1.5 rounded-full">
-                      @{u}
-                      <button onClick={() => removeUsername(u)} aria-label={`Hapus ${u}`} className="w-[18px] h-[18px] rounded-full bg-[#1F9D5726] flex items-center justify-center text-[11px] hover:bg-[#1F9D5740]">✕</button>
+                    <span key={u.value} className="inline-flex items-center gap-1.5 bg-[#D4F5E4] text-[#1F9D57] text-xs font-semibold pl-3 pr-1.5 py-1.5 rounded-full">
+                      {u.label}
+                      <button onClick={() => removeUsername(u.value)} aria-label={`Hapus ${u.label}`} className="w-[18px] h-[18px] rounded-full bg-[#1F9D5726] flex items-center justify-center text-[11px] hover:bg-[#1F9D5740]">✕</button>
                     </span>
                   ))}
                 </div>

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { users, pushTokens, telegramUsers, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
-import { eq, and, inArray, sql } from 'drizzle-orm'
+import { eq, and, inArray, ilike, sql } from 'drizzle-orm'
 import { Api, GrammyError } from 'grammy'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
@@ -66,6 +66,58 @@ async function resolveTargetUsers(targetType: string, targetUsernames: string[] 
   return db.select({ id: users.id, username: users.username })
     .from(users)
     .where(and(inArray(users.username, targetUsernames), eq(users.isActive, true)))
+}
+
+/**
+ * Cari username untuk chip target penerima. Identitas yang dicari mengikuti
+ * channel yang dipilih: push mencari username app Gizku (karena push token
+ * menempel ke akun app), telegram mencari username Telegram (identitas yang
+ * admin kenal dari chat, bisa berbeda dari username app). Hasil selalu
+ * di-map balik ke username app — identitas yang dipakai untuk menyimpan
+ * target & query recipient di database.
+ */
+export async function searchUsernamesForChannel(channel: string, q: string) {
+  if (channel === 'telegram') {
+    const rows = await db.select({ username: users.username, tgUsername: telegramUsers.username })
+      .from(telegramUsers)
+      .innerJoin(users, eq(users.id, telegramUsers.userId))
+      .where(and(eq(users.isActive, true), ilike(telegramUsers.username, `%${q}%`)))
+      .limit(8)
+    return rows
+      .filter((r): r is { username: string; tgUsername: string } => !!r.tgUsername)
+      .map(r => ({ value: r.username, label: `@${r.tgUsername}` }))
+  }
+
+  const rows = await db.select({ username: users.username }).from(users)
+    .where(and(ilike(users.username, `%${q}%`), eq(users.isActive, true)))
+    .limit(8)
+  return rows.map(r => ({ value: r.username, label: `@${r.username}` }))
+}
+
+/**
+ * Cocokkan satu input admin secara persis ke identitas channel yang dipilih
+ * (username app untuk push, username Telegram untuk telegram), dipakai saat
+ * admin menekan Enter tanpa memilih dari daftar saran. Mengembalikan username
+ * app yang jadi identitas penyimpanan, plus label untuk ditampilkan di chip.
+ */
+export async function resolveUsernameForChannel(channel: string, raw: string): Promise<{ username: string; label: string } | null> {
+  const clean = raw.trim().replace(/^@/, '')
+  if (!clean) return null
+
+  if (channel === 'telegram') {
+    const [row] = await db.select({ username: users.username, tgUsername: telegramUsers.username })
+      .from(telegramUsers)
+      .innerJoin(users, eq(users.id, telegramUsers.userId))
+      .where(and(ilike(telegramUsers.username, clean), eq(users.isActive, true)))
+      .limit(1)
+    if (!row || !row.tgUsername) return null
+    return { username: row.username, label: `@${row.tgUsername}` }
+  }
+
+  const [row] = await db.select({ username: users.username }).from(users)
+    .where(and(eq(users.username, clean.toLowerCase()), eq(users.isActive, true))).limit(1)
+  if (!row) return null
+  return { username: row.username, label: `@${row.username}` }
 }
 
 /** Estimasi jumlah penerima + berapa yang bisa dijangkau lewat channel terpilih, dipakai saat compose. */
