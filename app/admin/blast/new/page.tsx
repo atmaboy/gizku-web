@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 const MAX_TARGETS = 10
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
 
 type Estimate = { targeted: number; reachable: number; platforms: { ios: number; android: number } }
 type Channel = 'push' | 'telegram'
@@ -36,7 +37,7 @@ export default function BlastComposePage() {
   const [resolving, setResolving] = useState(false)
   const [sendMode, setSendMode] = useState<'now' | 'schedule'>('now')
   const [date, setDate] = useState('')
-  const [time, setTime] = useState('')
+  const [hour, setHour] = useState('')
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -116,7 +117,7 @@ export default function BlastComposePage() {
   function resetForm() {
     setChannel('push'); setBatchName(''); setTitle(''); setBody('')
     setTargetType('all'); setUsernames([]); setUsernameInput('')
-    setSendMode('now'); setDate(''); setTime('')
+    setSendMode('now'); setDate(''); setHour('')
   }
 
   function changeChannel(next: Channel) {
@@ -130,16 +131,16 @@ export default function BlastComposePage() {
   const canSubmit = batchName.trim() !== '' && body.trim() !== ''
     && (channel === 'telegram' || title.trim() !== '')
     && (targetType === 'all' || usernames.length > 0)
-    && (sendMode === 'now' || (date !== '' && time !== ''))
+    && (sendMode === 'now' || (date !== '' && hour !== ''))
 
   const targetCountLabel = targetType === 'all' ? `~${estimate?.targeted ?? 0} user` : `${usernames.length} username`
   const actionVerb = sendMode === 'schedule' ? 'Jadwalkan Pengiriman' : 'Kirim Sekarang'
 
   const scheduledAtIso = useMemo(() => {
-    if (sendMode === 'now' || !date || !time) return null
-    const iso = new Date(`${date}T${time}:00+07:00`)
+    if (sendMode === 'now' || !date || !hour) return null
+    const iso = new Date(`${date}T${hour}:00:00+07:00`)
     return isNaN(iso.getTime()) ? null : iso.toISOString()
-  }, [sendMode, date, time])
+  }, [sendMode, date, hour])
 
   async function submit() {
     setSubmitting(true)
@@ -338,14 +339,17 @@ export default function BlastComposePage() {
                   </div>
                   <div className="flex-1 min-w-[140px]">
                     <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide block mb-1.5">Jam</label>
-                    <input
-                      type="time" value={time} onChange={e => setTime(e.target.value)}
+                    <select
+                      value={hour} onChange={e => setHour(e.target.value)}
                       className="w-full border border-[#E5E7EB] rounded-xl px-3 h-[42px] text-sm bg-[#F9FAFB] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] transition"
                       style={{ colorScheme: 'light' }}
-                    />
+                    >
+                      <option value="">Pilih jam</option>
+                      {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}:00</option>)}
+                    </select>
                   </div>
                 </div>
-                <p className="text-xs text-[#9CA3AF] mt-2.5">Waktu mengikuti zona waktu server admin (WIB).</p>
+                <p className="text-xs text-[#9CA3AF] mt-2.5">Penjadwalan cuma sampai satuan jam (menit selalu :00). Waktu mengikuti zona waktu server admin (WIB).</p>
               </div>
             )}
           </div>
@@ -428,7 +432,7 @@ export default function BlastComposePage() {
             </h2>
             <p className="text-sm text-[#6B7280] leading-relaxed mb-5">
               {sendMode === 'schedule'
-                ? `Notifikasi akan dijadwalkan pada ${date && time ? `${date} ${time} WIB` : '—'} untuk ${targetCountLabel}. Pastikan isi pesan sudah benar.`
+                ? `Notifikasi akan dijadwalkan pada ${date && hour ? `${date} ${hour}:00 WIB` : '—'} untuk ${targetCountLabel}. Pastikan isi pesan sudah benar.`
                 : `Notifikasi akan segera dikirim ke ${targetCountLabel}. Pastikan isi pesan sudah benar.`}
             </p>
             <div className="flex flex-col gap-2">
