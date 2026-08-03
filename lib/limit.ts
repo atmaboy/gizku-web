@@ -11,15 +11,8 @@ import { eq, and, ne, asc } from 'drizzle-orm'
  * separate list (limit_tiers table), not part of this config blob.
  */
 
-export const REJECT_REASONS = [
-  'Bukti transfer tidak jelas / buram',
-  'Nominal transfer tidak sesuai paket',
-  'Bukti transfer sudah pernah digunakan',
-  'Rekening tujuan tidak sesuai',
-  'Lainnya',
-] as const
-
-export type RejectReason = typeof REJECT_REASONS[number]
+export { REJECT_REASONS } from '@/lib/limitReasons'
+export type { RejectReason } from '@/lib/limitReasons'
 
 export async function isLimitFeatureEnabled(): Promise<boolean> {
   return (await getCfg('limit_feature_enabled')) === 'true'

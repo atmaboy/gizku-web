@@ -77,6 +77,17 @@ const nav = [
     ),
   },
   {
+    href: '/admin/limit',
+    label: 'Request Limit',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 21a9 9 0 1 0-9-9c0 2.1.7 4 1.9 5.6"/>
+        <path d="M12 12 16 8"/>
+        <path d="M12 21v-1M4.2 15l.9-.4M19.8 15l-.9-.4"/>
+      </svg>
+    ),
+  },
+  {
     href: '/admin/config',
     label: 'Pengaturan',
     icon: (
