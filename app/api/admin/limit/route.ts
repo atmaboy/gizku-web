@@ -14,7 +14,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { limitRequests, limitTiers, users } from '@/drizzle/schema'
-import { requireAdmin } from '@/lib/admin'
+import { requireAdmin, getGlobalLimit } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
 import { REJECT_REASONS, getLimitBankConfig, setLimitConfig, isLimitFeatureEnabled, listTiers } from '@/lib/limit'
 import { getApprovedPeriods, computeUserLedger } from '@/lib/limitLedger'
@@ -142,7 +142,6 @@ async function handleGet(req: NextRequest) {
       userId: users.id, name: users.username, email: users.email, dailyLimit: users.dailyLimit,
     }).from(users).where(whereClause).limit(20)
 
-    const { getGlobalLimit } = await import('@/lib/admin')
     const globalLimit = await getGlobalLimit()
 
     return ok(rows.map(r => ({
