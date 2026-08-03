@@ -1,0 +1,123 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import ScreenHeader from '@/components/ui/ScreenHeader'
+import Card from '@/components/ui/Card'
+import { IconHistory } from '@/components/ui/icons'
+
+type LedgerRowType = 'usage' | 'tier-approved-reset' | 'expiry-reset' | 'daily-reset'
+type LedgerRow = { date: string; type: LedgerRowType; title: string; before: number; after: number; delta: number }
+
+const BADGE_LABEL: Record<LedgerRowType, string> = {
+  usage: 'Pemakaian',
+  'tier-approved-reset': 'Disetujui',
+  'expiry-reset': 'Kedaluwarsa',
+  'daily-reset': 'Reset Harian',
+}
+const BADGE_COLOR: Record<LedgerRowType, string> = {
+  usage: 'var(--color-text-secondary)',
+  'tier-approved-reset': 'var(--color-success)',
+  'expiry-reset': 'var(--color-warning)',
+  'daily-reset': 'var(--color-text-tertiary)',
+}
+const BADGE_BG: Record<LedgerRowType, string> = {
+  usage: 'var(--color-bg-muted)',
+  'tier-approved-reset': 'var(--color-bg-brand-tint)',
+  'expiry-reset': 'rgba(217,155,63,0.12)',
+  'daily-reset': 'var(--color-bg-muted)',
+}
+
+function authHeaders() {
+  return { Authorization: `Bearer ${localStorage.getItem('nl_token') || ''}` }
+}
+function fmtDate(dateStr: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+export default function LimitLedgerPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [balance, setBalance] = useState<number | null>(null)
+  const [rows, setRows] = useState<LedgerRow[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/limit?action=ledger', { headers: authHeaders(), cache: 'no-store' })
+      .then(res => {
+        if (res.status === 401) { router.replace('/login'); return null }
+        return res.json()
+      })
+      .then(data => {
+        if (!data || cancelled) return
+        setBalance(data.balance ?? 0)
+        setRows(Array.isArray(data.rows) ? data.rows : [])
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [router])
+
+  return (
+    <div className="flex flex-col min-h-0 flex-1">
+      <ScreenHeader title="Riwayat Limit" onBack={() => router.back()} />
+
+      <div className="flex-1 overflow-auto px-4 pt-4 pb-10">
+        <div className="rounded-lg bg-brand-tint px-4 py-4 mb-4">
+          <div className="text-xs font-medium" style={{ color: 'var(--color-text-brand)' }}>Saldo limit saat ini</div>
+          {loading ? (
+            <div className="gizku-skeleton h-8 w-24 mt-1.5" />
+          ) : (
+            <div className="text-3xl font-bold mt-0.5" style={{ color: 'var(--color-text-brand)' }}>
+              {balance} <span className="text-base font-semibold">analisa/hari</span>
+            </div>
+          )}
+        </div>
+
+        {loading && (
+          <div className="flex flex-col gap-2.5">
+            {[1, 2, 3, 4].map(i => <div key={i} className="gizku-skeleton h-16" />)}
+          </div>
+        )}
+
+        {!loading && rows.length === 0 && (
+          <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
+            <IconHistory size={40} color="var(--color-text-tertiary)" strokeWidth={1.5} />
+            <div className="text-lg font-semibold text-primary">Belum Ada Riwayat</div>
+            <div className="text-sm text-secondary leading-normal max-w-[260px]">
+              Riwayat pemakaian dan penambahan limit akan muncul di sini.
+            </div>
+          </div>
+        )}
+
+        {!loading && rows.length > 0 && (
+          <Card className="overflow-hidden">
+            {rows.map((row, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-3.5 py-3"
+                style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--color-border-default)' : 'none' }}
+              >
+                <div className="flex-1 min-w-0">
+                  <span
+                    className="inline-flex items-center rounded-pill px-2 py-0.5 text-2xs font-semibold mb-1"
+                    style={{ background: BADGE_BG[row.type], color: BADGE_COLOR[row.type] }}
+                  >
+                    {BADGE_LABEL[row.type]}
+                  </span>
+                  <div className="text-sm font-medium text-primary truncate">{row.title}</div>
+                  <div className="text-xs text-secondary mt-0.5">{fmtDate(row.date)} · {row.after}/hari</div>
+                </div>
+                <div
+                  className="text-base font-semibold whitespace-nowrap shrink-0"
+                  style={{ color: row.delta >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}
+                >
+                  {row.delta >= 0 ? `+${row.delta}` : row.delta}
+                </div>
+              </div>
+            ))}
+          </Card>
+        )}
+      </div>
+    </div>
+  )
+}

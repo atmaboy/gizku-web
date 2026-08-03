@@ -46,6 +46,11 @@ async function authUser(req: NextRequest) {
 function requestDetailShape(r: typeof limitRequests.$inferSelect, expiresAt: string | null) {
   return {
     id: r.id,
+    // tierId is not part of the documented contract (tier fields are
+    // snapshotted, so callers shouldn't need it) — included as an extra,
+    // harmless field so the web "Ajukan Ulang" flow can preselect the same
+    // tier if it still exists, without breaking clients that ignore it.
+    tierId: r.tierId,
     tierLabel: r.tierLabel,
     addPerDay: r.addPerDay,
     totalPerDay: r.totalPerDay,
@@ -125,7 +130,7 @@ async function handleGet(req: NextRequest, userId: string) {
       .where(eq(limitRequests.userId, userId))
       .orderBy(desc(limitRequests.submittedAt))
     return ok(rows.map(r => ({
-      id: r.id, tierLabel: r.tierLabel, addPerDay: r.addPerDay, totalPerDay: r.totalPerDay,
+      id: r.id, tierId: r.tierId, tierLabel: r.tierLabel, addPerDay: r.addPerDay, totalPerDay: r.totalPerDay,
       price: r.price, uniqueCode: r.uniqueCode, totalTransfer: r.totalTransfer,
       status: r.status, submittedAt: r.submittedAt, decidedAt: r.decidedAt,
     })))
