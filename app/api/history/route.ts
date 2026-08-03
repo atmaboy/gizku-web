@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { meals, dailyUsage } from '@/drizzle/schema'
 import { verifyToken, extractToken } from '@/lib/auth'
 import { getGlobalLimit } from '@/lib/admin'
+import { computeEffectiveLimit } from '@/lib/limitLedger'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { eq, and, desc, count, gte, lte } from 'drizzle-orm'
 
@@ -80,7 +81,8 @@ export async function GET(req: NextRequest) {
       .where(eqOp(users.id, user.userId)).limit(1)
 
     const globalLimit = await getGlobalLimit()
-    const userLimit   = userData?.dailyLimit ?? globalLimit
+    const floor       = userData?.dailyLimit ?? globalLimit
+    const userLimit   = await computeEffectiveLimit(user.userId, floor)
 
     return ok({
       meals: filtered,
