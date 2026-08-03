@@ -169,6 +169,16 @@ export const notificationBlastRecipients = pgTable('notification_blast_recipient
   provider:    text('provider'), // 'fcm' | 'apns' | 'telegram' — set once dispatch resolves a delivery path
   status:      text('status').notNull().default('pending'), // pending|sent|failed|clicked|read
   errorMessage: text('error_message'),
+  // Ticket/message id from the provider (Expo push ticket id for push,
+  // Telegram message_id for telegram) — needed to look up delivery receipts
+  // later, since a provider "accepting" a send isn't the same as it actually
+  // being delivered to the device.
+  providerMessageId: text('provider_message_id'),
+  // Raw response payload from the provider (send ticket, later overwritten
+  // by the delivery receipt once checked, or the raw error) — surfaced as-is
+  // in the admin detail page for debugging.
+  providerResponse: jsonb('provider_response'),
+  receiptCheckedAt: timestamp('receipt_checked_at', { withTimezone: true }),
   sentAt:      timestamp('sent_at', { withTimezone: true }),
   clickedAt:   timestamp('clicked_at', { withTimezone: true }),
   readAt:      timestamp('read_at', { withTimezone: true }),

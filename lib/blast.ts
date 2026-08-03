@@ -4,7 +4,9 @@ import { eq, and, inArray, ilike, sql } from 'drizzle-orm'
 import { Api, GrammyError } from 'grammy'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
+const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts'
 const EXPO_CHUNK_SIZE = 100
+const EXPO_RECEIPTS_CHUNK_SIZE = 300
 
 type ExpoPushMessage = {
   to: string
@@ -17,6 +19,12 @@ type ExpoPushMessage = {
 type ExpoPushTicket = {
   status: 'ok' | 'error'
   id?: string
+  message?: string
+  details?: { error?: string }
+}
+
+type ExpoPushReceipt = {
+  status: 'ok' | 'error'
   message?: string
   details?: { error?: string }
 }
@@ -149,7 +157,14 @@ export async function estimateRecipients(channel: string, targetType: string, ta
   }
 }
 
-type RecipientResult = { status: 'sent' | 'failed'; errorMessage?: string; pushTokenId: string | null; provider: string | null }
+type RecipientResult = {
+  status: 'sent' | 'failed'
+  errorMessage?: string
+  pushTokenId: string | null
+  provider: string | null
+  providerMessageId?: string | null
+  providerResponse?: unknown
+}
 
 async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect, targetUsers: { id: string; username: string }[]) {
   const tokens = await db.select()
@@ -187,7 +202,13 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
   tickets.forEach((ticket, i) => {
     const owner = messageOwners[i]
     if (ticket.status === 'ok') {
-      perUser.set(owner.userId, { status: 'sent', pushTokenId: owner.pushTokenId, provider: owner.provider })
+      perUser.set(owner.userId, {
+        status: 'sent',
+        pushTokenId: owner.pushTokenId,
+        provider: owner.provider,
+        providerMessageId: ticket.id ?? null,
+        providerResponse: { ticket },
+      })
     } else {
       if (ticket.details?.error === 'DeviceNotRegistered') tokensToDeactivate.push(owner.pushTokenId)
       const existing = perUser.get(owner.userId)
@@ -197,6 +218,8 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
           errorMessage: ticket.message || ticket.details?.error || 'Gagal mengirim',
           pushTokenId: owner.pushTokenId,
           provider: owner.provider,
+          providerMessageId: ticket.id ?? null,
+          providerResponse: { ticket },
         })
       }
     }
@@ -229,10 +252,25 @@ async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSe
       continue
     }
     try {
-      await api.sendMessage(chatId.toString(), blast.body)
-      perUser.set(u.id, { status: 'sent', pushTokenId: null, provider: 'telegram' })
+      const message = await api.sendMessage(chatId.toString(), blast.body)
+      perUser.set(u.id, {
+        status: 'sent',
+        pushTokenId: null,
+        provider: 'telegram',
+        providerMessageId: String(message.message_id),
+        providerResponse: message,
+      })
     } catch (e) {
-      perUser.set(u.id, { status: 'failed', errorMessage: telegramErrorMessage(e), pushTokenId: null, provider: 'telegram' })
+      const raw = e instanceof GrammyError
+        ? { error_code: e.error_code, description: e.description, parameters: e.parameters }
+        : { error: String(e) }
+      perUser.set(u.id, {
+        status: 'failed',
+        errorMessage: telegramErrorMessage(e),
+        pushTokenId: null,
+        provider: 'telegram',
+        providerResponse: raw,
+      })
     }
   }
 
@@ -278,6 +316,8 @@ export async function dispatchBlast(blastId: string): Promise<void> {
         provider: r.provider,
         status: r.status,
         errorMessage: r.errorMessage ?? null,
+        providerMessageId: r.providerMessageId ?? null,
+        providerResponse: r.providerResponse ?? null,
         sentAt: r.status === 'sent' ? now : null,
       }
     })
@@ -304,6 +344,94 @@ export async function dispatchBlast(blastId: string): Promise<void> {
       .set({ status: 'failed', updatedAt: new Date() })
       .where(eq(notificationBlasts.id, blastId))
   }
+}
+
+async function fetchExpoReceipts(ids: string[]): Promise<Record<string, ExpoPushReceipt>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' }
+  if (process.env.EXPO_ACCESS_TOKEN) headers.Authorization = `Bearer ${process.env.EXPO_ACCESS_TOKEN}`
+
+  const res = await fetch(EXPO_RECEIPTS_URL, { method: 'POST', headers, body: JSON.stringify({ ids }) })
+  const json = await res.json().catch(() => null)
+  if (!res.ok || !json || typeof json.data !== 'object') return {}
+  return json.data as Record<string, ExpoPushReceipt>
+}
+
+/**
+ * Expo "accepting" a push (ticket.status === 'ok') only means it queued the
+ * message for delivery — it does NOT mean FCM/APNs actually delivered it to
+ * the device. Real delivery failures (bad credentials, stale token, etc.)
+ * only show up later via this receipts endpoint. Called on-demand from the
+ * admin detail page ("Cek Status Pengiriman"), scoped to one blast.
+ */
+export async function checkPushReceipts(blastId: string): Promise<{ checked: number; nowFailed: number }> {
+  const pending = await db.select({
+    id: notificationBlastRecipients.id,
+    providerMessageId: notificationBlastRecipients.providerMessageId,
+    providerResponse: notificationBlastRecipients.providerResponse,
+    pushTokenId: notificationBlastRecipients.pushTokenId,
+  })
+    .from(notificationBlastRecipients)
+    .where(and(
+      eq(notificationBlastRecipients.blastId, blastId),
+      eq(notificationBlastRecipients.status, 'sent'),
+      inArray(notificationBlastRecipients.provider, ['fcm', 'apns']),
+      sql`${notificationBlastRecipients.providerMessageId} IS NOT NULL`,
+    ))
+
+  if (pending.length === 0) return { checked: 0, nowFailed: 0 }
+
+  const receiptsById: Record<string, ExpoPushReceipt> = {}
+  for (let i = 0; i < pending.length; i += EXPO_RECEIPTS_CHUNK_SIZE) {
+    const chunk = pending.slice(i, i + EXPO_RECEIPTS_CHUNK_SIZE).map(p => p.providerMessageId!)
+    Object.assign(receiptsById, await fetchExpoReceipts(chunk))
+  }
+
+  const now = new Date()
+  let checked = 0
+  let nowFailed = 0
+  const tokensToDeactivate: string[] = []
+
+  for (const row of pending) {
+    const receipt = receiptsById[row.providerMessageId!]
+    if (!receipt) continue // Expo hasn't produced a receipt yet — leave as-is, retry later
+
+    checked++
+    const mergedResponse = { ...(row.providerResponse as object ?? {}), receipt }
+
+    if (receipt.status === 'error') {
+      nowFailed++
+      if (receipt.details?.error === 'DeviceNotRegistered' && row.pushTokenId) tokensToDeactivate.push(row.pushTokenId)
+      await db.update(notificationBlastRecipients)
+        .set({
+          status: 'failed',
+          errorMessage: receipt.message || receipt.details?.error || 'Gagal terkirim ke perangkat',
+          providerResponse: mergedResponse,
+          receiptCheckedAt: now,
+        })
+        .where(eq(notificationBlastRecipients.id, row.id))
+    } else {
+      await db.update(notificationBlastRecipients)
+        .set({ providerResponse: mergedResponse, receiptCheckedAt: now })
+        .where(eq(notificationBlastRecipients.id, row.id))
+    }
+  }
+
+  if (tokensToDeactivate.length > 0) {
+    await db.update(pushTokens).set({ isActive: false, updatedAt: now })
+      .where(inArray(pushTokens.id, tokensToDeactivate))
+  }
+
+  if (nowFailed > 0) {
+    await db.update(notificationBlasts)
+      .set({
+        sentCount: sql`${notificationBlasts.sentCount} - ${nowFailed}`,
+        failedCount: sql`${notificationBlasts.failedCount} + ${nowFailed}`,
+        updatedAt: now,
+      })
+      .where(eq(notificationBlasts.id, blastId))
+  }
+
+  return { checked, nowFailed }
 }
 
 /** Tandai notifikasi diklik/dibaca oleh user, dipanggil dari app mobile (push channel saja). */

@@ -3,18 +3,20 @@
  *
  * GET  ?action=list&page=&per_page=       — riwayat batch, terbaru dulu
  * GET  ?action=detail&id=                 — detail satu batch + provider breakdown + rincian kegagalan
+ * GET  ?action=recipients&id=&page=&per_page= — log mentah per-penerima (username, status, error, raw response)
  * GET  ?action=estimate&channel=&target_type=&usernames=a,b,c — estimasi penerima saat compose
  * GET  ?action=lookup_username&channel=&q= — cari username/telegram handle (untuk chip target spesifik)
  * GET  ?action=resolve_username&channel=&value= — cocokkan 1 input admin ke username app secara persis
  * POST ?action=create                     — buat + kirim/jadwalkan batch baru
  * POST ?action=cancel                     — batalkan batch yang masih 'scheduled'
+ * POST ?action=check_receipts             — cek status delivery asli (Expo push receipts) untuk 1 batch
  */
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { users, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
 import { requireAdmin } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
-import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel } from '@/lib/blast'
+import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel, checkPushReceipts } from '@/lib/blast'
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
@@ -79,6 +81,39 @@ async function handleGet(req: NextRequest) {
     const providers = await getProviderBreakdown(id)
 
     return ok({ blast, failures, providers })
+  }
+
+  if (action === 'recipients') {
+    const id = req.nextUrl.searchParams.get('id')
+    if (!id) return err('id diperlukan')
+
+    const page = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') || '1', 10))
+    const perPage = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('per_page') || '25', 10)))
+    const offset = (page - 1) * perPage
+
+    const rows = await db.select({
+      id: notificationBlastRecipients.id,
+      username: users.username,
+      provider: notificationBlastRecipients.provider,
+      status: notificationBlastRecipients.status,
+      errorMessage: notificationBlastRecipients.errorMessage,
+      providerMessageId: notificationBlastRecipients.providerMessageId,
+      providerResponse: notificationBlastRecipients.providerResponse,
+      receiptCheckedAt: notificationBlastRecipients.receiptCheckedAt,
+      sentAt: notificationBlastRecipients.sentAt,
+      clickedAt: notificationBlastRecipients.clickedAt,
+      readAt: notificationBlastRecipients.readAt,
+    })
+      .from(notificationBlastRecipients)
+      .innerJoin(users, eq(users.id, notificationBlastRecipients.userId))
+      .where(eq(notificationBlastRecipients.blastId, id))
+      .orderBy(notificationBlastRecipients.status, users.username)
+      .limit(perPage).offset(offset)
+
+    const [{ c }] = await db.select({ c: count() }).from(notificationBlastRecipients)
+      .where(eq(notificationBlastRecipients.blastId, id))
+
+    return ok({ recipients: rows, total: c, page, perPage, totalPages: Math.max(1, Math.ceil(c / perPage)) })
   }
 
   if (action === 'estimate') {
@@ -194,6 +229,19 @@ async function handlePost(req: NextRequest) {
 
     if (updated.length === 0) return err('Batch tidak bisa dibatalkan (sudah terkirim atau tidak ditemukan)', 409)
     return ok({ message: 'Batch dibatalkan' })
+  }
+
+  if (action === 'check_receipts') {
+    const { id } = await req.json()
+    if (!id) return err('id diperlukan')
+
+    const result = await checkPushReceipts(id)
+    return ok({
+      message: result.checked === 0
+        ? 'Belum ada receipt baru dari Expo — coba lagi beberapa menit lagi.'
+        : `${result.checked} status delivery diperbarui${result.nowFailed > 0 ? `, ${result.nowFailed} ternyata gagal terkirim` : ''}.`,
+      ...result,
+    })
   }
 
   return err('Action tidak dikenal')

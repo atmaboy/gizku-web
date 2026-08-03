@@ -61,14 +61,20 @@ CREATE TABLE IF NOT EXISTS notification_blast_recipients (
   provider      TEXT,       -- 'fcm' | 'apns' | 'telegram'
   status        TEXT        NOT NULL DEFAULT 'pending', -- 'pending' | 'sent' | 'failed' | 'clicked' | 'read'
   error_message TEXT,
+  provider_message_id TEXT, -- Expo push ticket id / Telegram message_id — used to look up delivery receipts
+  provider_response   JSONB, -- raw send/receipt payload from the provider, for debugging in the admin UI
+  receipt_checked_at  TIMESTAMPTZ,
   sent_at       TIMESTAMPTZ,
   clicked_at    TIMESTAMPTZ,
   read_at       TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Patch for tables created by an earlier revision of this migration (see note above).
+-- Patches for tables created by an earlier revision of this migration (see note above).
 ALTER TABLE notification_blast_recipients ADD COLUMN IF NOT EXISTS provider TEXT;
+ALTER TABLE notification_blast_recipients ADD COLUMN IF NOT EXISTS provider_message_id TEXT;
+ALTER TABLE notification_blast_recipients ADD COLUMN IF NOT EXISTS provider_response JSONB;
+ALTER TABLE notification_blast_recipients ADD COLUMN IF NOT EXISTS receipt_checked_at TIMESTAMPTZ;
 
 CREATE INDEX IF NOT EXISTS idx_blast_recipients_blast_id ON notification_blast_recipients(blast_id);
 CREATE INDEX IF NOT EXISTS idx_blast_recipients_user_id  ON notification_blast_recipients(user_id);
