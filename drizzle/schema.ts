@@ -115,6 +115,80 @@ export const telegramLinkTokens = pgTable('telegram_link_tokens', {
   expiresIdx: index('idx_tg_link_tokens_expires').on(t.expiresAt),
 }))
 
+// ── Push Tokens ───────────────────────────────────────────────────────────────
+// Expo push tokens registered by the mobile app, one row per device.
+export const pushTokens = pgTable('push_tokens', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  userId:     uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token:      text('token').unique().notNull(),
+  platform:   text('platform').notNull(), // 'ios' | 'android'
+  isActive:   boolean('is_active').notNull().default(true),
+  createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:  timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  userIdx:   index('idx_push_tokens_user_id').on(t.userId),
+  activeIdx: index('idx_push_tokens_active').on(t.isActive),
+}))
+
+// ── Notification Blasts ──────────────────────────────────────────────────────
+// A blast notification batch composed and sent from the admin backoffice,
+// over one of two channels: push notification or Telegram (Bot Gizku).
+export const notificationBlasts = pgTable('notification_blasts', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  batchName:       text('batch_name').notNull(),
+  channel:         text('channel').notNull().default('push'), // 'push' | 'telegram'
+  title:           text('title').notNull().default(''), // push only; empty string for telegram
+  body:            text('body').notNull(),
+  targetType:      text('target_type').notNull(), // 'all' | 'specific'
+  targetUsernames: text('target_usernames').array(), // up to 10, null when targetType = 'all'
+  status:          text('status').notNull().default('scheduled'), // scheduled|sending|completed|cancelled|failed
+  scheduledAt:     timestamp('scheduled_at', { withTimezone: true }),
+  sentAt:          timestamp('sent_at', { withTimezone: true }),
+  createdBy:       text('created_by'),
+  targetedCount:   integer('targeted_count').notNull().default(0),
+  sentCount:       integer('sent_count').notNull().default(0),
+  clickedCount:    integer('clicked_count').notNull().default(0),
+  readCount:       integer('read_count').notNull().default(0),
+  failedCount:     integer('failed_count').notNull().default(0),
+  createdAt:       timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:       timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  statusIdx:      index('idx_notification_blasts_status').on(t.status),
+  scheduledIdx:   index('idx_notification_blasts_scheduled_at').on(t.scheduledAt),
+  channelIdx:     index('idx_notification_blasts_channel').on(t.channel),
+}))
+
+// ── Notification Blast Recipients ────────────────────────────────────────────
+// Per-recipient delivery status for a notification blast.
+export const notificationBlastRecipients = pgTable('notification_blast_recipients', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  blastId:     uuid('blast_id').notNull().references(() => notificationBlasts.id, { onDelete: 'cascade' }),
+  userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  pushTokenId: uuid('push_token_id').references(() => pushTokens.id, { onDelete: 'set null' }),
+  provider:    text('provider'), // 'fcm' | 'apns' | 'telegram' — set once dispatch resolves a delivery path
+  status:      text('status').notNull().default('pending'), // pending|sent|failed|clicked|read
+  errorMessage: text('error_message'),
+  // Ticket/message id from the provider (Expo push ticket id for push,
+  // Telegram message_id for telegram) — needed to look up delivery receipts
+  // later, since a provider "accepting" a send isn't the same as it actually
+  // being delivered to the device.
+  providerMessageId: text('provider_message_id'),
+  // Raw response payload from the provider (send ticket, later overwritten
+  // by the delivery receipt once checked, or the raw error) — surfaced as-is
+  // in the admin detail page for debugging.
+  providerResponse: jsonb('provider_response'),
+  receiptCheckedAt: timestamp('receipt_checked_at', { withTimezone: true }),
+  sentAt:      timestamp('sent_at', { withTimezone: true }),
+  clickedAt:   timestamp('clicked_at', { withTimezone: true }),
+  readAt:      timestamp('read_at', { withTimezone: true }),
+  createdAt:   timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  blastIdx:  index('idx_blast_recipients_blast_id').on(t.blastId),
+  userIdx:   index('idx_blast_recipients_user_id').on(t.userId),
+  statusIdx: index('idx_blast_recipients_status').on(t.blastId, t.status),
+}))
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
   meals:              many(meals),
@@ -122,6 +196,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   reports:            many(reports),
   telegramUsers:      many(telegramUsers),
   telegramLinkTokens: many(telegramLinkTokens),
+  pushTokens:         many(pushTokens),
+  blastRecipients:    many(notificationBlastRecipients),
 }))
 export const mealsRelations = relations(meals, ({ one }) => ({
   user: one(users, { fields: [meals.userId], references: [users.id] }),
@@ -138,13 +214,31 @@ export const telegramUsersRelations = relations(telegramUsers, ({ one }) => ({
 export const telegramLinkTokensRelations = relations(telegramLinkTokens, ({ one }) => ({
   user: one(users, { fields: [telegramLinkTokens.userId], references: [users.id] }),
 }))
+export const pushTokensRelations = relations(pushTokens, ({ one, many }) => ({
+  user:       one(users, { fields: [pushTokens.userId], references: [users.id] }),
+  recipients: many(notificationBlastRecipients),
+}))
+export const notificationBlastsRelations = relations(notificationBlasts, ({ many }) => ({
+  recipients: many(notificationBlastRecipients),
+}))
+export const notificationBlastRecipientsRelations = relations(notificationBlastRecipients, ({ one }) => ({
+  blast:     one(notificationBlasts, { fields: [notificationBlastRecipients.blastId], references: [notificationBlasts.id] }),
+  user:      one(users, { fields: [notificationBlastRecipients.userId], references: [users.id] }),
+  pushToken: one(pushTokens, { fields: [notificationBlastRecipients.pushTokenId], references: [pushTokens.id] }),
+}))
 
-export type User                = typeof users.$inferSelect
-export type NewUser             = typeof users.$inferInsert
-export type Meal                = typeof meals.$inferSelect
-export type Report              = typeof reports.$inferSelect
-export type LandingContent      = typeof landingContent.$inferSelect
-export type NewLandingContent   = typeof landingContent.$inferInsert
-export type TelegramUser        = typeof telegramUsers.$inferSelect
-export type NewTelegramUser     = typeof telegramUsers.$inferInsert
-export type TelegramLinkToken   = typeof telegramLinkTokens.$inferSelect
+export type User                       = typeof users.$inferSelect
+export type NewUser                    = typeof users.$inferInsert
+export type Meal                       = typeof meals.$inferSelect
+export type Report                     = typeof reports.$inferSelect
+export type LandingContent             = typeof landingContent.$inferSelect
+export type NewLandingContent          = typeof landingContent.$inferInsert
+export type TelegramUser               = typeof telegramUsers.$inferSelect
+export type NewTelegramUser            = typeof telegramUsers.$inferInsert
+export type TelegramLinkToken          = typeof telegramLinkTokens.$inferSelect
+export type PushToken                  = typeof pushTokens.$inferSelect
+export type NewPushToken               = typeof pushTokens.$inferInsert
+export type NotificationBlast          = typeof notificationBlasts.$inferSelect
+export type NewNotificationBlast       = typeof notificationBlasts.$inferInsert
+export type NotificationBlastRecipient = typeof notificationBlastRecipients.$inferSelect
+export type NewNotificationBlastRecipient = typeof notificationBlastRecipients.$inferInsert
