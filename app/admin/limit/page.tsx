@@ -231,6 +231,16 @@ export default function AdminLimitPage() {
 
   const dirty = !!(draft && savedConfig) && JSON.stringify(draft) !== JSON.stringify(savedConfig)
 
+  // Mirrors the server-side check in update_config — tiers must be
+  // non-decreasing in addPerDay by list position (the same order rendered/
+  // edited here and shown to users in the picker).
+  const tierOrderErrorIdx = draft
+    ? draft.tiers.findIndex((t, i) => i > 0 && t.addPerDay < draft.tiers[i - 1].addPerDay)
+    : -1
+  const tierOrderError = tierOrderErrorIdx >= 0 && draft
+    ? `Tier ke-${tierOrderErrorIdx + 1} (Tambahan/hari: ${draft.tiers[tierOrderErrorIdx].addPerDay}) tidak boleh lebih kecil dari tier sebelumnya (Tambahan/hari: ${draft.tiers[tierOrderErrorIdx - 1].addPerDay}). Urutkan tier dari limit tambahan terkecil ke terbesar.`
+    : null
+
   function updateTierField(idx: number, field: keyof TierDraft, value: string | number) {
     if (!draft) return
     setDraft({ ...draft, tiers: draft.tiers.map((t, i) => i === idx ? { ...t, [field]: value } : t) })
@@ -616,26 +626,31 @@ export default function AdminLimitPage() {
             <h2 className="font-semibold text-xs uppercase tracking-wide text-[#6B7280]">Tier / Paket Penambahan Limit</h2>
             <div className="space-y-2.5">
               {draft.tiers.map((t, i) => (
-                <div key={t.id ?? `new-${i}`} className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
-                  <div className="flex-1 min-w-[120px]">
-                    <label className="text-[11px] text-[#9CA3AF] mb-1 block">Nama Tier</label>
-                    <input value={t.label} onChange={e => updateTierField(i, 'label', e.target.value)} className={inputCls} />
+                <div key={t.id ?? `new-${i}`}>
+                  <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="text-[11px] text-[#9CA3AF] mb-1 block">Nama Tier</label>
+                      <input value={t.label} onChange={e => updateTierField(i, 'label', e.target.value)} className={inputCls} />
+                    </div>
+                    <div className="w-[110px]">
+                      <label className="text-[11px] text-[#9CA3AF] mb-1 block">Tambahan/hari</label>
+                      <input type="number" min={1} value={t.addPerDay} onChange={e => updateTierField(i, 'addPerDay', Number(e.target.value))} className={`${inputCls} ${i === tierOrderErrorIdx ? 'border-red-400' : ''}`} />
+                    </div>
+                    <div className="w-[130px]">
+                      <label className="text-[11px] text-[#9CA3AF] mb-1 block">Harga (Rp)</label>
+                      <input type="number" min={0} step={1000} value={t.price} onChange={e => updateTierField(i, 'price', Number(e.target.value))} className={inputCls} />
+                    </div>
+                    <button
+                      onClick={() => removeTier(i)}
+                      disabled={draft.tiers.length <= 1}
+                      className="text-xs px-3 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed min-h-[38px] shrink-0"
+                    >
+                      Hapus
+                    </button>
                   </div>
-                  <div className="w-[110px]">
-                    <label className="text-[11px] text-[#9CA3AF] mb-1 block">Tambahan/hari</label>
-                    <input type="number" min={1} value={t.addPerDay} onChange={e => updateTierField(i, 'addPerDay', Number(e.target.value))} className={inputCls} />
-                  </div>
-                  <div className="w-[130px]">
-                    <label className="text-[11px] text-[#9CA3AF] mb-1 block">Harga (Rp)</label>
-                    <input type="number" min={0} step={1000} value={t.price} onChange={e => updateTierField(i, 'price', Number(e.target.value))} className={inputCls} />
-                  </div>
-                  <button
-                    onClick={() => removeTier(i)}
-                    disabled={draft.tiers.length <= 1}
-                    className="text-xs px-3 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed min-h-[38px] shrink-0"
-                  >
-                    Hapus
-                  </button>
+                  {i === tierOrderErrorIdx && (
+                    <p className="text-xs text-red-500 mt-1">{tierOrderError}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -665,10 +680,11 @@ export default function AdminLimitPage() {
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            {dirty && <span className="text-xs font-medium text-amber-600">Ada perubahan belum disimpan</span>}
+            {tierOrderError && <span className="text-xs font-medium text-red-500">Urutan tier tidak valid</span>}
+            {!tierOrderError && dirty && <span className="text-xs font-medium text-amber-600">Ada perubahan belum disimpan</span>}
             <button
               onClick={() => setConfirmOpen(true)}
-              disabled={!dirty || saving}
+              disabled={!dirty || saving || !!tierOrderError}
               className="bg-[#2ECC71] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[#28B765] transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
             >
               Simpan Konfigurasi

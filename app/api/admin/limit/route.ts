@@ -16,8 +16,8 @@ import { db } from '@/lib/db'
 import { limitRequests, limitTiers, users } from '@/drizzle/schema'
 import { requireAdmin, getGlobalLimit } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
-import { REJECT_REASONS, getLimitBankConfig, setLimitConfig, isLimitFeatureEnabled, listTiers } from '@/lib/limit'
-import { getApprovedPeriods, computeUserLedger } from '@/lib/limitLedger'
+import { REJECT_REASONS, getLimitBankConfig, setLimitConfig, isLimitFeatureEnabled, listTiers, getUserFloor } from '@/lib/limit'
+import { getApprovedPeriods, computeUserLedger, computeEffectiveLimit } from '@/lib/limitLedger'
 import { eq, and, desc, count, sum, gte, lt, ilike, sql, notInArray } from 'drizzle-orm'
 
 function jsonErr(msg: string, status = 500) {
@@ -204,6 +204,18 @@ async function handlePost(req: NextRequest) {
     const id = body.id
     if (!id) return err('id diperlukan')
 
+    const [target] = await db.select({
+      userId: limitRequests.userId, totalPerDay: limitRequests.totalPerDay, status: limitRequests.status,
+    }).from(limitRequests).where(eq(limitRequests.id, id)).limit(1)
+    if (!target) return err('Request tidak ditemukan', 404)
+    if (target.status !== 'pending') return err('Request sudah diproses atau tidak ditemukan', 409)
+
+    const floor = await getUserFloor(target.userId)
+    const currentEffectiveLimit = await computeEffectiveLimit(target.userId, floor)
+    if (target.totalPerDay < currentEffectiveLimit) {
+      return err(`Tidak bisa disetujui — limit tier ini (${target.totalPerDay}/hari) lebih rendah dari limit aktif user saat ini (${currentEffectiveLimit}/hari). Menyetujui request ini akan menurunkan limit user secara tidak semestinya.`)
+    }
+
     const updated = await db.update(limitRequests)
       .set({ status: 'approved', decidedAt: new Date() })
       .where(and(eq(limitRequests.id, id), eq(limitRequests.status, 'pending')))
@@ -244,6 +256,15 @@ async function handlePost(req: NextRequest) {
       if (!t.label || !String(t.label).trim()) return err('Nama tier tidak boleh kosong')
       if (!Number.isFinite(t.addPerDay) || Number(t.addPerDay) <= 0) return err(`Tambahan per hari tidak valid untuk tier "${t.label}"`)
       if (!Number.isFinite(t.price) || Number(t.price) < 0) return err(`Harga tidak valid untuk tier "${t.label}"`)
+    }
+
+    // Tier list must be non-decreasing in addPerDay by position, so the
+    // pricing ladder shown to users always goes from smallest to largest
+    // tambahan/hari — the same order rendered/edited here and in the picker.
+    for (let i = 1; i < parsed.length; i++) {
+      if (Number(parsed[i].addPerDay) < Number(parsed[i - 1].addPerDay)) {
+        return err(`Tier ke-${i + 1} (Tambahan/hari: ${parsed[i].addPerDay}) tidak boleh lebih kecil dari tier sebelumnya (Tambahan/hari: ${parsed[i - 1].addPerDay}). Urutkan tier dari limit tambahan terkecil ke terbesar.`)
+      }
     }
 
     await db.transaction(async tx => {
