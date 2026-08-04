@@ -121,7 +121,9 @@ async function handleGet(req: NextRequest) {
       tierLabel: row.r.tierLabel, addPerDay: row.r.addPerDay, totalPerDay: row.r.totalPerDay,
       price: row.r.price, uniqueCode: row.r.uniqueCode, totalTransfer: row.r.totalTransfer,
       status: row.r.status, submittedAt: row.r.submittedAt, decidedAt: row.r.decidedAt,
-      proofImageUrl: row.r.proofImageUrl, note: row.r.note,
+      proofImageUrl: row.r.proofImageUrl,
+      senderAccountHolder: row.r.senderAccountHolder, senderAccountNumber: row.r.senderAccountNumber,
+      note: row.r.note,
       rejectReason: row.r.rejectReason, rejectNote: row.r.rejectNote,
       ...(row.r.status === 'approved' ? { expiresAt } : {}),
     })

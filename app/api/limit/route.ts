@@ -8,7 +8,7 @@
  * GET  ?action=request&id=       — single request detail (must belong to caller)
  * GET  ?action=ledger&page=&pageSize= — usage/reset ledger, newest first, paginated (max 10/page)
  * POST {action:'reserve_code', tierId}                                — purely computed, nothing persisted
- * POST {action:'submit_request', tierId, uniqueCode, proofImageUrl, note?} — creates a pending request
+ * POST {action:'submit_request', tierId, uniqueCode, proofImageUrl, senderAccountHolder, senderAccountNumber, note?} — creates a pending request
  */
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
@@ -61,6 +61,8 @@ function requestDetailShape(r: typeof limitRequests.$inferSelect, expiresAt: str
     submittedAt: r.submittedAt,
     decidedAt: r.decidedAt,
     proofImageUrl: r.proofImageUrl,
+    senderAccountHolder: r.senderAccountHolder,
+    senderAccountNumber: r.senderAccountNumber,
     note: r.note,
     rejectReason: r.rejectReason,
     rejectNote: r.rejectNote,
@@ -214,11 +216,15 @@ async function handlePost(req: NextRequest, userId: string) {
     const tierId = body.tierId
     const uniqueCode = Number(body.uniqueCode)
     const proofImageUrl = String(body.proofImageUrl ?? '')
+    const senderAccountHolder = String(body.senderAccountHolder ?? '').trim()
+    const senderAccountNumber = String(body.senderAccountNumber ?? '').trim()
     const note = body.note ? String(body.note).trim() : null
 
     if (!tierId) return err('tierId diperlukan')
     if (!Number.isInteger(uniqueCode) || uniqueCode < 100 || uniqueCode > 999) return err('Kode unik tidak valid')
     if (!proofImageUrl) return err('Bukti transfer diperlukan')
+    if (!senderAccountHolder) return err('Nama rekening pengirim diperlukan')
+    if (!senderAccountNumber) return err('Nomor rekening pengirim diperlukan')
 
     const tier = await getTierById(tierId)
     if (!tier) return err('Paket tidak ditemukan', 404)
@@ -255,6 +261,8 @@ async function handlePost(req: NextRequest, userId: string) {
       totalTransfer,
       status: 'pending',
       proofImageUrl,
+      senderAccountHolder,
+      senderAccountNumber,
       note,
     }).returning()
 

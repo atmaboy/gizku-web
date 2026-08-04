@@ -15,7 +15,9 @@ type RequestListItem = {
 }
 type RequestDetail = RequestListItem & {
   addPerDay: number; price: number; uniqueCode: number; decidedAt: string | null
-  proofImageUrl: string; note: string | null; rejectReason: string | null; rejectNote: string | null; expiresAt?: string
+  proofImageUrl: string
+  senderAccountHolder: string | null; senderAccountNumber: string | null
+  note: string | null; rejectReason: string | null; rejectNote: string | null; expiresAt?: string
 }
 type LedgerRowType = 'usage' | 'tier-approved-reset' | 'expiry-reset' | 'daily-reset'
 type LedgerRow = { date: string; type: LedgerRowType; title: string; before: number; after: number; delta: number }
@@ -405,6 +407,18 @@ export default function AdminLimitPage() {
                     <div className="text-xs bg-red-50 rounded-lg p-2.5 space-y-1">
                       <div className="font-semibold text-red-600">{detail.rejectReason}</div>
                       {detail.rejectNote && <div className="text-red-600">{detail.rejectNote}</div>}
+                    </div>
+                  )}
+
+                  {(detail.senderAccountHolder || detail.senderAccountNumber) && (
+                    <div className="text-xs bg-[#EAFBF1] rounded-lg p-2.5 space-y-1">
+                      <p className="text-[11px] font-semibold text-[#1F9D57] uppercase tracking-wide mb-1">Rekening Pengirim</p>
+                      {detail.senderAccountHolder && (
+                        <div className="flex justify-between gap-2"><span className="text-[#4B7A63]">Nama</span><span className="text-[#111827] font-medium text-right">{detail.senderAccountHolder}</span></div>
+                      )}
+                      {detail.senderAccountNumber && (
+                        <div className="flex justify-between gap-2"><span className="text-[#4B7A63]">Nomor</span><span className="text-[#111827] font-medium text-right">{detail.senderAccountNumber}</span></div>
+                      )}
                     </div>
                   )}
 
