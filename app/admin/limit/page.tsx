@@ -120,6 +120,10 @@ export default function AdminLimitPage() {
     setSelectedId(id)
     loadDetail(id)
   }
+  function closeRequestModal() {
+    setSelectedId(null)
+    setDetail(null)
+  }
 
   async function doApprove() {
     if (!detail) return
@@ -263,10 +267,8 @@ export default function AdminLimitPage() {
             <StatTile label="Nominal Masuk Bulan Ini" value={stats ? `Rp ${fmtRupiah(stats.nominalMasukThisMonth)}` : '—'} />
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-4 items-start">
-            {/* Left: filters + table */}
-            <div className="flex-1 min-w-0 w-full space-y-3">
-              <div className="flex gap-2 flex-wrap">
+          <div className="space-y-3">
+            <div className="flex gap-2 flex-wrap">
                 {(['all', 'pending', 'approved', 'rejected'] as Status[]).map(s => (
                   <button
                     key={s}
@@ -327,89 +329,112 @@ export default function AdminLimitPage() {
                   </div>
                 </div>
               )}
+          </div>
+        </div>
+      )}
+
+      {/* ── REQUEST DETAIL MODAL ── */}
+      {selectedId && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
+          onClick={closeRequestModal}
+        >
+          <div
+            className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[88vh] flex flex-col shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="min-w-0">
+                <h2 className="font-semibold text-gray-900 text-base truncate">{detail?.userName ?? 'Detail Request'}</h2>
+                {detail && <p className="text-xs text-gray-400 mt-0.5">{detail.tierLabel}</p>}
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {detail && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[detail.status]}`}>{STATUS_LABEL[detail.status]}</span>
+                )}
+                <button
+                  onClick={closeRequestModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            {/* Right: detail panel */}
-            <div className="w-full lg:w-[360px] lg:shrink-0 lg:sticky lg:top-4">
-              <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-5 shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-                {!selectedId && (
-                  <p className="text-sm text-[#9CA3AF] text-center py-8">Pilih salah satu request pada tabel untuk melihat detail dan melakukan review.</p>
-                )}
-                {selectedId && detailLoading && <div className="text-center py-8 text-sm text-[#9CA3AF]">Memuat…</div>}
-                {selectedId && !detailLoading && detail && (
-                  <div className="space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-[#111827] text-sm">{detail.userName}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[detail.status]}`}>{STATUS_LABEL[detail.status]}</span>
-                    </div>
-
-                    <div className="text-xs space-y-1.5">
-                      <div className="flex justify-between"><span className="text-[#9CA3AF]">Paket</span><span className="text-[#111827] font-medium">{detail.tierLabel}</span></div>
-                      <div className="flex justify-between"><span className="text-[#9CA3AF]">Total/hari</span><span className="text-[#111827] font-medium">{detail.totalPerDay} analisa/hari</span></div>
-                      <div className="flex justify-between"><span className="text-[#9CA3AF]">Nominal</span><span className="text-[#111827] font-medium">Rp {fmtRupiah(detail.totalTransfer)} (kode {detail.uniqueCode})</span></div>
-                      <div className="flex justify-between"><span className="text-[#9CA3AF]">Tanggal</span><span className="text-[#111827] font-medium">{fmtDateTime(detail.submittedAt)}</span></div>
-                      {detail.status === 'approved' && detail.expiresAt && (
-                        <div className="flex justify-between"><span className="text-[#9CA3AF]">Aktif hingga</span><span className="text-[#111827] font-medium">{fmtDate(detail.expiresAt)}</span></div>
-                      )}
-                    </div>
-
-                    {detail.note && (
-                      <div className="text-xs text-[#6B7280] italic bg-[#F9FAFB] rounded-lg p-2.5">&ldquo;{detail.note}&rdquo;</div>
-                    )}
-
-                    {detail.status === 'rejected' && (
-                      <div className="text-xs bg-red-50 rounded-lg p-2.5 space-y-1">
-                        <div className="font-semibold text-red-600">{detail.rejectReason}</div>
-                        {detail.rejectNote && <div className="text-red-600">{detail.rejectNote}</div>}
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="text-[11px] text-[#9CA3AF] mb-1.5">Bukti Transfer</p>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={detail.proofImageUrl} alt="Bukti transfer" className="w-full h-auto rounded-lg ring-1 ring-[#E5E7EB]" />
-                    </div>
-
-                    <button
-                      onClick={() => jumpToLedger(detail.userId, detail.userName)}
-                      className="w-full text-xs font-semibold px-3 py-2.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[40px]"
-                    >
-                      Lihat Riwayat Limit Lengkap
-                    </button>
-
-                    {detail.status === 'pending' && (
-                      <div className="pt-3 border-t border-[#F3F4F6] space-y-2.5">
-                        <p className="text-xs font-semibold text-[#111827]">Review Request</p>
-                        <select value={reviewReason} onChange={e => setReviewReason(e.target.value)} className={inputCls}>
-                          <option value="">Pilih alasan…</option>
-                          {REJECT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        <textarea
-                          value={reviewNote} onChange={e => setReviewNote(e.target.value)}
-                          placeholder="Catatan tambahan (opsional)" rows={2}
-                          className={`${inputCls} resize-none`}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={doReject}
-                            disabled={!reviewReason || reviewing !== null}
-                            className="flex-1 text-sm font-semibold px-3 py-2.5 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]"
-                          >
-                            {reviewing === 'reject' ? '…' : 'Tolak'}
-                          </button>
-                          <button
-                            onClick={doApprove}
-                            disabled={reviewing !== null}
-                            className="flex-1 text-sm font-semibold px-3 py-2.5 rounded-lg bg-[#2ECC71] text-white hover:bg-[#28B765] transition disabled:opacity-50 min-h-[40px]"
-                          >
-                            {reviewing === 'approve' ? '…' : 'Setujui'}
-                          </button>
-                        </div>
-                      </div>
+            {/* Modal body */}
+            <div className="overflow-y-auto flex-1 px-5 py-4">
+              {detailLoading && <div className="text-center py-8 text-sm text-[#9CA3AF]">Memuat…</div>}
+              {!detailLoading && detail && (
+                <div className="space-y-3.5">
+                  <div className="text-xs space-y-1.5">
+                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Paket</span><span className="text-[#111827] font-medium">{detail.tierLabel}</span></div>
+                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Total/hari</span><span className="text-[#111827] font-medium">{detail.totalPerDay} analisa/hari</span></div>
+                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Nominal</span><span className="text-[#111827] font-medium">Rp {fmtRupiah(detail.totalTransfer)} (kode {detail.uniqueCode})</span></div>
+                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Tanggal</span><span className="text-[#111827] font-medium">{fmtDateTime(detail.submittedAt)}</span></div>
+                    {detail.status === 'approved' && detail.expiresAt && (
+                      <div className="flex justify-between"><span className="text-[#9CA3AF]">Aktif hingga</span><span className="text-[#111827] font-medium">{fmtDate(detail.expiresAt)}</span></div>
                     )}
                   </div>
-                )}
-              </div>
+
+                  {detail.note && (
+                    <div className="text-xs text-[#6B7280] italic bg-[#F9FAFB] rounded-lg p-2.5">&ldquo;{detail.note}&rdquo;</div>
+                  )}
+
+                  {detail.status === 'rejected' && (
+                    <div className="text-xs bg-red-50 rounded-lg p-2.5 space-y-1">
+                      <div className="font-semibold text-red-600">{detail.rejectReason}</div>
+                      {detail.rejectNote && <div className="text-red-600">{detail.rejectNote}</div>}
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-[11px] text-[#9CA3AF] mb-1.5">Bukti Transfer</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={detail.proofImageUrl} alt="Bukti transfer" className="w-full h-auto rounded-lg ring-1 ring-[#E5E7EB]" />
+                  </div>
+
+                  <button
+                    onClick={() => jumpToLedger(detail.userId, detail.userName)}
+                    className="w-full text-xs font-semibold px-3 py-2.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[40px]"
+                  >
+                    Lihat Riwayat Limit Lengkap
+                  </button>
+
+                  {detail.status === 'pending' && (
+                    <div className="pt-3 border-t border-[#F3F4F6] space-y-2.5">
+                      <p className="text-xs font-semibold text-[#111827]">Review Request</p>
+                      <select value={reviewReason} onChange={e => setReviewReason(e.target.value)} className={inputCls}>
+                        <option value="">Pilih alasan…</option>
+                        {REJECT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <textarea
+                        value={reviewNote} onChange={e => setReviewNote(e.target.value)}
+                        placeholder="Catatan tambahan (opsional)" rows={2}
+                        className={`${inputCls} resize-none`}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={doReject}
+                          disabled={!reviewReason || reviewing !== null}
+                          className="flex-1 text-sm font-semibold px-3 py-2.5 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]"
+                        >
+                          {reviewing === 'reject' ? '…' : 'Tolak'}
+                        </button>
+                        <button
+                          onClick={doApprove}
+                          disabled={reviewing !== null}
+                          className="flex-1 text-sm font-semibold px-3 py-2.5 rounded-lg bg-[#2ECC71] text-white hover:bg-[#28B765] transition disabled:opacity-50 min-h-[40px]"
+                        >
+                          {reviewing === 'approve' ? '…' : 'Setujui'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
