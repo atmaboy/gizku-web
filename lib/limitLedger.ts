@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { limitRequests, dailyUsage } from '@/drizzle/schema'
-import { eq, and, asc } from 'drizzle-orm'
+import { eq, and, asc, gte, lt } from 'drizzle-orm'
 import { getUserFloor } from '@/lib/limit'
 import { todayISO } from '@/lib/utils'
 
@@ -13,6 +13,14 @@ import { todayISO } from '@/lib/utils'
 
 const PERIOD_DAYS = 30
 const MS_DAY = 24 * 60 * 60 * 1000
+
+// How far back the ledger's usage history reaches. dailyUsage rows older
+// than this are also physically deleted (see pruneOldDailyUsage, run daily
+// via cron) — purely usage telemetry, never financial/approval data, so
+// this only trims how far back "Riwayat Limit" can show past usage, not any
+// current-effective-limit computation (no period a request could still be
+// active for reaches back this far, since tiers only ever last 30 days).
+export const USAGE_RETENTION_DAYS = 90
 
 export type LedgerRowType = 'usage' | 'tier-approved-reset' | 'expiry-reset' | 'daily-reset'
 
@@ -141,7 +149,9 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
     }
   }
 
-  const usageRows = await db.select().from(dailyUsage).where(eq(dailyUsage.userId, userId))
+  const usageCutoff = dateOnly(addDays(new Date(), -USAGE_RETENTION_DAYS))
+  const usageRows = await db.select().from(dailyUsage)
+    .where(and(eq(dailyUsage.userId, userId), gte(dailyUsage.date, usageCutoff)))
   for (const u of usageRows) {
     const count = u.count ?? 0
     if (count <= 0) continue
@@ -183,4 +193,18 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
 
   rows.reverse() // newest first
   return { balance, rows }
+}
+
+/**
+ * Deletes dailyUsage rows older than USAGE_RETENTION_DAYS, across all users.
+ * Run daily via the cron at app/api/cron/prune-old-usage/route.ts. Safe to
+ * run at any time and as often as needed — purely usage telemetry, not
+ * financial/approval data, and it never removes anything the ledger's
+ * own retention-windowed query would have read anyway. Returns the number
+ * of rows deleted.
+ */
+export async function pruneOldDailyUsage(): Promise<number> {
+  const cutoff = dateOnly(addDays(new Date(), -USAGE_RETENTION_DAYS))
+  const deleted = await db.delete(dailyUsage).where(lt(dailyUsage.date, cutoff)).returning({ userId: dailyUsage.userId })
+  return deleted.length
 }
