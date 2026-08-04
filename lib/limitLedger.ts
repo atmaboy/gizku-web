@@ -170,8 +170,15 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
     current = after
   }
 
-  const balance = rows.length > 0
-    ? rows[rows.length - 1].after
+  // `current` is the running balance after the last processed event, but
+  // that event may be from a previous day — a day with zero usage so far
+  // has no event at all (by design, see the daily-reset skip above), so
+  // carrying that stale balance forward would show yesterday's leftover
+  // instead of today's fresh, untouched quota. Only trust `current` as
+  // "today's balance" when the last event actually happened today.
+  const lastEventDate = events.length > 0 ? events[events.length - 1].date : null
+  const balance = lastEventDate === today
+    ? current
     : effectiveLimitForDate(today, periods, floor)
 
   rows.reverse() // newest first
