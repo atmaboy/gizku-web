@@ -229,7 +229,41 @@ async function handlePost(req: NextRequest, userId: string) {
     const tier = await getTierById(tierId)
     if (!tier) return err('Paket tidak ditemukan', 404)
 
-    // Race check — the code may have been taken since it was reserved.
+    // Retry safety net — a lost connection between "the transfer already
+    // happened + request was created server-side" and "the client actually
+    // saw the success response" makes the client retry submit_request with
+    // the SAME uniqueCode it already (successfully) used. generateUniqueCode()
+    // never hands out a code that's currently held by a non-approved request,
+    // so the only way THIS user's own uniqueCode can already belong to one of
+    // their own requests is if that request IS the earlier attempt — never a
+    // coincidentally-colliding, genuinely different submission. Treat it as
+    // the same in-flight request instead of erroring or creating a duplicate.
+    const [ownExisting] = await db.select().from(limitRequests)
+      .where(and(eq(limitRequests.userId, userId), eq(limitRequests.uniqueCode, uniqueCode)))
+      .limit(1)
+
+    if (ownExisting?.status === 'approved') {
+      // Admin approved the first attempt before the retry landed — nothing
+      // left to do, just hand back what already exists.
+      const periods = await getApprovedPeriods(userId)
+      const period = periods.find(p => p.requestId === ownExisting.id)
+      return ok(requestDetailShape(ownExisting, period?.end ?? null))
+    }
+
+    if (ownExisting?.status === 'pending') {
+      // Refresh with this attempt's data in case the first one got cut off
+      // mid-upload and left a partial/incomplete proof image.
+      const [updated] = await db.update(limitRequests)
+        .set({ proofImageUrl, senderAccountHolder, senderAccountNumber, note })
+        .where(eq(limitRequests.id, ownExisting.id))
+        .returning()
+      return ok(requestDetailShape(updated, null))
+    }
+
+    // Race check — the code may have been taken since it was reserved, by
+    // someone else (or by this same user's own already-rejected request,
+    // which we deliberately don't special-case above — that's stale enough
+    // to warrant a conscious "Ajukan Ulang" instead of silently reviving it).
     const [taken] = await db.select({ id: limitRequests.id }).from(limitRequests)
       .where(and(eq(limitRequests.uniqueCode, uniqueCode), ne(limitRequests.status, 'approved')))
       .limit(1)
