@@ -19,6 +19,8 @@ type RequestDetail = {
   submittedAt: string
   decidedAt: string | null
   proofImageUrl: string
+  senderAccountHolder: string | null
+  senderAccountNumber: string | null
   note: string | null
   rejectReason: string | null
   rejectNote: string | null
@@ -115,6 +117,23 @@ export default function LimitRequestDetailPage() {
             </div>
           )}
         </div>
+
+        {(detail.senderAccountHolder || detail.senderAccountNumber) && (
+          <div className="bg-surface shadow-hairline rounded-lg px-4 py-3.5 mb-4">
+            {detail.senderAccountHolder && (
+              <div className="flex justify-between py-1.5 text-sm">
+                <span className="text-secondary">Nama Rekening Pengirim</span>
+                <span className="font-medium text-primary text-right">{detail.senderAccountHolder}</span>
+              </div>
+            )}
+            {detail.senderAccountNumber && (
+              <div className="flex justify-between py-1.5 text-sm">
+                <span className="text-secondary">Nomor Rekening Pengirim</span>
+                <span className="font-medium text-primary text-right">{detail.senderAccountNumber}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2.5">Bukti Transfer</div>
         <div className="w-full rounded-lg bg-sunken overflow-hidden mb-4" style={{ minHeight: 180 }}>

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import ScreenHeader from '@/components/ui/ScreenHeader'
 import Button from '@/components/ui/Button'
+import TextField from '@/components/ui/TextField'
 import { IconCheck, IconInfo, IconBank, IconUpload } from '@/components/ui/icons'
 
 type Tier = { id: string; label: string; addPerDay: number; price: number; totalPerDay: number }
@@ -60,6 +61,8 @@ export default function NewLimitRequestPage() {
   const [copied, setCopied] = useState(false)
 
   const [proofImageUrl, setProofImageUrl] = useState('')
+  const [senderAccountHolder, setSenderAccountHolder] = useState('')
+  const [senderAccountNumber, setSenderAccountNumber] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -125,7 +128,7 @@ export default function NewLimitRequestPage() {
   }
 
   async function submitRequest() {
-    if (!reserved || !proofImageUrl) return
+    if (!reserved || !proofImageUrl || !senderAccountHolder.trim() || !senderAccountNumber.trim()) return
     setSubmitting(true)
     try {
       const res = await fetch('/api/limit?action=submit_request', {
@@ -136,6 +139,8 @@ export default function NewLimitRequestPage() {
           tierId: reserved.tierId,
           uniqueCode: reserved.uniqueCode,
           proofImageUrl,
+          senderAccountHolder: senderAccountHolder.trim(),
+          senderAccountNumber: senderAccountNumber.trim(),
           note: note.trim() || undefined,
         }),
       })
@@ -329,6 +334,22 @@ export default function NewLimitRequestPage() {
               Upload screenshot/foto bukti transfer sesuai nominal Rp {fmtRupiah(reserved.totalTransfer)} (termasuk digit unik).
             </div>
 
+            <TextField
+              label="Nama Rekening Pengirim"
+              placeholder="Contoh: Rania Putri"
+              value={senderAccountHolder}
+              onChange={e => setSenderAccountHolder(e.target.value)}
+            />
+            <TextField
+              label="Nomor Rekening Pengirim"
+              placeholder="Contoh: 1234567890"
+              value={senderAccountNumber}
+              onChange={e => setSenderAccountNumber(e.target.value)}
+            />
+            <div className="text-xs text-secondary leading-normal mb-4 -mt-1.5">
+              Nama dan Nomor Rekening Pengirim dibutuhkan untuk proses verifikasi uang masuk ke rekening.
+            </div>
+
             <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-1.5">Catatan (opsional)</div>
             <textarea
               value={note}
@@ -363,7 +384,7 @@ export default function NewLimitRequestPage() {
               className="shrink-0"
               onClick={submitRequest}
               loading={submitting}
-              disabled={!proofImageUrl}
+              disabled={!proofImageUrl || !senderAccountHolder.trim() || !senderAccountNumber.trim()}
             >
               Kirim Request
             </Button>

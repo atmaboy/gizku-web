@@ -221,6 +221,12 @@ export const limitRequests = pgTable('limit_requests', {
   submittedAt:   timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
   decidedAt:     timestamp('decided_at', { withTimezone: true }),
   proofImageUrl: text('proof_image_url').notNull(),
+  // Sender's declared bank account for the transfer (who it came FROM),
+  // used by admins to reconcile incoming transfers alongside the proof
+  // image. Nullable — legacy requests submitted before this field shipped
+  // won't have it; required-ness for new submissions is enforced in the API.
+  senderAccountHolder: text('sender_account_holder'),
+  senderAccountNumber: text('sender_account_number'),
   note:          text('note'),
   rejectReason:  text('reject_reason'),
   rejectNote:    text('reject_note'),
