@@ -5,7 +5,7 @@
  * GET  ?action=requests&status=&page=&pageSize=          — paginated request queue
  * GET  ?action=request&id=                               — full request detail
  * GET  ?action=search_users&field=name|email|id&query=   — user lookup for Riwayat Limit User tab
- * GET  ?action=user_ledger&userId=                       — one user's usage/reset ledger
+ * GET  ?action=user_ledger&userId=&page=&pageSize=       — one user's usage/reset ledger, paginated (max 10/page)
  * GET  ?action=config                                    — bank info, feature flag, tiers
  * POST {action:'approve', id}                            — approves a pending request
  * POST {action:'reject', id, reason, note?}               — rejects a pending request
@@ -152,12 +152,19 @@ async function handleGet(req: NextRequest) {
   if (action === 'user_ledger') {
     const userId = req.nextUrl.searchParams.get('userId')
     if (!userId) return err('userId diperlukan')
+    const page = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') || '1', 10))
+    const pageSize = Math.min(10, Math.max(1, parseInt(req.nextUrl.searchParams.get('pageSize') || '10', 10)))
 
     const [u] = await db.select({ username: users.username }).from(users).where(eq(users.id, userId)).limit(1)
     if (!u) return err('User tidak ditemukan', 404)
 
     const { balance, rows } = await computeUserLedger(userId)
-    return ok({ userName: u.username, balance, rows })
+    const total = rows.length
+    const pageCount = Math.max(1, Math.ceil(total / pageSize))
+    const offset = (page - 1) * pageSize
+    const pageRows = rows.slice(offset, offset + pageSize)
+
+    return ok({ userName: u.username, balance, rows: pageRows, page, pageCount, total })
   }
 
   if (action === 'config') {

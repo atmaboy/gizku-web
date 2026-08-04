@@ -166,6 +166,9 @@ export default function AdminLimitPage() {
   const [ledgerLoading, setLedgerLoading] = useState(false)
   const [ledgerBalance, setLedgerBalance] = useState<number | null>(null)
   const [ledgerRows, setLedgerRows] = useState<LedgerRow[]>([])
+  const [ledgerPage, setLedgerPage] = useState(1)
+  const [ledgerPageCount, setLedgerPageCount] = useState(1)
+  const [ledgerTotal, setLedgerTotal] = useState(0)
 
   async function runSearch() {
     if (!searchQuery.trim()) return
@@ -177,16 +180,31 @@ export default function AdminLimitPage() {
     } finally { setSearching(false) }
   }
 
-  const loadUserLedger = useCallback((userId: string) => {
+  // Passing no page (or a different userId) resets to page 1 — used whenever
+  // a new user is selected; page navigation passes the target page explicitly.
+  const loadUserLedger = useCallback((userId: string, p: number = 1) => {
     setLedgerLoading(true)
     setLedgerUserId(userId)
-    fetch(`/api/admin/limit?action=user_ledger&userId=${userId}`)
+    fetch(`/api/admin/limit?action=user_ledger&userId=${userId}&page=${p}&pageSize=10`)
       .then(r => r.json())
-      .then(d => { setLedgerUserName(d.userName ?? null); setLedgerBalance(d.balance ?? 0); setLedgerRows(Array.isArray(d.rows) ? d.rows : []) })
+      .then(d => {
+        setLedgerUserName(d.userName ?? null)
+        setLedgerBalance(d.balance ?? 0)
+        setLedgerRows(Array.isArray(d.rows) ? d.rows : [])
+        setLedgerPage(d.page ?? p)
+        setLedgerPageCount(d.pageCount ?? 1)
+        setLedgerTotal(d.total ?? 0)
+      })
       .finally(() => setLedgerLoading(false))
   }, [])
 
+  function goToLedgerPage(p: number) {
+    if (!ledgerUserId) return
+    loadUserLedger(ledgerUserId, p)
+  }
+
   function jumpToLedger(userId: string, userName: string) {
+    closeRequestModal()
     setTab('ledger')
     setLedgerUserName(userName)
     loadUserLedger(userId)
@@ -475,7 +493,7 @@ export default function AdminLimitPage() {
                 {searchResults.map(u => (
                   <button
                     key={u.userId}
-                    onClick={() => { setLedgerUserName(u.name); loadUserLedger(u.userId) }}
+                    onClick={() => { setLedgerUserName(u.name); loadUserLedger(u.userId, 1) }}
                     className={`w-full text-left px-4 py-3 transition ${ledgerUserId === u.userId ? 'bg-[#EAFBF1]' : 'hover:bg-[#F9FAFB]'}`}
                   >
                     <p className="text-sm font-semibold text-[#111827]">{u.name}</p>
@@ -537,6 +555,16 @@ export default function AdminLimitPage() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {ledgerRows.length > 0 && (
+                    <div className="flex items-center justify-between gap-3 flex-wrap mt-4 pt-3 border-t border-[#F3F4F6]">
+                      <span className="text-xs text-[#6B7280] tabular-nums">{ledgerPage}/{ledgerPageCount} · {ledgerTotal} data</span>
+                      <div className="flex items-center gap-2">
+                        <button disabled={ledgerPage <= 1} onClick={() => goToLedgerPage(ledgerPage - 1)} className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40">← Sebelumnya</button>
+                        <button disabled={ledgerPage >= ledgerPageCount} onClick={() => goToLedgerPage(ledgerPage + 1)} className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40">Berikutnya →</button>
+                      </div>
                     </div>
                   )}
                 </>

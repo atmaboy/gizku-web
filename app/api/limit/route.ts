@@ -6,7 +6,7 @@
  * GET  ?action=summary           — for the Settings card: dailyLimit/used/remaining/activeTier
  * GET  ?action=requests          — caller's own requests, newest first
  * GET  ?action=request&id=       — single request detail (must belong to caller)
- * GET  ?action=ledger            — usage/reset ledger, newest first
+ * GET  ?action=ledger&page=&pageSize= — usage/reset ledger, newest first, paginated (max 10/page)
  * POST {action:'reserve_code', tierId}                                — purely computed, nothing persisted
  * POST {action:'submit_request', tierId, uniqueCode, proofImageUrl, note?} — creates a pending request
  */
@@ -152,8 +152,16 @@ async function handleGet(req: NextRequest, userId: string) {
   }
 
   if (action === 'ledger') {
+    const page = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') || '1', 10))
+    const pageSize = Math.min(10, Math.max(1, parseInt(req.nextUrl.searchParams.get('pageSize') || '10', 10)))
+
     const { balance, rows } = await computeUserLedger(userId)
-    return ok({ balance, rows })
+    const total = rows.length
+    const pageCount = Math.max(1, Math.ceil(total / pageSize))
+    const offset = (page - 1) * pageSize
+    const pageRows = rows.slice(offset, offset + pageSize)
+
+    return ok({ balance, rows: pageRows, page, pageCount, total })
   }
 
   return err('Action tidak dikenal')

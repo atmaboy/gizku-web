@@ -40,22 +40,32 @@ export default function LimitLedgerPage() {
   const [loading, setLoading] = useState(true)
   const [balance, setBalance] = useState<number | null>(null)
   const [rows, setRows] = useState<LedgerRow[]>([])
+  const [page, setPage] = useState(1)
+  const [pageCount, setPageCount] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/limit?action=ledger', { headers: authHeaders(), cache: 'no-store' })
+  function loadLedger(p: number) {
+    setLoading(true)
+    fetch(`/api/limit?action=ledger&page=${p}&pageSize=10`, { headers: authHeaders(), cache: 'no-store' })
       .then(res => {
         if (res.status === 401) { router.replace('/login'); return null }
         return res.json()
       })
       .then(data => {
-        if (!data || cancelled) return
+        if (!data) return
         setBalance(data.balance ?? 0)
         setRows(Array.isArray(data.rows) ? data.rows : [])
+        setPage(data.page ?? p)
+        setPageCount(data.pageCount ?? 1)
+        setTotal(data.total ?? 0)
       })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [router])
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadLedger(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
@@ -90,32 +100,54 @@ export default function LimitLedgerPage() {
         )}
 
         {!loading && rows.length > 0 && (
-          <Card className="overflow-hidden">
-            {rows.map((row, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 px-3.5 py-3"
-                style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--color-border-default)' : 'none' }}
-              >
-                <div className="flex-1 min-w-0">
-                  <span
-                    className="inline-flex items-center rounded-pill px-2 py-0.5 text-2xs font-semibold mb-1"
-                    style={{ background: BADGE_BG[row.type], color: BADGE_COLOR[row.type] }}
-                  >
-                    {BADGE_LABEL[row.type]}
-                  </span>
-                  <div className="text-sm font-medium text-primary truncate">{row.title}</div>
-                  <div className="text-xs text-secondary mt-0.5">{fmtDate(row.date)} · {row.after}/hari</div>
-                </div>
+          <>
+            <Card className="overflow-hidden">
+              {rows.map((row, i) => (
                 <div
-                  className="text-base font-semibold whitespace-nowrap shrink-0"
-                  style={{ color: row.delta >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}
+                  key={i}
+                  className="flex items-center gap-3 px-3.5 py-3"
+                  style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--color-border-default)' : 'none' }}
                 >
-                  {row.delta >= 0 ? `+${row.delta}` : row.delta}
+                  <div className="flex-1 min-w-0">
+                    <span
+                      className="inline-flex items-center rounded-pill px-2 py-0.5 text-2xs font-semibold mb-1"
+                      style={{ background: BADGE_BG[row.type], color: BADGE_COLOR[row.type] }}
+                    >
+                      {BADGE_LABEL[row.type]}
+                    </span>
+                    <div className="text-sm font-medium text-primary truncate">{row.title}</div>
+                    <div className="text-xs text-secondary mt-0.5">{fmtDate(row.date)} · {row.after}/hari</div>
+                  </div>
+                  <div
+                    className="text-base font-semibold whitespace-nowrap shrink-0"
+                    style={{ color: row.delta >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}
+                  >
+                    {row.delta >= 0 ? `+${row.delta}` : row.delta}
+                  </div>
                 </div>
+              ))}
+            </Card>
+
+            <div className="flex items-center justify-between gap-3 mt-3">
+              <span className="text-xs text-secondary tabular-nums">{page}/{pageCount} · {total} data</span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => loadLedger(page - 1)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg text-secondary shadow-hairline-strong transition disabled:opacity-40"
+                >
+                  ← Sebelumnya
+                </button>
+                <button
+                  disabled={page >= pageCount}
+                  onClick={() => loadLedger(page + 1)}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg text-secondary shadow-hairline-strong transition disabled:opacity-40"
+                >
+                  Berikutnya →
+                </button>
               </div>
-            ))}
-          </Card>
+            </div>
+          </>
         )}
       </div>
     </div>
