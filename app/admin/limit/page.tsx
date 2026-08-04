@@ -16,7 +16,7 @@ type RequestListItem = {
 type RequestDetail = RequestListItem & {
   addPerDay: number; price: number; uniqueCode: number; decidedAt: string | null
   proofImageUrl: string
-  senderAccountHolder: string | null; senderAccountNumber: string | null
+  senderAccountHolder: string | null; senderAccountNumber: string | null; senderBankName: string | null
   note: string | null; rejectReason: string | null; rejectNote: string | null; expiresAt?: string
 }
 type LedgerRowType = 'usage' | 'tier-approved-reset' | 'expiry-reset' | 'daily-reset'
@@ -410,9 +410,12 @@ export default function AdminLimitPage() {
                     </div>
                   )}
 
-                  {(detail.senderAccountHolder || detail.senderAccountNumber) && (
+                  {(detail.senderAccountHolder || detail.senderAccountNumber || detail.senderBankName) && (
                     <div className="text-xs bg-[#EAFBF1] rounded-lg p-2.5 space-y-1">
                       <p className="text-[11px] font-semibold text-[#1F9D57] uppercase tracking-wide mb-1">Rekening Pengirim</p>
+                      {detail.senderBankName && (
+                        <div className="flex justify-between gap-2"><span className="text-[#4B7A63]">Bank</span><span className="text-[#111827] font-medium text-right">{detail.senderBankName}</span></div>
+                      )}
                       {detail.senderAccountHolder && (
                         <div className="flex justify-between gap-2"><span className="text-[#4B7A63]">Nama</span><span className="text-[#111827] font-medium text-right">{detail.senderAccountHolder}</span></div>
                       )}
