@@ -123,6 +123,7 @@ async function handleGet(req: NextRequest) {
       status: row.r.status, submittedAt: row.r.submittedAt, decidedAt: row.r.decidedAt,
       proofImageUrl: row.r.proofImageUrl,
       senderAccountHolder: row.r.senderAccountHolder, senderAccountNumber: row.r.senderAccountNumber,
+      senderBankName: row.r.senderBankName,
       note: row.r.note,
       rejectReason: row.r.rejectReason, rejectNote: row.r.rejectNote,
       ...(row.r.status === 'approved' ? { expiresAt } : {}),

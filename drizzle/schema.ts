@@ -227,6 +227,7 @@ export const limitRequests = pgTable('limit_requests', {
   // won't have it; required-ness for new submissions is enforced in the API.
   senderAccountHolder: text('sender_account_holder'),
   senderAccountNumber: text('sender_account_number'),
+  senderBankName: text('sender_bank_name'),
   note:          text('note'),
   rejectReason:  text('reject_reason'),
   rejectNote:    text('reject_note'),

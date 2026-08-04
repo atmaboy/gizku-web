@@ -8,7 +8,7 @@
  * GET  ?action=request&id=       — single request detail (must belong to caller)
  * GET  ?action=ledger&page=&pageSize= — usage/reset ledger, newest first, paginated (max 10/page)
  * POST {action:'reserve_code', tierId}                                — purely computed, nothing persisted
- * POST {action:'submit_request', tierId, uniqueCode, proofImageUrl, senderAccountHolder, senderAccountNumber, note?} — creates a pending request
+ * POST {action:'submit_request', tierId, uniqueCode, proofImageUrl, senderAccountHolder, senderAccountNumber, senderBankName, note?} — creates a pending request
  */
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
@@ -63,6 +63,7 @@ function requestDetailShape(r: typeof limitRequests.$inferSelect, expiresAt: str
     proofImageUrl: r.proofImageUrl,
     senderAccountHolder: r.senderAccountHolder,
     senderAccountNumber: r.senderAccountNumber,
+    senderBankName: r.senderBankName,
     note: r.note,
     rejectReason: r.rejectReason,
     rejectNote: r.rejectNote,
@@ -218,6 +219,7 @@ async function handlePost(req: NextRequest, userId: string) {
     const proofImageUrl = String(body.proofImageUrl ?? '')
     const senderAccountHolder = String(body.senderAccountHolder ?? '').trim()
     const senderAccountNumber = String(body.senderAccountNumber ?? '').trim()
+    const senderBankName = String(body.senderBankName ?? '').trim()
     const note = body.note ? String(body.note).trim() : null
 
     if (!tierId) return err('tierId diperlukan')
@@ -225,6 +227,7 @@ async function handlePost(req: NextRequest, userId: string) {
     if (!proofImageUrl) return err('Bukti transfer diperlukan')
     if (!senderAccountHolder) return err('Nama rekening pengirim diperlukan')
     if (!senderAccountNumber) return err('Nomor rekening pengirim diperlukan')
+    if (!senderBankName) return err('Nama bank pengirim diperlukan')
 
     const tier = await getTierById(tierId)
     if (!tier) return err('Paket tidak ditemukan', 404)
@@ -254,7 +257,7 @@ async function handlePost(req: NextRequest, userId: string) {
       // Refresh with this attempt's data in case the first one got cut off
       // mid-upload and left a partial/incomplete proof image.
       const [updated] = await db.update(limitRequests)
-        .set({ proofImageUrl, senderAccountHolder, senderAccountNumber, note })
+        .set({ proofImageUrl, senderAccountHolder, senderAccountNumber, senderBankName, note })
         .where(eq(limitRequests.id, ownExisting.id))
         .returning()
       return ok(requestDetailShape(updated, null))
@@ -297,6 +300,7 @@ async function handlePost(req: NextRequest, userId: string) {
       proofImageUrl,
       senderAccountHolder,
       senderAccountNumber,
+      senderBankName,
       note,
     }).returning()
 

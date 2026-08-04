@@ -63,6 +63,7 @@ export default function NewLimitRequestPage() {
   const [proofImageUrl, setProofImageUrl] = useState('')
   const [senderAccountHolder, setSenderAccountHolder] = useState('')
   const [senderAccountNumber, setSenderAccountNumber] = useState('')
+  const [senderBankName, setSenderBankName] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -128,7 +129,7 @@ export default function NewLimitRequestPage() {
   }
 
   async function submitRequest() {
-    if (!reserved || !proofImageUrl || !senderAccountHolder.trim() || !senderAccountNumber.trim()) return
+    if (!reserved || !proofImageUrl || !senderAccountHolder.trim() || !senderAccountNumber.trim() || !senderBankName.trim()) return
     setSubmitting(true)
     try {
       const res = await fetch('/api/limit?action=submit_request', {
@@ -141,6 +142,7 @@ export default function NewLimitRequestPage() {
           proofImageUrl,
           senderAccountHolder: senderAccountHolder.trim(),
           senderAccountNumber: senderAccountNumber.trim(),
+          senderBankName: senderBankName.trim(),
           note: note.trim() || undefined,
         }),
       })
@@ -335,6 +337,12 @@ export default function NewLimitRequestPage() {
             </div>
 
             <TextField
+              label="Nama Bank Pengirim"
+              placeholder="Contoh: BCA"
+              value={senderBankName}
+              onChange={e => setSenderBankName(e.target.value)}
+            />
+            <TextField
               label="Nama Rekening Pengirim"
               placeholder="Contoh: Rania Putri"
               value={senderAccountHolder}
@@ -347,7 +355,7 @@ export default function NewLimitRequestPage() {
               onChange={e => setSenderAccountNumber(e.target.value)}
             />
             <div className="text-xs text-secondary leading-normal mb-4 -mt-1.5">
-              Nama dan Nomor Rekening Pengirim dibutuhkan untuk proses verifikasi uang masuk ke rekening.
+              Nama Bank, Nama Rekening, dan Nomor Rekening Pengirim dibutuhkan untuk proses verifikasi uang masuk ke rekening.
             </div>
 
             <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-1.5">Catatan (opsional)</div>
@@ -384,7 +392,7 @@ export default function NewLimitRequestPage() {
               className="shrink-0"
               onClick={submitRequest}
               loading={submitting}
-              disabled={!proofImageUrl || !senderAccountHolder.trim() || !senderAccountNumber.trim()}
+              disabled={!proofImageUrl || !senderAccountHolder.trim() || !senderAccountNumber.trim() || !senderBankName.trim()}
             >
               Kirim Request
             </Button>

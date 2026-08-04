@@ -21,6 +21,7 @@ type RequestDetail = {
   proofImageUrl: string
   senderAccountHolder: string | null
   senderAccountNumber: string | null
+  senderBankName: string | null
   note: string | null
   rejectReason: string | null
   rejectNote: string | null
@@ -118,8 +119,14 @@ export default function LimitRequestDetailPage() {
           )}
         </div>
 
-        {(detail.senderAccountHolder || detail.senderAccountNumber) && (
+        {(detail.senderAccountHolder || detail.senderAccountNumber || detail.senderBankName) && (
           <div className="bg-surface shadow-hairline rounded-lg px-4 py-3.5 mb-4">
+            {detail.senderBankName && (
+              <div className="flex justify-between py-1.5 text-sm">
+                <span className="text-secondary">Nama Bank Pengirim</span>
+                <span className="font-medium text-primary text-right">{detail.senderBankName}</span>
+              </div>
+            )}
             {detail.senderAccountHolder && (
               <div className="flex justify-between py-1.5 text-sm">
                 <span className="text-secondary">Nama Rekening Pengirim</span>
