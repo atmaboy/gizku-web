@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey  = await getCfg('anthropic_api_key') || process.env.ANTHROPIC_API_KEY
   if (!apiKey) return err('API key Anthropic belum dikonfigurasi', 503)
-  const modelId = await getCfg('anthropic_model') || 'claude-sonnet-4-6'
+  const modelId = await getCfg('anthropic_model') || 'claude-sonnet-5'
 
   const basePrompt = `Kamu adalah analis nutrisi makanan. Tugasmu HANYA menganalisa gambar yang berisi makanan atau minuman.
 
