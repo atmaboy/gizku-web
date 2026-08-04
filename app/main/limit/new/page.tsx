@@ -226,7 +226,7 @@ export default function NewLimitRequestPage() {
                         {tier.label} · Tambahan {tier.addPerDay}/hari (total {tier.totalPerDay}/hari)
                       </div>
                       <div className="text-sm text-secondary mt-0.5">
-                        Rp {fmtRupiah(tier.price)} sekali bayar · berlaku 30 hari
+                        Rp {fmtRupiah(tier.price)} · berlaku 30 hari
                       </div>
                     </div>
                   </button>
