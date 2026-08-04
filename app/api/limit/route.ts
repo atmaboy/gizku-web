@@ -19,7 +19,7 @@ import {
   isLimitFeatureEnabled, getLimitBankConfig, listTiers, getTierById,
   getUserFloor, generateUniqueCode, computeTotalTransfer,
 } from '@/lib/limit'
-import { getActiveTier, computeUserLedger, getApprovedPeriods } from '@/lib/limitLedger'
+import { getActiveTier, computeUserLedger, getApprovedPeriods, computeEffectiveLimit } from '@/lib/limitLedger'
 import { getGlobalLimit } from '@/lib/admin'
 import { eq, and, desc, ne } from 'drizzle-orm'
 
@@ -93,12 +93,15 @@ async function handleGet(req: NextRequest, userId: string) {
       listTiers(),
       getUserFloor(userId),
     ])
+    const currentEffectiveLimit = await computeEffectiveLimit(userId, floor)
     return ok({
       featureEnabled,
       baseDailyLimit: floor,
+      currentEffectiveLimit,
       tiers: tiers.map(t => ({
         id: t.id, label: t.label, addPerDay: t.addPerDay, price: t.price,
         totalPerDay: floor + t.addPerDay,
+        eligible: (floor + t.addPerDay) >= currentEffectiveLimit,
       })),
       bank,
     })
@@ -196,6 +199,12 @@ async function handlePost(req: NextRequest, userId: string) {
     if (!tier) return err('Paket tidak ditemukan', 404)
 
     const floor = await getUserFloor(userId)
+    const totalPerDay = floor + tier.addPerDay
+    const currentEffectiveLimit = await computeEffectiveLimit(userId, floor)
+    if (totalPerDay < currentEffectiveLimit) {
+      return err(`Tier ini tidak tersedia karena limitnya (${totalPerDay}/hari) tidak lebih tinggi dari limit aktifmu saat ini (${currentEffectiveLimit}/hari)`)
+    }
+
     const uniqueCode = await generateUniqueCode()
     const totalTransfer = computeTotalTransfer(tier.price, uniqueCode)
 
@@ -203,7 +212,7 @@ async function handlePost(req: NextRequest, userId: string) {
       tierId: tier.id,
       tierLabel: tier.label,
       addPerDay: tier.addPerDay,
-      totalPerDay: floor + tier.addPerDay,
+      totalPerDay,
       price: tier.price,
       uniqueCode,
       totalTransfer,
@@ -285,6 +294,11 @@ async function handlePost(req: NextRequest, userId: string) {
     }
 
     const totalPerDay = floor + tier.addPerDay
+    const currentEffectiveLimit = await computeEffectiveLimit(userId, floor)
+    if (totalPerDay < currentEffectiveLimit) {
+      return err(`Tier ini tidak tersedia karena limitnya (${totalPerDay}/hari) tidak lebih tinggi dari limit aktifmu saat ini (${currentEffectiveLimit}/hari)`)
+    }
+
     const totalTransfer = computeTotalTransfer(tier.price, uniqueCode)
 
     const [created] = await db.insert(limitRequests).values({

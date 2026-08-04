@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button'
 import TextField from '@/components/ui/TextField'
 import { IconCheck, IconInfo, IconBank, IconUpload } from '@/components/ui/icons'
 
-type Tier = { id: string; label: string; addPerDay: number; price: number; totalPerDay: number }
+type Tier = { id: string; label: string; addPerDay: number; price: number; totalPerDay: number; eligible: boolean }
 type Bank = { bankName: string; accountNumber: string; accountHolder: string }
 type Reserved = {
   tierId: string; tierLabel: string; addPerDay: number; totalPerDay: number
@@ -53,6 +53,7 @@ export default function NewLimitRequestPage() {
   const [featureEnabled, setFeatureEnabled] = useState<boolean | null>(null)
   const [tiers, setTiers] = useState<Tier[]>([])
   const [bank, setBank] = useState<Bank | null>(null)
+  const [currentEffectiveLimit, setCurrentEffectiveLimit] = useState<number>(0)
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null)
@@ -79,7 +80,8 @@ export default function NewLimitRequestPage() {
         setFeatureEnabled(data.featureEnabled ?? false)
         setTiers(Array.isArray(data.tiers) ? data.tiers : [])
         setBank(data.bank ?? null)
-        if (prefillTierId && data.tiers?.some((t: Tier) => t.id === prefillTierId)) {
+        setCurrentEffectiveLimit(data.currentEffectiveLimit ?? 0)
+        if (prefillTierId && data.tiers?.some((t: Tier) => t.id === prefillTierId && t.eligible)) {
           setSelectedTierId(prefillTierId)
         }
       })
@@ -208,15 +210,18 @@ export default function NewLimitRequestPage() {
             <div className="flex flex-col gap-2.5">
               {tiers.map(tier => {
                 const selected = selectedTierId === tier.id
+                const disabled = !tier.eligible
                 return (
                   <button
                     key={tier.id}
                     type="button"
-                    onClick={() => setSelectedTierId(tier.id)}
-                    className="w-full text-left rounded-lg p-4 flex items-center gap-3 cursor-pointer transition-colors"
+                    onClick={() => { if (!tier.eligible) return; setSelectedTierId(tier.id) }}
+                    disabled={disabled}
+                    aria-disabled={disabled}
+                    className={`w-full text-left rounded-lg p-4 flex items-center gap-3 transition-colors ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                     style={{
                       border: `2px solid ${selected ? 'var(--color-border-brand)' : 'var(--color-border-default)'}`,
-                      background: selected ? 'var(--color-bg-brand-tint)' : 'var(--color-bg-surface)',
+                      background: disabled ? 'var(--color-bg-muted)' : selected ? 'var(--color-bg-brand-tint)' : 'var(--color-bg-surface)',
                     }}
                   >
                     <div
@@ -229,12 +234,17 @@ export default function NewLimitRequestPage() {
                       {selected && <IconCheck size={11} color="#fff" strokeWidth={3} />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-base font-semibold text-primary">
+                      <div className={`text-base font-semibold ${disabled ? 'text-secondary' : 'text-primary'}`}>
                         {tier.label} · Tambahan {tier.addPerDay}/hari (total {tier.totalPerDay}/hari)
                       </div>
                       <div className="text-sm text-secondary mt-0.5">
                         Rp {fmtRupiah(tier.price)} · berlaku 30 hari
                       </div>
+                      {disabled && (
+                        <div className="text-xs text-secondary mt-1">
+                          Tidak tersedia — limit aktifmu saat ini sudah {currentEffectiveLimit}/hari
+                        </div>
+                      )}
                     </div>
                   </button>
                 )
