@@ -189,6 +189,54 @@ export const notificationBlastRecipients = pgTable('notification_blast_recipient
   statusIdx: index('idx_blast_recipients_status').on(t.blastId, t.status),
 }))
 
+// ── Limit Tiers ───────────────────────────────────────────────────────────────
+// Admin-configurable add-on packages for "Request Kenaikan Limit Analisa".
+// Max 10 rows, enforced in the admin API — not a DB constraint.
+export const limitTiers = pgTable('limit_tiers', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  label:      text('label').notNull(),
+  addPerDay:  integer('add_per_day').notNull(),
+  price:      integer('price').notNull(),
+  sortOrder:  integer('sort_order').notNull().default(0),
+  createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:  timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// ── Limit Requests ────────────────────────────────────────────────────────────
+// A user's request to raise their daily food-analysis quota via manual bank
+// transfer. Tier fields are snapshotted at submission time so historical
+// requests/ledger stay correct even if the tier is later edited or deleted.
+export const limitRequests = pgTable('limit_requests', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  userId:        uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tierId:        uuid('tier_id').references(() => limitTiers.id, { onDelete: 'set null' }),
+  // Snapshot of the tier at submission time
+  tierLabel:     text('tier_label').notNull(),
+  addPerDay:     integer('add_per_day').notNull(),
+  totalPerDay:   integer('total_per_day').notNull(),
+  price:         integer('price').notNull(),
+  uniqueCode:    integer('unique_code').notNull(),
+  totalTransfer: integer('total_transfer').notNull(),
+  status:        text('status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  submittedAt:   timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
+  decidedAt:     timestamp('decided_at', { withTimezone: true }),
+  proofImageUrl: text('proof_image_url').notNull(),
+  // Sender's declared bank account for the transfer (who it came FROM),
+  // used by admins to reconcile incoming transfers alongside the proof
+  // image. Nullable — legacy requests submitted before this field shipped
+  // won't have it; required-ness for new submissions is enforced in the API.
+  senderAccountHolder: text('sender_account_holder'),
+  senderAccountNumber: text('sender_account_number'),
+  senderBankName: text('sender_bank_name'),
+  note:          text('note'),
+  rejectReason:  text('reject_reason'),
+  rejectNote:    text('reject_note'),
+}, t => ({
+  userIdx:   index('idx_limit_requests_user_id').on(t.userId),
+  statusIdx: index('idx_limit_requests_status').on(t.status),
+  codeIdx:   index('idx_limit_requests_unique_code').on(t.uniqueCode, t.status),
+}))
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
   meals:              many(meals),
@@ -198,6 +246,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   telegramLinkTokens: many(telegramLinkTokens),
   pushTokens:         many(pushTokens),
   blastRecipients:    many(notificationBlastRecipients),
+  limitRequests:      many(limitRequests),
+}))
+export const limitTiersRelations = relations(limitTiers, ({ many }) => ({
+  requests: many(limitRequests),
+}))
+export const limitRequestsRelations = relations(limitRequests, ({ one }) => ({
+  user: one(users, { fields: [limitRequests.userId], references: [users.id] }),
+  tier: one(limitTiers, { fields: [limitRequests.tierId], references: [limitTiers.id] }),
 }))
 export const mealsRelations = relations(meals, ({ one }) => ({
   user: one(users, { fields: [meals.userId], references: [users.id] }),
@@ -242,3 +298,7 @@ export type NotificationBlast          = typeof notificationBlasts.$inferSelect
 export type NewNotificationBlast       = typeof notificationBlasts.$inferInsert
 export type NotificationBlastRecipient = typeof notificationBlastRecipients.$inferSelect
 export type NewNotificationBlastRecipient = typeof notificationBlastRecipients.$inferInsert
+export type LimitTier                  = typeof limitTiers.$inferSelect
+export type NewLimitTier               = typeof limitTiers.$inferInsert
+export type LimitRequest               = typeof limitRequests.$inferSelect
+export type NewLimitRequest            = typeof limitRequests.$inferInsert

@@ -439,7 +439,7 @@ export function createBot(token: string): Bot {
       const mimeType  = 'image/jpeg'
 
       let apiKey: string | null = process.env.ANTHROPIC_API_KEY ?? null
-      let modelId = 'claude-sonnet-4-5'
+      let modelId = 'claude-sonnet-5'
       try {
         const cfgKey = await getCfg('anthropic_api_key')
         if (cfgKey) apiKey = cfgKey

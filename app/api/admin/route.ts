@@ -303,7 +303,7 @@ export async function GET(req: NextRequest) {
     if (action === 'config') {
       const globalLimit    = await getGlobalLimit()
       const apiKey         = await getCfg('anthropic_api_key')
-      const anthropicModel = await getCfg('anthropic_model') || 'claude-sonnet-4-5'
+      const anthropicModel = await getCfg('anthropic_model') || 'claude-sonnet-5'
       const maintenance    = await getMaintenance()
       return ok({ globalLimit, apiKey: apiKey ? '••••••••' : '', anthropicModel, maintenance })
     }

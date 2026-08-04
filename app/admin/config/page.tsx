@@ -6,7 +6,7 @@ export default function ConfigPage() {
   const [token, setToken]       = useState('')
   const [limit, setLimit]       = useState('')
   const [apiKey, setApiKey]     = useState('')
-  const [aiModel, setAiModel]   = useState('claude-sonnet-4-6')
+  const [aiModel, setAiModel]   = useState('claude-sonnet-5')
   const [newPwd, setNewPwd]     = useState('')
   const [mEnabled, setMEnabled] = useState(false)
   const [mTitle, setMTitle]     = useState('')
@@ -120,10 +120,12 @@ export default function ConfigPage() {
           >
             <optgroup label="✅ Model Aktif (Recommended)">
               <option value="claude-haiku-4-5">claude-haiku-4-5 — Cepat &amp; Hemat</option>
-              <option value="claude-sonnet-4-6">claude-sonnet-4-6 — Best Balance ✓</option>
-              <option value="claude-opus-4-7">claude-opus-4-7 — Paling Canggih</option>
+              <option value="claude-sonnet-5">claude-sonnet-5 — Best Balance ✓</option>
+              <option value="claude-opus-5">claude-opus-5 — Paling Canggih</option>
             </optgroup>
-            <optgroup label="⚠️ Legacy (mungkin tidak stabil)">
+            <optgroup label="⚠️ Legacy (versi sebelumnya, mungkin tidak stabil)">
+              <option value="claude-sonnet-4-6">claude-sonnet-4-6 — Legacy</option>
+              <option value="claude-opus-4-7">claude-opus-4-7 — Legacy</option>
               <option value="claude-sonnet-4-5">claude-sonnet-4-5 — Legacy</option>
             </optgroup>
           </select>

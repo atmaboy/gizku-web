@@ -222,3 +222,33 @@ export const IconLightbulb = ({ size = 16, color = 'currentColor', strokeWidth =
     <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.4.3.6.8.6 1.3V16h6v-.9c0-.5.2-1 .6-1.3A6 6 0 0 0 12 3Z" />
   </svg>
 )
+
+export const IconGauge = ({ size = 16, color = 'currentColor', strokeWidth = 1.7, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 21a9 9 0 1 0-9-9c0 2.1.7 4 1.9 5.6" />
+    <path d="M12 12 16 8" />
+    <path d="M12 21v-1M4.2 15l.9-.4M19.8 15l-.9-.4" />
+  </svg>
+)
+
+export const IconBank = ({ size = 16, color = 'currentColor', strokeWidth = 1.7, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 10.5 12 4l9 6.5" />
+    <path d="M4.5 10.5v9M9 10.5v9M15 10.5v9M19.5 10.5v9" />
+    <path d="M3 19.5h18" />
+  </svg>
+)
+
+export const IconClock = ({ size = 16, color = 'currentColor', strokeWidth = 1.8, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx={12} cy={12} r={9} />
+    <path d="M12 7v5l3.2 2" />
+  </svg>
+)
+
+export const IconUpload = ({ size = 20, color = 'currentColor', strokeWidth = 1.7, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 16V4M8 8l4-4 4 4" />
+    <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+  </svg>
+)
