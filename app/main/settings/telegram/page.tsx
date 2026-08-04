@@ -109,17 +109,34 @@ export default function TelegramSettingsPage() {
           <div className="w-14 h-14 rounded-full bg-brand-tint flex items-center justify-center" style={{ color: 'var(--color-text-brand)' }}>
             <IconTelegram size={26} />
           </div>
-          <div className="text-lg font-semibold text-primary">
-            {status?.linked ? 'Telegram Terhubung' : 'Hubungkan Bot Telegram'}
-          </div>
-          <div className="text-sm text-secondary leading-normal max-w-[260px]">
-            {status?.linked
-              ? 'Kamu bisa mencatat makanan langsung lewat chat Telegram.'
-              : 'Catat makanan dan dapatkan analisis nutrisi langsung dari chat Telegram.'}
-          </div>
+          {status ? (
+            <>
+              <div className="text-lg font-semibold text-primary">
+                {status.linked ? 'Telegram Terhubung' : 'Hubungkan Bot Telegram'}
+              </div>
+              <div className="text-sm text-secondary leading-normal max-w-[260px]">
+                {status.linked
+                  ? 'Kamu bisa mencatat makanan langsung lewat chat Telegram.'
+                  : 'Catat makanan dan dapatkan analisis nutrisi langsung dari chat Telegram.'}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="gizku-skeleton h-5 w-40" />
+              <div className="gizku-skeleton h-3.5 w-56 mt-1" />
+              <div className="gizku-skeleton h-3.5 w-44" />
+            </>
+          )}
         </Card>
 
-        {status?.linked ? (
+        {!status ? (
+          <Card className="p-4 mb-4">
+            <div className="gizku-skeleton h-3 w-32 mb-3.5" />
+            <div className="gizku-skeleton h-3.5 w-full mb-2.5" />
+            <div className="gizku-skeleton h-3.5 w-full mb-2.5" />
+            <div className="gizku-skeleton h-3.5 w-3/4" />
+          </Card>
+        ) : status.linked ? (
           <>
             <Card className="overflow-hidden mb-4">
               <ListItem
@@ -131,7 +148,7 @@ export default function TelegramSettingsPage() {
             </Card>
             <Button variant="danger-outline" onClick={() => setConfirmDisconnect(true)}>Putuskan Koneksi</Button>
           </>
-        ) : status ? (
+        ) : (
           <>
             <Card className="p-4 mb-4">
               <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-3">Cara Menghubungkan</div>
@@ -194,7 +211,7 @@ export default function TelegramSettingsPage() {
               </Card>
             )}
           </>
-        ) : null}
+        )}
       </div>
 
       <Dialog
