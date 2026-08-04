@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation'
 import Card from '@/components/ui/Card'
 import ListItem from '@/components/ui/ListItem'
 import Dialog from '@/components/ui/Dialog'
-import { IconTelegram, IconLock, IconMail, IconReport, IconInfo, IconLogout } from '@/components/ui/icons'
+import Button from '@/components/ui/Button'
+import {
+  IconTelegram, IconLock, IconMail, IconReport, IconInfo, IconLogout, IconGauge, IconHistory,
+} from '@/components/ui/icons'
 
 type Profile = {
   username: string
@@ -16,6 +19,14 @@ type Profile = {
   telegramUsername: string | null
 }
 
+type LimitSummary = {
+  dailyLimit: number
+  used: number
+  remaining: number
+  activeTier: { label: string; expiresAt: string } | null
+  featureEnabled: boolean
+}
+
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('nl_token') || ''}` }
 }
@@ -24,10 +35,15 @@ function fmtJoined(iso: string) {
   return new Date(iso).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
 }
 
+function fmtLimitDate(iso: string) {
+  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [logoutConfirm, setLogoutConfirm] = useState(false)
+  const [limitSummary, setLimitSummary] = useState<LimitSummary | null>(null)
 
   useEffect(() => {
     fetch('/api/user?action=profile', { headers: authHeaders(), cache: 'no-store' })
@@ -36,6 +52,11 @@ export default function SettingsPage() {
         return res.json()
       })
       .then(data => { if (data?.user) setProfile(data.user) })
+      .catch(() => {})
+
+    fetch('/api/limit?action=summary', { headers: authHeaders(), cache: 'no-store' })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => { if (data) setLimitSummary(data) })
       .catch(() => {})
   }, [router])
 
@@ -78,6 +99,68 @@ export default function SettingsPage() {
               </>
             )}
           </div>
+        </Card>
+
+        <Card className="p-4 mb-4">
+          <div className="flex items-center gap-2.5 mb-3.5">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: 'var(--color-bg-brand-tint)', color: 'var(--color-text-brand)' }}
+            >
+              <IconGauge size={16} />
+            </div>
+            <div className="text-base font-semibold text-primary">Limit Analisa Gambar</div>
+          </div>
+
+          {limitSummary ? (
+            <>
+              <div className="text-xs text-secondary mb-1">Limit harian saat ini</div>
+              <div className="text-xl font-semibold text-primary mb-2.5">{limitSummary.dailyLimit} analisa/hari</div>
+
+              <div className="h-2 rounded-pill bg-muted overflow-hidden mb-1.5">
+                <div
+                  className="h-full bg-brand rounded-pill"
+                  style={{
+                    width: `${limitSummary.dailyLimit > 0 ? Math.min(100, (limitSummary.used / limitSummary.dailyLimit) * 100) : 0}%`,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-secondary mb-3.5">
+                Terpakai {limitSummary.used} dari {limitSummary.dailyLimit} ({limitSummary.remaining} tersisa hari ini)
+              </div>
+
+              {limitSummary.featureEnabled && (
+                limitSummary.activeTier ? (
+                  <div
+                    className="inline-flex items-center rounded-pill px-3 py-1.5 text-xs font-semibold mb-3.5"
+                    style={{ background: 'var(--color-bg-brand-tint)', color: 'var(--color-text-brand)' }}
+                  >
+                    Paket {limitSummary.activeTier.label} aktif hingga {fmtLimitDate(limitSummary.activeTier.expiresAt)} (siklus 30 hari)
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center rounded-pill px-3 py-1.5 text-xs font-semibold mb-3.5 bg-muted text-secondary">
+                    Limit dasar gratis — 3x analisa/hari
+                  </div>
+                )
+              )}
+
+              <Button onClick={() => router.push('/main/limit')}>Ajukan Penambahan Limit</Button>
+            </>
+          ) : (
+            <>
+              <div className="gizku-skeleton h-4 w-32 mb-2" />
+              <div className="gizku-skeleton h-6 w-40 mb-3" />
+              <div className="gizku-skeleton h-10 w-full" />
+            </>
+          )}
+        </Card>
+
+        <Card className="overflow-hidden mb-4">
+          <ListItem
+            label="Riwayat Penggunaan & Penambahan Limit"
+            leadingIcon={<IconHistory size={16} />}
+            onClick={() => router.push('/main/limit/riwayat')}
+          />
         </Card>
 
         <Card className="overflow-hidden mb-4">

@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { dailyUsage } from '@/drizzle/schema'
 import { verifyToken, extractToken } from '@/lib/auth'
 import { getCfg, getGlobalLimit } from '@/lib/admin'
+import { computeEffectiveLimit } from '@/lib/limitLedger'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { checkMaintenance, maintenanceResponse } from '@/lib/maintenance'
 import { eq, and, sql } from 'drizzle-orm'
@@ -62,7 +63,10 @@ export async function POST(req: NextRequest) {
     .where(eqOp(users.id, payload.userId)).limit(1)
 
   const globalLimit = await getGlobalLimit()
-  const userLimit   = user?.dailyLimit ?? globalLimit
+  const floor       = user?.dailyLimit ?? globalLimit
+  // Effective limit = max(existing floor, active "Request Kenaikan Limit
+  // Analisa" tier total/day) — only ever adds on top, never reduces it.
+  const userLimit   = await computeEffectiveLimit(payload.userId, floor)
   const today       = todayISO()
 
   const [usage] = await db.select().from(dailyUsage)
