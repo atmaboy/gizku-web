@@ -52,6 +52,29 @@ async function callWithRetry(
   throw lastError
 }
 
+function isTemperatureUnsupported(e: unknown): boolean {
+  const error = e as AnthropicError
+  const message = (error?.error as { message?: string } | undefined)?.message ?? ''
+  return error?.status === 400 && /temperature/i.test(message)
+}
+
+// Some models (e.g. extended-thinking-only models) reject a custom `temperature` —
+// whichever model is configured via the admin panel, degrade gracefully instead of
+// failing the whole analysis: drop `temperature` and retry once.
+async function createAnalysisMessage(
+  client: Anthropic,
+  params: Anthropic.MessageCreateParamsNonStreaming,
+): Promise<Anthropic.Message> {
+  try {
+    return await callWithRetry(() => client.messages.create(params))
+  } catch (e) {
+    if (!isTemperatureUnsupported(e) || params.temperature === undefined) throw e
+    const withoutTemperature = { ...params }
+    delete withoutTemperature.temperature
+    return await callWithRetry(() => client.messages.create(withoutTemperature))
+  }
+}
+
 export async function POST(req: NextRequest) {
   const { enabled } = await checkMaintenance()
   if (enabled) return maintenanceResponse()
@@ -199,28 +222,26 @@ LANGKAH KETIGA — panggil tool report_food_analysis untuk melaporkan hasil. Isi
   let analysis: AnalysisResult
   try {
     const client = new Anthropic({ apiKey })
-    const response = await callWithRetry(() =>
-      client.messages.create({
-        model: modelId,
-        max_tokens: 1024,
-        temperature: 0.2,
-        tools,
-        tool_choice: { type: 'any', disable_parallel_tool_use: true },
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: imageBase64 },
-            },
-            {
-              type: 'text',
-              text: correctionPrompt,
-            },
-          ],
-        }],
-      })
-    )
+    const response = await createAnalysisMessage(client, {
+      model: modelId,
+      max_tokens: 1024,
+      temperature: 0.2,
+      tools,
+      tool_choice: { type: 'any', disable_parallel_tool_use: true },
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp', data: imageBase64 },
+          },
+          {
+            type: 'text',
+            text: correctionPrompt,
+          },
+        ],
+      }],
+    })
 
     const toolUse = response.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
     if (!toolUse) return err('Gagal memparse respons AI')

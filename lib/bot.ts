@@ -163,6 +163,29 @@ async function callWithRetry(
   throw lastError
 }
 
+function isTemperatureUnsupported(e: unknown): boolean {
+  const error = e as AnthropicError
+  const message = (error?.error as { message?: string } | undefined)?.message ?? ''
+  return error?.status === 400 && /temperature/i.test(message)
+}
+
+// Some models (e.g. extended-thinking-only models) reject a custom `temperature` —
+// whichever model is configured via the admin panel, degrade gracefully instead of
+// failing the whole analysis: drop `temperature` and retry once.
+async function createAnalysisMessage(
+  client: Anthropic,
+  params: Anthropic.MessageCreateParamsNonStreaming,
+): Promise<Anthropic.Message> {
+  try {
+    return await callWithRetry(() => client.messages.create(params))
+  } catch (e) {
+    if (!isTemperatureUnsupported(e) || params.temperature === undefined) throw e
+    const withoutTemperature = { ...params }
+    delete withoutTemperature.temperature
+    return await callWithRetry(() => client.messages.create(withoutTemperature))
+  }
+}
+
 function formatAnalysisMessage(
   analysis: AnalysisResult,
   usage: { used: number; limit: number },
@@ -521,22 +544,20 @@ export function createBot(token: string): Bot {
       ]
 
       const client   = new Anthropic({ apiKey })
-      const response = await callWithRetry(() =>
-        client.messages.create({
-          model: modelId,
-          max_tokens: 1024,
-          temperature: 0.2,
-          tools,
-          tool_choice: { type: 'any', disable_parallel_tool_use: true },
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: mimeType, data: imgBase64 } },
-              { type: 'text', text: prompt },
-            ],
-          }],
-        }),
-      )
+      const response = await createAnalysisMessage(client, {
+        model: modelId,
+        max_tokens: 1024,
+        temperature: 0.2,
+        tools,
+        tool_choice: { type: 'any', disable_parallel_tool_use: true },
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: imgBase64 } },
+            { type: 'text', text: prompt },
+          ],
+        }],
+      })
 
       const toolUse = response.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
       if (!toolUse) {
