@@ -115,7 +115,7 @@ LANGKAH KEDUA — estimasi porsi:
 - Jika ada objek pembanding ukuran di foto (piring, mangkuk, gelas, sendok/garpu, tangan, dll), gunakan itu sebagai acuan estimasi porsi dan berat makanan.
 - Jika TIDAK ada objek pembanding sama sekali, gunakan asumsi ukuran piring makan standar (±24-26cm diameter) sebagai default, dan sebutkan di field "notes" bahwa estimasi porsi bersifat asumsi karena tidak ada pembanding ukuran di foto.
 
-LANGKAH KETIGA — kembalikan TEPAT format JSON berikut tanpa teks lain:
+LANGKAH KETIGA — kembalikan TEPAT format JSON berikut tanpa teks lain. Isi "notes" dan "assessment" dalam Bahasa Indonesia, lalu isi "notesEn" dan "assessmentEn" dengan terjemahan Bahasa Inggris yang setara (bukan terjemahan literal kaku, tapi kalimat natural dalam Bahasa Inggris):
 {
   "dishes": [
     {
@@ -133,13 +133,15 @@ LANGKAH KETIGA — kembalikan TEPAT format JSON berikut tanpa teks lain:
     "carbs": 40.0,
     "fat": 8.0
   },
-  "notes": "catatan singkat tentang nilai gizi",
+  "notes": "catatan singkat tentang nilai gizi, dalam Bahasa Indonesia",
+  "notesEn": "the same brief note about nutritional value, in English",
   "healthScore": 7,
-  "assessment": "penilaian singkat dalam 1-2 kalimat"
+  "assessment": "penilaian singkat dalam 1-2 kalimat, dalam Bahasa Indonesia",
+  "assessmentEn": "the same brief 1-2 sentence assessment, in English"
 }`
 
   const correctionPrompt = correction.trim()
-    ? `${basePrompt}\n\nKOREKSI DARI USER: "${correction.trim()}"\nGunakan informasi koreksi di atas sebagai prioritas utama untuk menentukan nama menu, bahan, dan porsi yang benar. Perbarui seluruh daftar dishes, total nutrisi, notes, healthScore, dan assessment berdasarkan koreksi tersebut.`
+    ? `${basePrompt}\n\nKOREKSI DARI USER: "${correction.trim()}"\nGunakan informasi koreksi di atas sebagai prioritas utama untuk menentukan nama menu, bahan, dan porsi yang benar. Perbarui seluruh daftar dishes, total nutrisi, notes, notesEn, healthScore, assessment, dan assessmentEn berdasarkan koreksi tersebut.`
     : basePrompt
 
   type AnalysisResult = {
@@ -148,8 +150,10 @@ LANGKAH KETIGA — kembalikan TEPAT format JSON berikut tanpa teks lain:
     dishes?: { name: string }[]
     total?: { calories: number; protein: number; carbs: number; fat: number }
     notes?: string
+    notesEn?: string
     healthScore?: number
     assessment?: string
+    assessmentEn?: string
   }
 
   let analysis: AnalysisResult
