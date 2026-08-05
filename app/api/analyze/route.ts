@@ -74,6 +74,7 @@ async function createAnalysisMessage(
     return await callWithRetry(() => client.messages.create(params))
   } catch (e) {
     if (!isTemperatureUnsupported(e) || params.temperature === undefined) throw e
+    console.warn(`[analyze] Model "${params.model}" rejected temperature, retrying without it`)
     const withoutTemperature = { ...params }
     delete withoutTemperature.temperature
     return await callWithRetry(() => client.messages.create(withoutTemperature))
