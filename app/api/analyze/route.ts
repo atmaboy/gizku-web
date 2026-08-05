@@ -111,7 +111,7 @@ LANGKAH PERTAMA — validasi gambar:
 
 - Jika gambar MENGANDUNG makanan atau minuman, lanjutkan ke analisa nutrisi.
 
-LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa teks lain:
+LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa teks lain. Isi "notes" dan "assessment" dalam Bahasa Indonesia, lalu isi "notesEn" dan "assessmentEn" dengan terjemahan Bahasa Inggris yang setara (bukan terjemahan literal kaku, tapi kalimat natural dalam Bahasa Inggris):
 {
   "dishes": [
     {
@@ -129,13 +129,15 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
     "carbs": 40.0,
     "fat": 8.0
   },
-  "notes": "catatan singkat tentang nilai gizi",
+  "notes": "catatan singkat tentang nilai gizi, dalam Bahasa Indonesia",
+  "notesEn": "the same brief note about nutritional value, in English",
   "healthScore": 7,
-  "assessment": "penilaian singkat dalam 1-2 kalimat"
+  "assessment": "penilaian singkat dalam 1-2 kalimat, dalam Bahasa Indonesia",
+  "assessmentEn": "the same brief 1-2 sentence assessment, in English"
 }`
 
   const correctionPrompt = correction.trim()
-    ? `${basePrompt}\n\nKOREKSI DARI USER: "${correction.trim()}"\nGunakan informasi koreksi di atas sebagai prioritas utama untuk menentukan nama menu, bahan, dan porsi yang benar. Perbarui seluruh daftar dishes, total nutrisi, notes, healthScore, dan assessment berdasarkan koreksi tersebut.`
+    ? `${basePrompt}\n\nKOREKSI DARI USER: "${correction.trim()}"\nGunakan informasi koreksi di atas sebagai prioritas utama untuk menentukan nama menu, bahan, dan porsi yang benar. Perbarui seluruh daftar dishes, total nutrisi, notes, notesEn, healthScore, assessment, dan assessmentEn berdasarkan koreksi tersebut.`
     : basePrompt
 
   type AnalysisResult = {
@@ -144,8 +146,10 @@ LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa t
     dishes?: { name: string }[]
     total?: { calories: number; protein: number; carbs: number; fat: number }
     notes?: string
+    notesEn?: string
     healthScore?: number
     assessment?: string
+    assessmentEn?: string
   }
 
   let analysis: AnalysisResult

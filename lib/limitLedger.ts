@@ -24,10 +24,19 @@ export const USAGE_RETENTION_DAYS = 90
 
 export type LedgerRowType = 'usage' | 'tier-approved-reset' | 'expiry-reset' | 'daily-reset'
 
+// Machine-readable counterpart to `title` — lets clients that localize (e.g. the mobile
+// app) render the row in their own language instead of parsing/replacing the Indonesian
+// `title` string. `title` itself stays Indonesian and unchanged for existing consumers
+// (gizku-web's own Riwayat Limit page, the admin panel) that just display it as-is.
+export type LedgerTitleKey = 'usage' | 'daily-reset' | 'tier-approved' | 'tier-expired'
+export type LedgerTitleParams = { tierLabel?: string; totalPerDay?: number }
+
 export type LedgerRow = {
   date: string // YYYY-MM-DD
   type: LedgerRowType
   title: string
+  titleKey: LedgerTitleKey
+  titleParams?: LedgerTitleParams
   before: number
   after: number
   delta: number
@@ -127,7 +136,10 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
   const periods = await getApprovedPeriods(userId)
   const today = todayISO()
 
-  type Ev = { date: string; order: 0 | 1; type: LedgerRowType; title: string; newLimit?: number }
+  type Ev = {
+    date: string; order: 0 | 1; type: LedgerRowType; title: string
+    titleKey: LedgerTitleKey; titleParams?: LedgerTitleParams; newLimit?: number
+  }
   const events: Ev[] = []
   const resetDatesCovered = new Set<string>()
 
@@ -135,6 +147,7 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
     events.push({
       date: p.startDate, order: 0, type: 'tier-approved-reset',
       title: `Disetujui — ${p.tierLabel} (${p.totalPerDay}/hari)`,
+      titleKey: 'tier-approved', titleParams: { tierLabel: p.tierLabel, totalPerDay: p.totalPerDay },
       newLimit: p.totalPerDay,
     })
     resetDatesCovered.add(p.startDate)
@@ -143,6 +156,7 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
       events.push({
         date: p.naturalEndDate, order: 0, type: 'expiry-reset',
         title: `Masa aktif ${p.tierLabel} berakhir`,
+        titleKey: 'tier-expired', titleParams: { tierLabel: p.tierLabel },
         newLimit: floor,
       })
       resetDatesCovered.add(p.naturalEndDate)
@@ -160,12 +174,13 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
     if (!resetDatesCovered.has(dateStr)) {
       events.push({
         date: dateStr, order: 0, type: 'daily-reset', title: 'Reset harian',
+        titleKey: 'daily-reset',
         newLimit: effectiveLimitForDate(dateStr, periods, floor),
       })
       resetDatesCovered.add(dateStr)
     }
     for (let i = 0; i < count; i++) {
-      events.push({ date: dateStr, order: 1, type: 'usage', title: 'Pemakaian analisa' })
+      events.push({ date: dateStr, order: 1, type: 'usage', title: 'Pemakaian analisa', titleKey: 'usage' })
     }
   }
 
@@ -176,7 +191,10 @@ export async function computeUserLedger(userId: string): Promise<{ balance: numb
   for (const e of events) {
     const before = current
     const after = e.type === 'usage' ? Math.max(0, before - 1) : e.newLimit!
-    rows.push({ date: e.date, type: e.type, title: e.title, before, after, delta: after - before })
+    rows.push({
+      date: e.date, type: e.type, title: e.title, titleKey: e.titleKey, titleParams: e.titleParams,
+      before, after, delta: after - before,
+    })
     current = after
   }
 
