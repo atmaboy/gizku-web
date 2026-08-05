@@ -22,6 +22,16 @@ type AnthropicError = {
   response?: { error?: unknown }
 }
 
+// Guard against the model occasionally dumping leftover JSON-looking content
+// into a free-text field instead of using separate tool parameters — cut the
+// text off before any such leak and cap its length.
+function sanitizeAiText(value: unknown, maxLen = 300): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const jsonLeakIndex = value.search(/"\s*,?\s*"[a-zA-Z]+"\s*:/)
+  const cleaned = jsonLeakIndex === -1 ? value : value.slice(0, jsonLeakIndex)
+  return cleaned.trim().slice(0, maxLen) || undefined
+}
+
 // Retry with exponential backoff for 529 Overloaded errors
 async function callWithRetry(
   fn: () => Promise<Anthropic.Message>,
@@ -113,7 +123,9 @@ LANGKAH KEDUA — estimasi porsi:
 - Jika ada objek pembanding ukuran di foto (piring, mangkuk, gelas, sendok/garpu, tangan, dll), gunakan itu sebagai acuan estimasi porsi dan berat makanan.
 - Jika TIDAK ada objek pembanding sama sekali, gunakan asumsi ukuran piring makan standar (±24-26cm diameter) sebagai default, dan sebutkan di field "notes" bahwa estimasi porsi bersifat asumsi karena tidak ada pembanding ukuran di foto.
 
-LANGKAH KETIGA — panggil tool "report_food_analysis" dengan hasil analisa nutrisi lengkap. Isi "notes" dan "assessment" dalam Bahasa Indonesia, lalu isi "notesEn" dan "assessmentEn" dengan terjemahan Bahasa Inggris yang setara (bukan terjemahan literal kaku, tapi kalimat natural dalam Bahasa Inggris).`
+LANGKAH KETIGA — panggil tool report_food_analysis untuk melaporkan hasil. Isi setiap parameter tool secara terpisah dan ringkas, JANGAN menulis jawabanmu sebagai teks/JSON biasa:
+- notes dan assessment: masing-masing HANYA 1-2 kalimat natural dalam Bahasa Indonesia, tanpa format JSON atau nama parameter lain di dalamnya.
+- notesEn dan assessmentEn: terjemahan natural (bukan literal) dari notes dan assessment ke Bahasa Inggris, juga HANYA 1-2 kalimat.`
 
   const correctionPrompt = correction.trim()
     ? `${basePrompt}\n\nKOREKSI DARI USER: "${correction.trim()}"\nGunakan informasi koreksi di atas sebagai prioritas utama untuk menentukan nama menu, bahan, dan porsi yang benar. Perbarui seluruh daftar dishes, total nutrisi, notes, notesEn, healthScore, assessment, dan assessmentEn berdasarkan koreksi tersebut.`
@@ -173,11 +185,11 @@ LANGKAH KETIGA — panggil tool "report_food_analysis" dengan hasil analisa nutr
         properties: {
           dishes:       { type: 'array', items: dishSchema },
           total:        nutritionTotalsSchema,
-          notes:        { type: 'string', description: 'Catatan singkat tentang nilai gizi, dalam Bahasa Indonesia' },
-          notesEn:      { type: 'string', description: 'Terjemahan natural dari notes, dalam Bahasa Inggris' },
+          notes:        { type: 'string', maxLength: 300, description: '1-2 kalimat natural dalam Bahasa Indonesia tentang nilai gizi. HANYA teks biasa — jangan sertakan format JSON, tanda kutip, atau nama parameter lain di dalamnya.' },
+          notesEn:      { type: 'string', maxLength: 300, description: 'Terjemahan natural (bukan literal) dari notes ke Bahasa Inggris, 1-2 kalimat, teks biasa saja.' },
           healthScore:  { type: 'number', description: 'Skor kesehatan 1-10' },
-          assessment:   { type: 'string', description: 'Penilaian singkat 1-2 kalimat, dalam Bahasa Indonesia' },
-          assessmentEn: { type: 'string', description: 'Terjemahan natural dari assessment, dalam Bahasa Inggris' },
+          assessment:   { type: 'string', maxLength: 300, description: '1-2 kalimat natural dalam Bahasa Indonesia berisi penilaian singkat. HANYA teks biasa — jangan sertakan format JSON, tanda kutip, atau nama parameter lain di dalamnya.' },
+          assessmentEn: { type: 'string', maxLength: 300, description: 'Terjemahan natural (bukan literal) dari assessment ke Bahasa Inggris, 1-2 kalimat, teks biasa saja.' },
         },
         required: ['dishes', 'total', 'notes', 'notesEn', 'healthScore', 'assessment', 'assessmentEn'],
       },
@@ -219,6 +231,10 @@ LANGKAH KETIGA — panggil tool "report_food_analysis" dengan hasil analisa nutr
     }
 
     analysis = toolUse.input as AnalysisResult
+    analysis.notes        = sanitizeAiText(analysis.notes)
+    analysis.notesEn      = sanitizeAiText(analysis.notesEn)
+    analysis.assessment   = sanitizeAiText(analysis.assessment)
+    analysis.assessmentEn = sanitizeAiText(analysis.assessmentEn)
 
   } catch (e) {
     const error = e as AnthropicError
