@@ -72,14 +72,14 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
       reader.onload = e => {
         const img = new Image()
         img.onload = () => {
-          const maxW = 1024
+          const maxW = 1280
           const scale = img.width > maxW ? maxW / img.width : 1
           const canvas = document.createElement('canvas')
           canvas.width = img.width * scale
           canvas.height = img.height * scale
           const ctx = canvas.getContext('2d')
           if (ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.78)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
           resolve({ base64: dataUrl.split(',')[1], mime: 'image/jpeg' })
         }
         img.src = e.target?.result as string

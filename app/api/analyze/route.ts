@@ -111,7 +111,11 @@ LANGKAH PERTAMA — validasi gambar:
 
 - Jika gambar MENGANDUNG makanan atau minuman, lanjutkan ke analisa nutrisi.
 
-LANGKAH KEDUA — jika ada makanan, kembalikan TEPAT format JSON berikut tanpa teks lain:
+LANGKAH KEDUA — estimasi porsi:
+- Jika ada objek pembanding ukuran di foto (piring, mangkuk, gelas, sendok/garpu, tangan, dll), gunakan itu sebagai acuan estimasi porsi dan berat makanan.
+- Jika TIDAK ada objek pembanding sama sekali, gunakan asumsi ukuran piring makan standar (±24-26cm diameter) sebagai default, dan sebutkan di field "notes" bahwa estimasi porsi bersifat asumsi karena tidak ada pembanding ukuran di foto.
+
+LANGKAH KETIGA — kembalikan TEPAT format JSON berikut tanpa teks lain:
 {
   "dishes": [
     {
