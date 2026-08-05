@@ -53,9 +53,14 @@ async function callWithRetry(
 }
 
 function isTemperatureUnsupported(e: unknown): boolean {
-  const error = e as AnthropicError
-  const message = (error?.error as { message?: string } | undefined)?.message ?? ''
-  return error?.status === 400 && /temperature/i.test(message)
+  // Match against the SDK's own top-level `message` (which embeds the full raw error
+  // body as text, e.g. `400 {"type":"error","error":{"type":"invalid_request_error",
+  // "message":"\`temperature\` is deprecated for this model."}}`) rather than trying to
+  // drill into `.error` — Anthropic's SDK puts the *entire* response body there
+  // (`{type, error: {type, message}}`), one level deeper than a flattened `{type,
+  // message}` would suggest, so reading `.error.message` directly is always empty.
+  const error = e as AnthropicError & { message?: string }
+  return error?.status === 400 && /temperature/i.test(error?.message ?? '')
 }
 
 // Some models (e.g. extended-thinking-only models) reject a custom `temperature` —
