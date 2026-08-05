@@ -34,8 +34,6 @@ type AnthropicError = {
 }
 
 type AnalysisResult = {
-  error?: string
-  message?: string
   dishes?: Array<{
     name: string
     portion?: string
@@ -455,13 +453,71 @@ export function createBot(token: string): Bot {
         return
       }
 
-      const prompt = `Kamu adalah analis nutrisi makanan. Tugasmu HANYA menganalisa gambar yang berisi makanan atau minuman.\n\nLANGKAH PERTAMA — validasi gambar:\n- Jika gambar TIDAK mengandung makanan atau minuman sama sekali (misalnya: pemandangan, orang, hewan, benda, teks, selfie, dll), kembalikan TEPAT JSON berikut tanpa teks lain:\n  {"error": "non_food", "message": "Gambar tidak mengandung makanan atau minuman. Silakan foto makananmu."}\n\n- Jika gambar MENGANDUNG makanan atau minuman, lanjutkan ke analisa nutrisi.\n\nLANGKAH KEDUA — estimasi porsi:\n- Jika ada objek pembanding ukuran di foto (piring, mangkuk, gelas, sendok/garpu, tangan, dll), gunakan itu sebagai acuan estimasi porsi dan berat makanan.\n- Jika TIDAK ada objek pembanding sama sekali, gunakan asumsi ukuran piring makan standar (±24-26cm diameter) sebagai default, dan sebutkan di field "notes" bahwa estimasi porsi bersifat asumsi karena tidak ada pembanding ukuran di foto.\n\nLANGKAH KETIGA — kembalikan TEPAT format JSON berikut tanpa teks lain. Isi "notes" dan "assessment" dalam Bahasa Indonesia, lalu isi "notesEn" dan "assessmentEn" dengan terjemahan Bahasa Inggris yang setara (bukan terjemahan literal kaku, tapi kalimat natural dalam Bahasa Inggris):\n{\n  "dishes": [\n    {\n      "name": "nama makanan",\n      "portion": "estimasi porsi (misal: 1 piring, 200g)",\n      "calories": 300,\n      "protein": 15.5,\n      "carbs": 40.0,\n      "fat": 8.0\n    }\n  ],\n  "total": {\n    "calories": 300,\n    "protein": 15.5,\n    "carbs": 40.0,\n    "fat": 8.0\n  },\n  "notes": "catatan singkat tentang nilai gizi, dalam Bahasa Indonesia",\n  "notesEn": "the same brief note about nutritional value, in English",\n  "healthScore": 7,\n  "assessment": "penilaian singkat dalam 1-2 kalimat, dalam Bahasa Indonesia",\n  "assessmentEn": "the same brief 1-2 sentence assessment, in English"\n}`
+      const prompt = `Kamu adalah analis nutrisi makanan. Tugasmu HANYA menganalisa gambar yang berisi makanan atau minuman.\n\nLANGKAH PERTAMA — validasi gambar:\n- Jika gambar TIDAK mengandung makanan atau minuman sama sekali (misalnya: pemandangan, orang, hewan, benda, teks, selfie, dll), panggil tool "report_non_food_image".\n- Jika gambar MENGANDUNG makanan atau minuman, lanjutkan ke analisa nutrisi.\n\nLANGKAH KEDUA — estimasi porsi:\n- Jika ada objek pembanding ukuran di foto (piring, mangkuk, gelas, sendok/garpu, tangan, dll), gunakan itu sebagai acuan estimasi porsi dan berat makanan.\n- Jika TIDAK ada objek pembanding sama sekali, gunakan asumsi ukuran piring makan standar (±24-26cm diameter) sebagai default, dan sebutkan di field "notes" bahwa estimasi porsi bersifat asumsi karena tidak ada pembanding ukuran di foto.\n\nLANGKAH KETIGA — panggil tool "report_food_analysis" dengan hasil analisa nutrisi lengkap. Isi "notes" dan "assessment" dalam Bahasa Indonesia, lalu isi "notesEn" dan "assessmentEn" dengan terjemahan Bahasa Inggris yang setara (bukan terjemahan literal kaku, tapi kalimat natural dalam Bahasa Inggris).`
+
+      const dishSchema = {
+        type: 'object' as const,
+        properties: {
+          name:     { type: 'string' as const, description: 'Nama makanan' },
+          portion:  { type: 'string' as const, description: 'Estimasi porsi, misal: 1 piring, 200g' },
+          calories: { type: 'number' as const },
+          protein:  { type: 'number' as const },
+          carbs:    { type: 'number' as const },
+          fat:      { type: 'number' as const },
+        },
+        required: ['name', 'portion', 'calories', 'protein', 'carbs', 'fat'],
+      }
+
+      const nutritionTotalsSchema = {
+        type: 'object' as const,
+        properties: {
+          calories: { type: 'number' as const },
+          protein:  { type: 'number' as const },
+          carbs:    { type: 'number' as const },
+          fat:      { type: 'number' as const },
+        },
+        required: ['calories', 'protein', 'carbs', 'fat'],
+      }
+
+      const tools: Anthropic.Tool[] = [
+        {
+          name: 'report_non_food_image',
+          description: 'Laporkan bahwa gambar tidak mengandung makanan atau minuman sama sekali.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              message: { type: 'string', description: 'Pesan singkat dalam Bahasa Indonesia yang menjelaskan bahwa gambar tidak mengandung makanan/minuman.' },
+            },
+            required: ['message'],
+          },
+        },
+        {
+          name: 'report_food_analysis',
+          description: 'Laporkan hasil analisa nutrisi lengkap dari makanan/minuman yang terdeteksi di gambar.',
+          input_schema: {
+            type: 'object',
+            properties: {
+              dishes:       { type: 'array', items: dishSchema },
+              total:        nutritionTotalsSchema,
+              notes:        { type: 'string', description: 'Catatan singkat tentang nilai gizi, dalam Bahasa Indonesia' },
+              notesEn:      { type: 'string', description: 'Terjemahan natural dari notes, dalam Bahasa Inggris' },
+              healthScore:  { type: 'number', description: 'Skor kesehatan 1-10' },
+              assessment:   { type: 'string', description: 'Penilaian singkat 1-2 kalimat, dalam Bahasa Indonesia' },
+              assessmentEn: { type: 'string', description: 'Terjemahan natural dari assessment, dalam Bahasa Inggris' },
+            },
+            required: ['dishes', 'total', 'notes', 'notesEn', 'healthScore', 'assessment', 'assessmentEn'],
+          },
+        },
+      ]
 
       const client   = new Anthropic({ apiKey })
       const response = await callWithRetry(() =>
         client.messages.create({
           model: modelId,
           max_tokens: 1024,
+          temperature: 0.2,
+          tools,
+          tool_choice: { type: 'any', disable_parallel_tool_use: true },
           messages: [{
             role: 'user',
             content: [
@@ -472,19 +528,19 @@ export function createBot(token: string): Bot {
         }),
       )
 
-      const text      = response.content[0].type === 'text' ? response.content[0].text : ''
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) {
+      const toolUse = response.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use')
+      if (!toolUse) {
         await ctx.reply('⚠️ Gagal membaca respons AI. Coba kirim ulang foto.')
         return
       }
 
-      const analysis = JSON.parse(jsonMatch[0]) as AnalysisResult
-
-      if (analysis.error === 'non_food') {
-        await ctx.reply(analysis.message ?? 'Gambar tidak mengandung makanan. Silakan foto makananmu. 📸')
+      if (toolUse.name === 'report_non_food_image') {
+        const input = toolUse.input as { message?: string }
+        await ctx.reply(input.message ?? 'Gambar tidak mengandung makanan. Silakan foto makananmu. 📸')
         return
       }
+
+      const analysis = toolUse.input as AnalysisResult
 
       // Increment daily count
       try {
