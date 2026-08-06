@@ -237,6 +237,46 @@ export const limitRequests = pgTable('limit_requests', {
   codeIdx:   index('idx_limit_requests_unique_code').on(t.uniqueCode, t.status),
 }))
 
+// ── Legal Documents ───────────────────────────────────────────────────────────
+// Admin-extensible document types (Syarat & Ketentuan, Kebijakan Privasi, ...).
+// "terms" and "privacy" ship pre-seeded and builtin=true (cannot be deleted).
+export const legalDocumentTypes = pgTable('legal_document_types', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  key:       text('key').unique().notNull(),
+  label:     text('label').notNull(),
+  builtin:   boolean('builtin').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+// Bilingual legal document (Terms, Privacy, or a custom type). Every saved
+// row is immediately live — no draft/published status, no revision history.
+// `slug` is the identifier the app/backend uses to fetch content by URL.
+export const legalDocuments = pgTable('legal_documents', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  typeKey:    text('type_key').notNull().references(() => legalDocumentTypes.key, { onDelete: 'restrict' }),
+  slug:       text('slug').unique().notNull(),
+  titleId:    text('title_id').notNull().default(''),
+  bodyHtmlId: text('body_html_id').notNull().default(''),
+  titleEn:    text('title_en').notNull().default(''),
+  bodyHtmlEn: text('body_html_en').notNull().default(''),
+  createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt:  timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  typeIdx: index('idx_legal_documents_type_key').on(t.typeKey),
+  slugIdx: index('idx_legal_documents_slug').on(t.slug),
+}))
+
+// Singleton — one description + one disclaimer per language, powering the
+// app's "Tentang Aplikasi" (About) screen hero text and disclaimer callout.
+export const aboutContent = pgTable('about_content', {
+  id:            serial('id').primaryKey(),
+  descriptionId: text('description_id').notNull().default(''),
+  disclaimerId:  text('disclaimer_id').notNull().default(''),
+  descriptionEn: text('description_en').notNull().default(''),
+  disclaimerEn:  text('disclaimer_en').notNull().default(''),
+  updatedAt:     timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
   meals:              many(meals),
@@ -302,3 +342,8 @@ export type LimitTier                  = typeof limitTiers.$inferSelect
 export type NewLimitTier               = typeof limitTiers.$inferInsert
 export type LimitRequest               = typeof limitRequests.$inferSelect
 export type NewLimitRequest            = typeof limitRequests.$inferInsert
+export type LegalDocumentType          = typeof legalDocumentTypes.$inferSelect
+export type NewLegalDocumentType       = typeof legalDocumentTypes.$inferInsert
+export type LegalDocument              = typeof legalDocuments.$inferSelect
+export type NewLegalDocument           = typeof legalDocuments.$inferInsert
+export type AboutContent               = typeof aboutContent.$inferSelect
