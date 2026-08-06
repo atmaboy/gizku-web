@@ -33,6 +33,14 @@ export default function RichTextEditor({
     }
   }, [resetKey, value])
 
+  // Without this, Chrome/Safari wrap each line typed on Enter in a bare
+  // <div> instead of <p> — the server sanitizer normalizes that away, but
+  // asking for <p> up front means what the admin sees while typing already
+  // matches the block structure the app actually renders.
+  function handleFocus() {
+    document.execCommand('defaultParagraphSeparator', false, 'p')
+  }
+
   function exec(cmd: string, arg?: string) {
     return (e: React.MouseEvent) => {
       e.preventDefault()
@@ -60,6 +68,7 @@ export default function RichTextEditor({
         ref={ref}
         contentEditable
         data-placeholder={placeholder}
+        onFocus={handleFocus}
         onInput={() => onChange(ref.current?.innerHTML ?? '')}
         onBlur={() => onChange(ref.current?.innerHTML ?? '')}
         className="gz-rte"
