@@ -488,7 +488,7 @@ npm run typecheck
 
 ## 📋 Changelog
 
-### Unreleased — 2026-08
+### v1.6.0 — 2026-08-06
 
 #### 🔐 Consent Legal saat Register
 - Checkbox persetujuan Syarat & Ketentuan + Kebijakan Privasi kini **wajib dicentang** sebelum submit register (sebelumnya hanya tautan informatif)
