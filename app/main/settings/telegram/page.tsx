@@ -9,6 +9,7 @@ import ListItem from '@/components/ui/ListItem'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import { IconTelegram, IconCopy, IconCheck } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type TelegramStatus = {
   linked: boolean
@@ -29,6 +30,7 @@ function authHeaders() {
 
 export default function TelegramSettingsPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [status, setStatus] = useState<TelegramStatus | null>(null)
   const [linkToken, setLinkToken] = useState<LinkToken | null>(null)
   const [loadingLink, setLoadingLink] = useState(false)
@@ -68,9 +70,9 @@ export default function TelegramSettingsPage() {
       const res = await fetch('/api/telegram/link', { method: 'POST', headers: authHeaders() })
       if (res.status === 401) { router.replace('/login'); return }
       const data = await res.json()
-      if (!res.ok) { toast.error(data.error || 'Gagal membuat kode link.'); return }
+      if (!res.ok) { toast.error(data.error || t('telegram.errors.linkFailed')); return }
       setLinkToken(data)
-    } catch { toast.error('Tidak dapat terhubung ke server.') }
+    } catch { toast.error(t('telegram.errors.connectFailed')) }
     finally { setLoadingLink(false) }
   }
 
@@ -79,11 +81,11 @@ export default function TelegramSettingsPage() {
     try {
       const res = await fetch('/api/telegram/link', { method: 'DELETE', headers: authHeaders() })
       if (res.status === 401) { router.replace('/login'); return }
-      if (!res.ok) { const d = await res.json(); toast.error(d.error || 'Gagal memutus koneksi.'); return }
+      if (!res.ok) { const d = await res.json(); toast.error(d.error || t('telegram.errors.unlinkFailed')); return }
       setStatus(s => s ? { ...s, linked: false, telegramUsername: undefined, telegramFirstName: undefined } : s)
       setLinkToken(null)
-      toast.success('Akun Telegram berhasil diputus.')
-    } catch { toast.error('Tidak dapat terhubung ke server.') }
+      toast.success(t('telegram.unlinkSuccess'))
+    } catch { toast.error(t('telegram.errors.connectFailed')) }
     finally { setLoadingUnlink(false); setConfirmDisconnect(false) }
   }
 
@@ -102,7 +104,7 @@ export default function TelegramSettingsPage() {
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <ScreenHeader title="Koneksi Telegram" onBack={() => router.push('/main/settings')} />
+      <ScreenHeader title={t('telegram.title')} onBack={() => router.push('/main/settings')} />
 
       <div className="flex-1 overflow-auto px-4 pt-4 pb-10">
         <Card className="px-5 py-6 mb-4 flex flex-col items-center text-center gap-2.5">
@@ -112,12 +114,12 @@ export default function TelegramSettingsPage() {
           {status ? (
             <>
               <div className="text-lg font-semibold text-primary">
-                {status.linked ? 'Telegram Terhubung' : 'Hubungkan Bot Telegram'}
+                {status.linked ? t('telegram.linked') : t('telegram.notLinked')}
               </div>
               <div className="text-sm text-secondary leading-normal max-w-[260px]">
                 {status.linked
-                  ? 'Kamu bisa mencatat makanan langsung lewat chat Telegram.'
-                  : 'Catat makanan dan dapatkan analisis nutrisi langsung dari chat Telegram.'}
+                  ? t('telegram.linkedSubtitle')
+                  : t('telegram.notLinkedSubtitle')}
               </div>
             </>
           ) : (
@@ -140,22 +142,22 @@ export default function TelegramSettingsPage() {
           <>
             <Card className="overflow-hidden mb-4">
               <ListItem
-                label={status.telegramUsername ? `@${status.telegramUsername}` : (status.telegramFirstName ?? 'Terhubung')}
-                overline="Akun Terhubung"
+                label={status.telegramUsername ? `@${status.telegramUsername}` : (status.telegramFirstName ?? t('telegram.connectedFallback'))}
+                overline={t('telegram.connectedAccountOverline')}
                 leadingIcon={<IconTelegram size={16} />}
                 showChevron={false}
               />
             </Card>
-            <Button variant="danger-outline" onClick={() => setConfirmDisconnect(true)}>Putuskan Koneksi</Button>
+            <Button variant="danger-outline" onClick={() => setConfirmDisconnect(true)}>{t('telegram.disconnect')}</Button>
           </>
         ) : (
           <>
             <Card className="p-4 mb-4">
-              <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-3">Cara Menghubungkan</div>
+              <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-3">{t('telegram.howToConnect')}</div>
               {[
-                ['1', <>Buka bot <b className="text-primary">@GizkuBot</b> di Telegram</>],
-                ['2', <>Ketuk <b className="text-primary">Mulai</b> dan kirim kode akun kamu</>],
-                ['3', <>Foto makananmu langsung dari chat Telegram, otomatis tersimpan ke Gizku</>],
+                ['1', <>{t('telegram.step1Prefix')} <b className="text-primary">{t('telegram.step1Bold')}</b> {t('telegram.step1Suffix')}</>],
+                ['2', <>{t('telegram.step2Prefix')} <b className="text-primary">{t('telegram.step2Bold')}</b> {t('telegram.step2Suffix')}</>],
+                ['3', <>{t('telegram.step3')}</>],
               ].map(([num, text], i) => (
                 <div key={i} className="flex gap-2.5 mb-3 last:mb-0">
                   <div className="w-5 h-5 rounded-full bg-brand-tint flex items-center justify-center shrink-0 text-2xs font-semibold" style={{ color: 'var(--color-text-brand)' }}>{num}</div>
@@ -165,11 +167,11 @@ export default function TelegramSettingsPage() {
             </Card>
 
             {!linkToken ? (
-              <Button loading={loadingLink} onClick={generateLink}>Hubungkan Sekarang</Button>
+              <Button loading={loadingLink} onClick={generateLink}>{t('telegram.connectNow')}</Button>
             ) : (
               <Card className="p-4">
                 <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs font-semibold text-secondary uppercase tracking-[0.05em]">Kode Verifikasi</span>
+                  <span className="text-xs font-semibold text-secondary uppercase tracking-[0.05em]">{t('telegram.verificationCode')}</span>
                   <span
                     className="text-xs font-bold rounded-pill px-2 py-0.5"
                     style={{
@@ -190,7 +192,7 @@ export default function TelegramSettingsPage() {
                     style={{ color: copied ? 'var(--color-success)' : 'var(--color-text-primary)' }}
                   >
                     {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
-                    {copied ? 'Tersalin!' : 'Salin Perintah'}
+                    {copied ? t('telegram.copied') : t('telegram.copyCommand')}
                   </button>
                   {linkToken.deepLink && (
                     <a
@@ -201,12 +203,12 @@ export default function TelegramSettingsPage() {
                       style={{ background: 'var(--tg-blue)' }}
                     >
                       <IconTelegram size={15} color="#fff" />
-                      Buka Bot
+                      {t('telegram.openBot')}
                     </a>
                   )}
                 </div>
                 <p className="text-xs text-secondary text-center leading-normal">
-                  Kirim <b className="text-primary">/link {linkToken.token}</b> ke bot Telegram Gizku
+                  {t('telegram.sendTokenHintPrefix')} <b className="text-primary">/link {linkToken.token}</b> {t('telegram.sendTokenHintSuffix')}
                 </p>
               </Card>
             )}
@@ -217,11 +219,11 @@ export default function TelegramSettingsPage() {
       <Dialog
         open={confirmDisconnect}
         onClose={() => setConfirmDisconnect(false)}
-        title="Putuskan koneksi Telegram?"
-        description="Kamu tidak akan bisa mencatat makanan lewat chat Telegram sampai menghubungkan kembali."
+        title={t('telegram.disconnectConfirmTitle')}
+        description={t('telegram.disconnectConfirmDesc')}
         actions={[
-          { label: loadingUnlink ? 'Memutus...' : 'Ya, Putuskan', variant: 'danger-outline', onClick: disconnect, loading: loadingUnlink },
-          { label: 'Batal', variant: 'outline', onClick: () => setConfirmDisconnect(false) },
+          { label: loadingUnlink ? t('telegram.disconnecting') : t('telegram.disconnectConfirm'), variant: 'danger-outline', onClick: disconnect, loading: loadingUnlink },
+          { label: t('common.cancel'), variant: 'outline', onClick: () => setConfirmDisconnect(false) },
         ]}
       />
     </div>

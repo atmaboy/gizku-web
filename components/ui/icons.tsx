@@ -252,3 +252,11 @@ export const IconUpload = ({ size = 20, color = 'currentColor', strokeWidth = 1.
     <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
   </svg>
 )
+
+export const IconGlobe = ({ size = 16, color = 'currentColor', strokeWidth = 2, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx={12} cy={12} r={10} />
+    <line x1={2} y1={12} x2={22} y2={12} />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+  </svg>
+)

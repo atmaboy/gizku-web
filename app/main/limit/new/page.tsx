@@ -7,6 +7,7 @@ import ScreenHeader from '@/components/ui/ScreenHeader'
 import Button from '@/components/ui/Button'
 import TextField from '@/components/ui/TextField'
 import { IconCheck, IconInfo, IconBank, IconUpload } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type Tier = { id: string; label: string; addPerDay: number; price: number; totalPerDay: number; eligible: boolean }
 type Bank = { bankName: string; accountNumber: string; accountHolder: string }
@@ -45,6 +46,7 @@ function compressImage(file: File): Promise<string> {
 
 export default function NewLimitRequestPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const searchParams = useSearchParams()
   const prefillTierId = searchParams.get('tierId')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -99,10 +101,10 @@ export default function NewLimitRequestPage() {
         body: JSON.stringify({ action: 'reserve_code', tierId }),
       })
       const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'Gagal membuat kode transfer'); setStep(1); return }
+      if (!res.ok) { toast.error(data.error ?? t('limitForm.errors.reserveFailed')); setStep(1); return }
       setReserved(data)
     } catch {
-      toast.error('Tidak dapat terhubung ke server')
+      toast.error(t('common.connectFailed'))
       setStep(1)
     } finally {
       setReserving(false)
@@ -151,15 +153,15 @@ export default function NewLimitRequestPage() {
       const data = await res.json()
       if (res.status === 409 && data.error === 'code_taken') {
         setReserved(r => r ? { ...r, uniqueCode: data.data.uniqueCode, totalTransfer: data.data.totalTransfer } : r)
-        toast.error('Kode unik sudah terpakai, kode baru sudah dibuat. Cek ulang nominal transfer.')
+        toast.error(t('limitForm.errors.codeTaken'))
         setStep(2)
         return
       }
-      if (!res.ok) { toast.error(data.error ?? 'Gagal mengirim request'); return }
-      toast.success('Request berhasil dikirim, menunggu review admin')
+      if (!res.ok) { toast.error(data.error ?? t('limitForm.errors.submitFailed')); return }
+      toast.success(t('limitForm.submitSuccess'))
       router.replace('/main/limit')
     } catch {
-      toast.error('Tidak dapat terhubung ke server')
+      toast.error(t('common.connectFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -173,7 +175,7 @@ export default function NewLimitRequestPage() {
   if (loadingConfig) {
     return (
       <div className="flex flex-col min-h-0 flex-1">
-        <ScreenHeader title="Ajukan Penambahan Limit" onBack={() => router.back()} />
+        <ScreenHeader title={t('limitForm.title')} onBack={() => router.back()} />
         <div className="flex-1 px-4 pt-4">
           <div className="gizku-skeleton h-20 mb-3" />
           <div className="gizku-skeleton h-20 mb-3" />
@@ -186,9 +188,9 @@ export default function NewLimitRequestPage() {
   if (!featureEnabled) {
     return (
       <div className="flex flex-col min-h-0 flex-1">
-        <ScreenHeader title="Ajukan Penambahan Limit" onBack={() => router.back()} />
+        <ScreenHeader title={t('limitForm.title')} onBack={() => router.back()} />
         <div className="flex-1 flex items-center justify-center px-6 text-center text-sm text-secondary">
-          Fitur pengajuan penambahan limit analisa belum tersedia saat ini.
+          {t('limitForm.notAvailable')}
         </div>
       </div>
     )
@@ -197,7 +199,7 @@ export default function NewLimitRequestPage() {
   return (
     <div className="flex flex-col min-h-0 flex-1">
       <ScreenHeader
-        title={step === 1 ? 'Pilih Paket' : step === 2 ? 'Cara Transfer' : 'Upload Bukti'}
+        title={step === 1 ? t('limitForm.stepPilih') : step === 2 ? t('limitForm.stepTransfer') : t('limitForm.stepUpload')}
         onBack={handleBack}
       />
 
@@ -205,7 +207,7 @@ export default function NewLimitRequestPage() {
         {step === 1 && (
           <>
             <div className="text-sm text-secondary leading-normal mb-4">
-              Limit dasar gratis kamu 3x analisa/hari. Pilih paket untuk menambah limit harian selama 30 hari ke depan.
+              {t('limitForm.introText')}
             </div>
             <div className="flex flex-col gap-2.5">
               {tiers.map(tier => {
@@ -235,14 +237,14 @@ export default function NewLimitRequestPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className={`text-base font-semibold ${disabled ? 'text-secondary' : 'text-primary'}`}>
-                        {tier.label} · Tambahan {tier.addPerDay}/hari (total {tier.totalPerDay}/hari)
+                        {t('limitForm.tierTitle', { label: tier.label, add: tier.addPerDay, total: tier.totalPerDay })}
                       </div>
                       <div className="text-sm text-secondary mt-0.5">
-                        Rp {fmtRupiah(tier.price)} · berlaku 30 hari
+                        {t('limitForm.tierSubtitle', { price: fmtRupiah(tier.price) })}
                       </div>
                       {disabled && (
                         <div className="text-xs text-secondary mt-1">
-                          Tidak tersedia — limit aktifmu saat ini sudah {currentEffectiveLimit}/hari
+                          {t('limitForm.tierDisabled', { limit: currentEffectiveLimit })}
                         </div>
                       )}
                     </div>
@@ -264,7 +266,7 @@ export default function NewLimitRequestPage() {
               <>
                 <div className="rounded-lg px-4 py-3.5 mb-4" style={{ background: 'var(--color-bg-brand-tint)' }}>
                   <div className="text-sm font-semibold" style={{ color: 'var(--color-text-brand)' }}>
-                    {reserved.tierLabel} · {reserved.totalPerDay} analisa/hari
+                    {t('limitForm.summaryStripTitle', { label: reserved.tierLabel, total: reserved.totalPerDay })}
                   </div>
                   <div className="text-2xl font-bold mt-1" style={{ color: 'var(--color-text-brand)' }}>
                     Rp {fmtRupiah(reserved.totalTransfer)}
@@ -274,22 +276,21 @@ export default function NewLimitRequestPage() {
                 <div className="flex gap-2.5 bg-muted rounded-md px-3.5 py-3 mb-4">
                   <IconInfo size={16} color="var(--color-text-secondary)" className="shrink-0 mt-0.5" />
                   <span className="text-sm text-secondary leading-normal">
-                    Transfer harus <b className="text-primary">tepat sampai 3 digit terakhir ({reserved.uniqueCode})</b> agar
-                    pembayaranmu terverifikasi otomatis oleh sistem. Jangan dibulatkan.
+                    {t('limitForm.transferNotePrefix')} <b className="text-primary">{t('limitForm.transferNoteBold', { code: reserved.uniqueCode })}</b> {t('limitForm.transferNoteSuffix')}
                   </span>
                 </div>
 
                 <div className="bg-surface shadow-hairline rounded-lg px-4 py-3.5 mb-4">
                   <div className="flex items-center gap-2 mb-3">
                     <IconBank size={16} color="var(--color-text-brand)" />
-                    <div className="text-sm font-semibold text-primary">Rekening Tujuan Transfer</div>
+                    <div className="text-sm font-semibold text-primary">{t('limitForm.bankDetailsTitle')}</div>
                   </div>
                   <div className="mb-2.5">
-                    <div className="text-2xs text-secondary uppercase tracking-[0.5px] mb-0.5">Bank</div>
+                    <div className="text-2xs text-secondary uppercase tracking-[0.5px] mb-0.5">{t('limitForm.bankLabel')}</div>
                     <div className="text-base font-medium text-primary">{bank?.bankName || '-'}</div>
                   </div>
                   <div className="mb-2.5">
-                    <div className="text-2xs text-secondary uppercase tracking-[0.5px] mb-0.5">Nomor Rekening</div>
+                    <div className="text-2xs text-secondary uppercase tracking-[0.5px] mb-0.5">{t('limitForm.accountNumberLabel')}</div>
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-base font-semibold text-primary tabular-nums">{bank?.accountNumber || '-'}</div>
                       <button
@@ -298,19 +299,18 @@ export default function NewLimitRequestPage() {
                         className="shrink-0 text-xs font-semibold px-2.5 py-1.5 rounded-sm cursor-pointer"
                         style={{ background: 'var(--color-bg-brand-tint)', color: 'var(--color-text-brand)' }}
                       >
-                        {copied ? 'Disalin!' : 'Salin'}
+                        {copied ? t('limitForm.copied') : t('limitForm.copy')}
                       </button>
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xs text-secondary uppercase tracking-[0.5px] mb-0.5">Atas Nama</div>
+                    <div className="text-2xs text-secondary uppercase tracking-[0.5px] mb-0.5">{t('limitForm.accountHolderLabel')}</div>
                     <div className="text-base font-medium text-primary">{bank?.accountHolder || '-'}</div>
                   </div>
                 </div>
 
                 <div className="text-xs text-secondary leading-normal">
-                  Transfer sesuai nominal tepat di atas, lalu lanjutkan untuk mengunggah bukti transfer. Request akan
-                  direview oleh admin dalam 1x24 jam.
+                  {t('limitForm.closingNote')}
                 </div>
               </>
             )}
@@ -334,45 +334,45 @@ export default function NewLimitRequestPage() {
             >
               {proofImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proofImageUrl} alt="Bukti transfer" className="w-full h-full object-cover" />
+                <img src={proofImageUrl} alt={t('limitForm.uploadProof')} className="w-full h-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center gap-1.5 text-secondary">
                   <IconUpload size={22} color="var(--color-text-secondary)" />
-                  <span className="text-sm font-medium">Upload Bukti Transfer</span>
+                  <span className="text-sm font-medium">{t('limitForm.uploadProof')}</span>
                 </div>
               )}
             </button>
             <div className="text-xs text-secondary leading-normal mb-4">
-              Upload screenshot/foto bukti transfer sesuai nominal Rp {fmtRupiah(reserved.totalTransfer)} (termasuk digit unik).
+              {t('limitForm.uploadCaption', { amount: fmtRupiah(reserved.totalTransfer) })}
             </div>
 
             <TextField
-              label="Nama Bank Pengirim"
-              placeholder="Contoh: BCA"
+              label={t('limitForm.senderBankLabel')}
+              placeholder={t('limitForm.senderBankPlaceholder')}
               value={senderBankName}
               onChange={e => setSenderBankName(e.target.value)}
             />
             <TextField
-              label="Nama Rekening Pengirim"
-              placeholder="Contoh: Rania Putri"
+              label={t('limitForm.senderNameLabel')}
+              placeholder={t('limitForm.senderNamePlaceholder')}
               value={senderAccountHolder}
               onChange={e => setSenderAccountHolder(e.target.value)}
             />
             <TextField
-              label="Nomor Rekening Pengirim"
-              placeholder="Contoh: 1234567890"
+              label={t('limitForm.senderAccountLabel')}
+              placeholder={t('limitForm.senderAccountPlaceholder')}
               value={senderAccountNumber}
               onChange={e => setSenderAccountNumber(e.target.value)}
             />
             <div className="text-xs text-secondary leading-normal mb-4 -mt-1.5">
-              Nama Bank, Nama Rekening, dan Nomor Rekening Pengirim dibutuhkan untuk proses verifikasi uang masuk ke rekening.
+              {t('limitForm.senderAccountCaption')}
             </div>
 
-            <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-1.5">Catatan (opsional)</div>
+            <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-1.5">{t('limitForm.noteLabel')}</div>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
-              placeholder="Contoh: sudah transfer via BCA a.n. Rania Putri"
+              placeholder={t('limitForm.notePlaceholder')}
               rows={3}
               className="w-full box-border rounded-md bg-sunken shadow-hairline border-none outline-none px-3 py-2.5 text-base text-primary resize-none"
             />
@@ -386,15 +386,15 @@ export default function NewLimitRequestPage() {
         style={{ borderColor: 'var(--color-border-default)', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
       >
         {step === 1 && (
-          <Button onClick={goToStep2} disabled={!selectedTierId}>Lanjut</Button>
+          <Button onClick={goToStep2} disabled={!selectedTierId}>{t('limitForm.next')}</Button>
         )}
         {step === 2 && (
-          <Button onClick={() => setStep(3)} disabled={!reserved || reserving}>Saya Sudah Transfer</Button>
+          <Button onClick={() => setStep(3)} disabled={!reserved || reserving}>{t('limitForm.alreadyTransferred')}</Button>
         )}
         {step === 3 && (
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-2xs text-secondary">Total transfer</div>
+              <div className="text-2xs text-secondary">{t('limitForm.totalTransfer')}</div>
               <div className="text-lg font-bold text-primary truncate">Rp {fmtRupiah(reserved?.totalTransfer ?? 0)}</div>
             </div>
             <Button
@@ -404,7 +404,7 @@ export default function NewLimitRequestPage() {
               loading={submitting}
               disabled={!proofImageUrl || !senderAccountHolder.trim() || !senderAccountNumber.trim() || !senderBankName.trim()}
             >
-              Kirim Request
+              {t('limitForm.sendRequest')}
             </Button>
           </div>
         )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { IconArrowLeft } from './icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 export default function ScreenHeader({
   title,
@@ -9,6 +10,7 @@ export default function ScreenHeader({
   title: string
   onBack: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div
       className="flex items-center gap-2.5 px-4 pb-3 border-b sticky top-0 z-10 bg-surface"
@@ -20,7 +22,7 @@ export default function ScreenHeader({
       <button
         onClick={onBack}
         className="w-9 h-9 rounded-md bg-muted flex items-center justify-center shrink-0 cursor-pointer text-primary"
-        aria-label="Kembali"
+        aria-label={t('screenHeader.back')}
       >
         <IconArrowLeft size={16} />
       </button>

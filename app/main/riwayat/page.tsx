@@ -7,6 +7,7 @@ import Chip from '@/components/ui/Chip'
 import Button from '@/components/ui/Button'
 import { IconCalendar, IconChevronRight, IconChevronDown, IconMeal } from '@/components/ui/icons'
 import { useCapture, MEAL_SAVED_EVENT } from '@/components/capture/CaptureContext'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type Dish = { name: string; portion: string; calories: number; protein: number; carbs: number; fat: number }
 type Meal = {
@@ -26,11 +27,11 @@ type HistoryData = { meals: Meal[]; total: number; page: number; totalPages: num
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('nl_token') || ''}` }
 }
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+function fmtTime(iso: string, locale: string) {
+  return new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 }
-function fmtDateStr(dateStr: string) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+function fmtDateStr(dateStr: string, locale: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 function localDateStr(d: Date) {
   const y = d.getFullYear()
@@ -44,16 +45,16 @@ function todayStr() {
   return localDateStr(new Date())
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  telegram:      'Telegram',
-  'app-ios':     'iOS',
-  'app-android': 'Android',
-  web:           'Web',
-}
-
 function SourceBadge({ source }: { source?: string }) {
+  const { t } = useTranslation()
   const isTelegram = source === 'telegram'
-  const label = SOURCE_LABELS[source ?? 'web'] ?? 'Web'
+  const SOURCE_LABELS: Record<string, string> = {
+    telegram:      'Telegram',
+    'app-ios':     'iOS',
+    'app-android': 'Android',
+    web:           t('riwayat.sourceWeb'),
+  }
+  const label = SOURCE_LABELS[source ?? 'web'] ?? t('riwayat.sourceWeb')
   return (
     <span
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-pill text-2xs font-semibold"
@@ -68,15 +69,16 @@ function SourceBadge({ source }: { source?: string }) {
 }
 
 function NutritionSummary({ label, kcal, protein, carbs, fat }: { label: string; kcal: number; protein: string; carbs: string; fat: string }) {
+  const { t } = useTranslation()
   return (
     <Card className="p-4 mb-4">
-      <div className="text-base font-semibold text-primary mb-3.5">Ringkasan Nutrisi, {label}</div>
+      <div className="text-base font-semibold text-primary mb-3.5">{t('riwayat.nutritionSummary', { date: label })}</div>
       <div className="flex justify-between gap-2">
         {[
-          { val: kcal, label: 'Kalori', color: 'var(--color-kcal)' },
-          { val: `${protein}g`, label: 'Protein', color: 'var(--color-protein)' },
-          { val: `${carbs}g`, label: 'Karbo', color: 'var(--color-carbs)' },
-          { val: `${fat}g`, label: 'Lemak', color: 'var(--color-fat)' },
+          { val: kcal, label: t('riwayat.kcal'), color: 'var(--color-kcal)' },
+          { val: `${protein}g`, label: t('riwayat.protein'), color: 'var(--color-protein)' },
+          { val: `${carbs}g`, label: t('riwayat.carbs'), color: 'var(--color-carbs)' },
+          { val: `${fat}g`, label: t('riwayat.fat'), color: 'var(--color-fat)' },
         ].map(s => (
           <div key={s.label} className="flex flex-col items-center gap-1 flex-1">
             <span className="text-xl font-semibold" style={{ color: s.color }}>{s.val}</span>
@@ -90,6 +92,8 @@ function NutritionSummary({ label, kcal, protein, carbs, fat }: { label: string;
 
 export default function RiwayatPage() {
   const router = useRouter()
+  const { t, language } = useTranslation()
+  const locale = language === 'en' ? 'en-US' : 'id-ID'
   const { openCaptureMenu } = useCapture()
   const [history, setHistory] = useState<HistoryData | null>(null)
   const [page, setPage] = useState(1)
@@ -157,7 +161,7 @@ export default function RiwayatPage() {
       </div>
 
       <div className="flex-1 overflow-auto px-4 pb-8">
-        <div className="text-2xl font-semibold text-primary my-2 mb-3.5">Riwayat</div>
+        <div className="text-2xl font-semibold text-primary my-2 mb-3.5">{t('riwayat.title')}</div>
 
         {/* compact date filter */}
         <div className="flex items-center gap-2.5 mb-4 flex-wrap">
@@ -165,7 +169,7 @@ export default function RiwayatPage() {
             <div className="flex items-center gap-2 h-10 px-3.5 rounded-pill bg-sunken pointer-events-none select-none">
               <IconCalendar size={16} color="var(--color-text-secondary)" />
               <span className="text-sm font-medium text-primary whitespace-nowrap">
-                {notToday ? fmtDateStr(filterDate) : 'Hari Ini'}
+                {notToday ? fmtDateStr(filterDate, locale) : t('riwayat.todayLabel')}
               </span>
               <IconChevronDown size={10} color="var(--color-text-secondary)" />
             </div>
@@ -174,11 +178,11 @@ export default function RiwayatPage() {
               value={filterDate}
               max={todayStr()}
               onChange={handleDateChange}
-              aria-label="Filter tanggal"
+              aria-label={t('riwayat.filterDateAriaLabel')}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
             />
           </div>
-          {notToday && <Chip label="Hari Ini" onClick={goToday} />}
+          {notToday && <Chip label={t('riwayat.todayLabel')} onClick={goToday} />}
         </div>
 
         {(loading && !history) && (
@@ -198,12 +202,12 @@ export default function RiwayatPage() {
         {noMeals && notToday && (
           <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
             <IconCalendar size={40} color="var(--color-text-tertiary)" strokeWidth={1.8} />
-            <div className="text-lg font-semibold text-primary">Tidak ada riwayat makanan</div>
+            <div className="text-lg font-semibold text-primary">{t('riwayat.emptyDateTitle')}</div>
             <div className="text-sm text-secondary leading-normal max-w-[260px]">
-              Tidak ditemukan catatan makan pada {fmtDateStr(filterDate)}
+              {t('riwayat.emptyDateBody', { date: fmtDateStr(filterDate, locale) })}
             </div>
             <div className="mt-2">
-              <Button variant="outline" size="md" fullWidth={false} onClick={goToday}>Kembali ke Hari Ini</Button>
+              <Button variant="outline" size="md" fullWidth={false} onClick={goToday}>{t('riwayat.backToToday')}</Button>
             </div>
           </div>
         )}
@@ -211,10 +215,10 @@ export default function RiwayatPage() {
         {noMeals && !notToday && (
           <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
             <IconMeal size={40} color="var(--color-text-tertiary)" strokeWidth={1.6} />
-            <div className="text-lg font-semibold text-primary">Belum Ada Catatan Makan</div>
-            <div className="text-sm text-secondary leading-normal max-w-[260px]">Foto makananmu dan AI akan mencatat kandungan gizinya.</div>
+            <div className="text-lg font-semibold text-primary">{t('riwayat.emptyTodayTitle')}</div>
+            <div className="text-sm text-secondary leading-normal max-w-[260px]">{t('riwayat.emptyTodayBody')}</div>
             <div className="mt-2">
-              <Button size="md" fullWidth={false} onClick={openCaptureMenu}>Ambil Foto Sekarang</Button>
+              <Button size="md" fullWidth={false} onClick={openCaptureMenu}>{t('riwayat.takePhotoNow')}</Button>
             </div>
           </div>
         )}
@@ -230,7 +234,7 @@ export default function RiwayatPage() {
               return (
                 <div key={date} className="mb-5">
                   <NutritionSummary
-                    label={fmtDateStr(date)}
+                    label={fmtDateStr(date, locale)}
                     kcal={totalKcal}
                     protein={totalP.toFixed(1)}
                     carbs={totalK.toFixed(1)}
@@ -255,16 +259,16 @@ export default function RiwayatPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-base font-medium text-primary truncate">
-                            {meal.dishNames.length > 0 ? meal.dishNames.join(', ') : 'Makanan'}
+                            {meal.dishNames.length > 0 ? meal.dishNames.join(', ') : t('riwayat.unnamedMeal')}
                           </div>
                           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            <span className="text-xs text-secondary">{fmtTime(meal.loggedAt)}</span>
+                            <span className="text-xs text-secondary">{fmtTime(meal.loggedAt, locale)}</span>
                             <SourceBadge source={meal.source} />
                           </div>
                         </div>
                         <div className="flex flex-col items-end mr-0.5 shrink-0">
                           <span className="text-base font-semibold text-primary">{meal.totalCalories}</span>
-                          <span className="text-2xs text-tertiary">Kkal</span>
+                          <span className="text-2xs text-tertiary">{t('riwayat.kkalLabel')}</span>
                         </div>
                         <IconChevronRight size={12} color="var(--color-text-tertiary)" className="shrink-0" />
                       </div>
@@ -278,20 +282,20 @@ export default function RiwayatPage() {
               <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
                 {page > 1 && (
                   <>
-                    <button disabled={paging} onClick={() => load(1, true, filterDate)} className="h-[34px] px-3 rounded-sm bg-surface shadow-hairline text-xs font-medium text-primary cursor-pointer disabled:cursor-not-allowed">« First</button>
-                    <button disabled={paging} onClick={() => load(page - 1, true, filterDate)} className="h-[34px] px-3 rounded-sm bg-surface shadow-hairline text-xs font-medium text-primary cursor-pointer disabled:cursor-not-allowed">← Prev</button>
+                    <button disabled={paging} onClick={() => load(1, true, filterDate)} className="h-[34px] px-3 rounded-sm bg-surface shadow-hairline text-xs font-medium text-primary cursor-pointer disabled:cursor-not-allowed">{t('riwayat.first')}</button>
+                    <button disabled={paging} onClick={() => load(page - 1, true, filterDate)} className="h-[34px] px-3 rounded-sm bg-surface shadow-hairline text-xs font-medium text-primary cursor-pointer disabled:cursor-not-allowed">{t('riwayat.prev')}</button>
                   </>
                 )}
                 <span className="text-xs text-secondary min-w-[56px] text-center">{page} / {history.totalPages}</span>
                 {page < history.totalPages && (
-                  <button disabled={paging} onClick={() => load(page + 1, true, filterDate)} className="h-[34px] px-3 rounded-sm bg-surface shadow-hairline text-xs font-medium text-primary cursor-pointer disabled:cursor-not-allowed">Next →</button>
+                  <button disabled={paging} onClick={() => load(page + 1, true, filterDate)} className="h-[34px] px-3 rounded-sm bg-surface shadow-hairline text-xs font-medium text-primary cursor-pointer disabled:cursor-not-allowed">{t('riwayat.next')}</button>
                 )}
               </div>
             )}
           </>
         )}
 
-        <div className="text-center text-2xs text-tertiary mt-6">© 2026 gizku.com</div>
+        <div className="text-center text-2xs text-tertiary mt-6">{t('common.footer')}</div>
       </div>
     </div>
   )

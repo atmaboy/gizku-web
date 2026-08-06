@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import BottomNav from '@/components/ui/BottomNav'
 import CaptureProvider from '@/components/capture/CaptureProvider'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type User = { id: string; username: string }
 
@@ -25,6 +26,7 @@ function AppShellSkeleton() {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const { t } = useTranslation()
   const [user, setUser] = useState<User | null>(null)
 
   const forceLogout = useCallback(() => {
@@ -70,8 +72,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         const data = await maintenanceResult.value.json()
         if (data?.enabled) {
           localStorage.setItem('nl_maintenance', JSON.stringify({
-            title: data.title || 'Aplikasi Sedang Dalam Pemeliharaan',
-            description: data.description || 'Kami sedang melakukan peningkatan sistem. Silakan coba beberapa saat lagi.',
+            title: data.title || t('login.maintenanceDefaultTitle'),
+            description: data.description || t('login.maintenanceDefaultDescription'),
           }))
           forceLogout()
           return
@@ -80,7 +82,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
 
     setUser(JSON.parse(userStr))
-  }, [forceLogout, pathname, router])
+  }, [forceLogout, pathname, router, t])
 
   useEffect(() => {
     const token = localStorage.getItem('nl_token')

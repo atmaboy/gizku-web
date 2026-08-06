@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import ScreenHeader from '@/components/ui/ScreenHeader'
 import Button from '@/components/ui/Button'
 import { IconClock, IconCheck, IconClose } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type RequestDetail = {
   id: string
@@ -31,26 +32,28 @@ type RequestDetail = {
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('nl_token') || ''}` }
 }
-function fmtDateTime(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+function fmtDateTime(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+function fmtDate(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
 }
 function fmtRupiah(n: number) {
   return n.toLocaleString('id-ID')
 }
 
-const STATUS_META = {
-  pending:  { label: 'Menunggu Review', color: 'var(--color-warning)', bg: 'rgba(217,155,63,0.12)', icon: IconClock },
-  approved: { label: 'Disetujui',       color: 'var(--color-success)', bg: 'var(--color-bg-brand-tint)', icon: IconCheck },
-  rejected: { label: 'Ditolak',         color: 'var(--color-danger)',  bg: 'rgba(194,91,88,0.1)', icon: IconClose },
-} as const
-
 export default function LimitRequestDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const { t, language } = useTranslation()
+  const locale = language === 'en' ? 'en-US' : 'id-ID'
   const [detail, setDetail] = useState<RequestDetail | null | undefined>(undefined)
+
+  const STATUS_META = {
+    pending:  { label: t('limitFormat.statusPending'),  color: 'var(--color-warning)', bg: 'rgba(217,155,63,0.12)', icon: IconClock },
+    approved: { label: t('limitFormat.statusApproved'), color: 'var(--color-success)', bg: 'var(--color-bg-brand-tint)', icon: IconCheck },
+    rejected: { label: t('limitFormat.statusRejected'), color: 'var(--color-danger)',  bg: 'rgba(194,91,88,0.1)', icon: IconClose },
+  } as const
 
   useEffect(() => {
     let cancelled = false
@@ -68,8 +71,8 @@ export default function LimitRequestDetailPage() {
   if (detail === null) {
     return (
       <div className="flex flex-col min-h-0 flex-1">
-        <ScreenHeader title="Detail Request" onBack={() => router.back()} />
-        <div className="flex-1 flex items-center justify-center text-sm text-secondary">Request tidak ditemukan.</div>
+        <ScreenHeader title={t('limitDetail.title')} onBack={() => router.back()} />
+        <div className="flex-1 flex items-center justify-center text-sm text-secondary">{t('limitDetail.notFound')}</div>
       </div>
     )
   }
@@ -80,37 +83,37 @@ export default function LimitRequestDetailPage() {
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <ScreenHeader title="Detail Request" onBack={() => router.back()} />
+      <ScreenHeader title={t('limitDetail.title')} onBack={() => router.back()} />
 
       <div className="flex-1 overflow-auto px-4 pt-4 pb-10">
         <div className="rounded-lg px-4 py-3.5 mb-4 flex items-center gap-3" style={{ background: meta.bg }}>
           <StatusIcon size={22} color={meta.color} />
           <div className="min-w-0">
             <div className="text-base font-semibold" style={{ color: meta.color }}>{meta.label}</div>
-            {statusDate && <div className="text-xs mt-0.5" style={{ color: meta.color }}>{fmtDateTime(statusDate)}</div>}
+            {statusDate && <div className="text-xs mt-0.5" style={{ color: meta.color }}>{fmtDateTime(statusDate, locale)}</div>}
           </div>
         </div>
 
         <div className="bg-surface shadow-hairline rounded-lg px-4 py-3.5 mb-4">
           <div className="flex justify-between py-1.5 text-sm">
-            <span className="text-secondary">Paket</span>
+            <span className="text-secondary">{t('limitDetail.rowPackage')}</span>
             <span className="font-medium text-primary text-right">{detail.tierLabel}</span>
           </div>
           <div className="flex justify-between py-1.5 text-sm">
-            <span className="text-secondary">Total limit/hari</span>
-            <span className="font-medium text-primary text-right">{detail.totalPerDay} analisa/hari</span>
+            <span className="text-secondary">{t('limitDetail.rowTotalPerDay')}</span>
+            <span className="font-medium text-primary text-right">{t('limitDetail.rowTotalPerDayValue', { count: detail.totalPerDay })}</span>
           </div>
           <div className="flex justify-between py-1.5 text-sm">
-            <span className="text-secondary">Nominal transfer</span>
-            <span className="font-medium text-primary text-right">Rp {fmtRupiah(detail.totalTransfer)} (kode unik {detail.uniqueCode})</span>
+            <span className="text-secondary">{t('limitDetail.rowTransferAmount')}</span>
+            <span className="font-medium text-primary text-right">{t('limitDetail.rowTransferAmountValue', { amount: fmtRupiah(detail.totalTransfer), code: detail.uniqueCode })}</span>
           </div>
           <div className="flex justify-between py-1.5 text-sm">
-            <span className="text-secondary">Berlaku</span>
-            <span className="font-medium text-primary text-right">30 hari sejak disetujui</span>
+            <span className="text-secondary">{t('limitDetail.rowValidity')}</span>
+            <span className="font-medium text-primary text-right">{t('limitDetail.rowValidityValue')}</span>
           </div>
           <div className="flex justify-between py-1.5 text-sm">
-            <span className="text-secondary">Tanggal pengajuan</span>
-            <span className="font-medium text-primary text-right">{fmtDateTime(detail.submittedAt)}</span>
+            <span className="text-secondary">{t('limitDetail.rowSubmittedDate')}</span>
+            <span className="font-medium text-primary text-right">{fmtDateTime(detail.submittedAt, locale)}</span>
           </div>
           {detail.note && (
             <div className="mt-2 pt-2.5 text-sm text-secondary italic" style={{ borderTop: '1px solid var(--color-border-default)' }}>
@@ -123,37 +126,37 @@ export default function LimitRequestDetailPage() {
           <div className="bg-surface shadow-hairline rounded-lg px-4 py-3.5 mb-4">
             {detail.senderBankName && (
               <div className="flex justify-between py-1.5 text-sm">
-                <span className="text-secondary">Nama Bank Pengirim</span>
+                <span className="text-secondary">{t('limitDetail.rowSenderBank')}</span>
                 <span className="font-medium text-primary text-right">{detail.senderBankName}</span>
               </div>
             )}
             {detail.senderAccountHolder && (
               <div className="flex justify-between py-1.5 text-sm">
-                <span className="text-secondary">Nama Rekening Pengirim</span>
+                <span className="text-secondary">{t('limitDetail.rowSenderName')}</span>
                 <span className="font-medium text-primary text-right">{detail.senderAccountHolder}</span>
               </div>
             )}
             {detail.senderAccountNumber && (
               <div className="flex justify-between py-1.5 text-sm">
-                <span className="text-secondary">Nomor Rekening Pengirim</span>
+                <span className="text-secondary">{t('limitDetail.rowSenderAccount')}</span>
                 <span className="font-medium text-primary text-right">{detail.senderAccountNumber}</span>
               </div>
             )}
           </div>
         )}
 
-        <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2.5">Bukti Transfer</div>
+        <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2.5">{t('limitDetail.proofTitle')}</div>
         <div className="w-full rounded-lg bg-sunken overflow-hidden mb-4" style={{ minHeight: 180 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={detail.proofImageUrl} alt="Bukti transfer" className="w-full h-auto block" />
+          <img src={detail.proofImageUrl} alt={t('limitDetail.proofTitle')} className="w-full h-auto block" />
         </div>
 
         {detail.status === 'approved' && (
           <div className="rounded-lg px-4 py-3.5 mb-4" style={{ background: 'var(--color-bg-brand-tint)' }}>
-            <div className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-brand)' }}>Disetujui</div>
-            <div className="text-sm" style={{ color: 'var(--color-text-brand)' }}>Limit aktif: {detail.totalPerDay} analisa/hari</div>
+            <div className="text-sm font-semibold mb-1" style={{ color: 'var(--color-text-brand)' }}>{t('limitDetail.approvedTitle')}</div>
+            <div className="text-sm" style={{ color: 'var(--color-text-brand)' }}>{t('limitDetail.approvedLimit', { count: detail.totalPerDay })}</div>
             {detail.expiresAt && (
-              <div className="text-xs mt-1" style={{ color: 'var(--color-text-brand)' }}>Aktif hingga {fmtDate(detail.expiresAt)}</div>
+              <div className="text-xs mt-1" style={{ color: 'var(--color-text-brand)' }}>{t('limitDetail.approvedUntil', { date: fmtDate(detail.expiresAt, locale) })}</div>
             )}
           </div>
         )}
@@ -163,17 +166,17 @@ export default function LimitRequestDetailPage() {
             <div className="text-sm font-bold text-danger mb-1.5">{detail.rejectReason}</div>
             {detail.rejectNote && <div className="text-sm text-secondary mb-2.5">{detail.rejectNote}</div>}
             <div className="text-xs text-secondary leading-normal mb-3">
-              Kamu bisa mengajukan kembali dengan memperbaiki bukti transfer atau nominal sesuai paket.
+              {t('limitDetail.reapplyHint')}
             </div>
             <Button onClick={() => router.push(`/main/limit/new${detail.tierId ? `?tierId=${detail.tierId}` : ''}`)}>
-              Ajukan Ulang
+              {t('limitDetail.reapply')}
             </Button>
           </div>
         )}
 
         {detail.status === 'pending' && (
           <div className="bg-muted rounded-md px-3.5 py-3 text-xs text-secondary leading-normal">
-            Request akan direview oleh admin dalam 1x24 jam.
+            {t('limitDetail.pendingNote')}
           </div>
         )}
       </div>

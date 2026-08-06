@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 export default function ForceChangePasswordPage() {
   const router = useRouter()
+  const { t } = useTranslation()
 
   const [username, setUsername]         = useState('')
   const [newPassword, setNewPassword]   = useState('')
@@ -42,10 +44,10 @@ export default function ForceChangePasswordPage() {
     const trimPass = newPassword.trim()
     const trimConf = confirmPass.trim()
 
-    if (!trimUser) { setError('Masukkan username kamu untuk konfirmasi'); return }
-    if (trimUser !== storedUsername.toLowerCase()) { setError('Username tidak cocok dengan akun yang sedang login'); return }
-    if (trimPass.length < 6) { setError('Password baru minimal 6 karakter'); return }
-    if (trimPass !== trimConf) { setError('Konfirmasi password tidak cocok'); return }
+    if (!trimUser) { setError(t('forceChangePassword.errors.usernameRequired')); return }
+    if (trimUser !== storedUsername.toLowerCase()) { setError(t('forceChangePassword.errors.usernameMismatch')); return }
+    if (trimPass.length < 6) { setError(t('forceChangePassword.errors.passwordMin')); return }
+    if (trimPass !== trimConf) { setError(t('forceChangePassword.errors.confirmMismatch')); return }
 
     setLoading(true)
     try {
@@ -59,7 +61,7 @@ export default function ForceChangePasswordPage() {
         body: JSON.stringify({ username: trimUser, newPassword: trimPass }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Gagal mengubah password. Coba lagi.'); return }
+      if (!res.ok) { setError(data.error || t('forceChangePassword.errors.updateFailed')); return }
 
       setSuccess(true)
       // Hapus flag & token → paksa login ulang
@@ -68,7 +70,7 @@ export default function ForceChangePasswordPage() {
       localStorage.removeItem('nl_user')
       setTimeout(() => router.replace('/login'), 2200)
     } catch {
-      setError('Tidak dapat terhubung ke server. Periksa koneksi internet kamu.')
+      setError(t('forceChangePassword.errors.connectFailed'))
     } finally {
       setLoading(false)
     }
@@ -159,11 +161,10 @@ export default function ForceChangePasswordPage() {
               fontFamily: 'var(--font-montserrat), sans-serif',
               fontWeight: 700, fontSize: 18, color: C.text, marginBottom: 8,
             }}>
-              Password Berhasil Diubah!
+              {t('forceChangePassword.successTitle')}
             </div>
             <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-              Kamu akan diarahkan ke halaman login dalam beberapa detik.
-              Silakan login menggunakan password baru kamu.
+              {t('forceChangePassword.successBody')}
             </div>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -172,7 +173,7 @@ export default function ForceChangePasswordPage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
               </svg>
-              Mengalihkan ke halaman login…
+              {t('forceChangePassword.redirecting')}
             </div>
           </div>
         ) : (
@@ -189,10 +190,10 @@ export default function ForceChangePasswordPage() {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: '#92400E', marginBottom: 4, fontFamily: 'var(--font-montserrat), sans-serif' }}>
-                  Password Direset oleh Admin
+                  {t('forceChangePassword.warningTitle')}
                 </div>
                 <div style={{ fontSize: 13, color: '#78350F', lineHeight: 1.6 }}>
-                  Demi keamanan akun kamu, kamu diwajibkan mengganti password sebelum dapat menggunakan aplikasi.
+                  {t('forceChangePassword.warningBody')}
                 </div>
               </div>
             </div>
@@ -201,10 +202,10 @@ export default function ForceChangePasswordPage() {
               fontFamily: 'var(--font-montserrat), sans-serif',
               fontWeight: 700, fontSize: 18, color: C.text, marginBottom: 4,
             }}>
-              Buat Password Baru
+              {t('forceChangePassword.cardTitle')}
             </div>
             <div style={{ color: C.muted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
-              Masukkan username kamu sebagai konfirmasi, lalu tentukan password baru.
+              {t('forceChangePassword.cardSubtitle')}
             </div>
 
             {/* ── Error alert ── */}
@@ -225,33 +226,33 @@ export default function ForceChangePasswordPage() {
               {/* Username konfirmasi */}
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>
-                  Username
+                  {t('forceChangePassword.usernameLabel')}
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={e => { setUsername(e.target.value); setError('') }}
-                  placeholder="Masukkan username kamu"
+                  placeholder={t('forceChangePassword.usernamePlaceholder')}
                   autoComplete="username"
                   required
                   style={inputStyle}
                 />
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                  Konfirmasi bahwa ini adalah akun kamu
+                  {t('forceChangePassword.usernameHint')}
                 </div>
               </div>
 
               {/* Password baru */}
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>
-                  Password Baru
+                  {t('forceChangePassword.newPasswordLabel')}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showNew ? 'text' : 'password'}
                     value={newPassword}
                     onChange={e => { setNewPassword(e.target.value); setError('') }}
-                    placeholder="Minimal 6 karakter"
+                    placeholder={t('forceChangePassword.newPasswordPlaceholder')}
                     autoComplete="new-password"
                     required
                     style={inputStyle}
@@ -260,7 +261,7 @@ export default function ForceChangePasswordPage() {
                     type="button"
                     onClick={() => setShowNew(v => !v)}
                     style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center', padding: 0 }}
-                    aria-label={showNew ? 'Sembunyikan password' : 'Tampilkan password'}
+                    aria-label={showNew ? t('forceChangePassword.hidePassword') : t('forceChangePassword.showPassword')}
                   >
                     <EyeIcon open={showNew} />
                   </button>
@@ -270,14 +271,14 @@ export default function ForceChangePasswordPage() {
               {/* Konfirmasi password */}
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 6 }}>
-                  Konfirmasi Password Baru
+                  {t('forceChangePassword.confirmPasswordLabel')}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showConfirm ? 'text' : 'password'}
                     value={confirmPass}
                     onChange={e => { setConfirmPass(e.target.value); setError('') }}
-                    placeholder="Ulangi password baru"
+                    placeholder={t('forceChangePassword.confirmPasswordPlaceholder')}
                     autoComplete="new-password"
                     required
                     style={{
@@ -289,13 +290,13 @@ export default function ForceChangePasswordPage() {
                     type="button"
                     onClick={() => setShowConfirm(v => !v)}
                     style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center', padding: 0 }}
-                    aria-label={showConfirm ? 'Sembunyikan password' : 'Tampilkan password'}
+                    aria-label={showConfirm ? t('forceChangePassword.hidePassword') : t('forceChangePassword.showPassword')}
                   >
                     <EyeIcon open={showConfirm} />
                   </button>
                 </div>
                 {confirmPass && confirmPass !== newPassword && (
-                  <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>Password tidak cocok</div>
+                  <div style={{ fontSize: 11, color: C.red, marginTop: 4 }}>{t('forceChangePassword.confirmMismatchInline')}</div>
                 )}
               </div>
 
@@ -322,7 +323,7 @@ export default function ForceChangePasswordPage() {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 1s linear infinite' }}>
                       <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
                     </svg>
-                    Menyimpan…
+                    {t('forceChangePassword.saving')}
                   </>
                 ) : (
                   <>
@@ -330,7 +331,7 @@ export default function ForceChangePasswordPage() {
                       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                       <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                     </svg>
-                    Simpan Password Baru
+                    {t('forceChangePassword.save')}
                   </>
                 )}
               </button>
@@ -343,7 +344,7 @@ export default function ForceChangePasswordPage() {
               borderRadius: 10,
             }}>
               <div style={{ fontSize: 12, color: C.greenDeep, lineHeight: 1.6 }}>
-                🔒 Setelah berhasil, kamu akan otomatis logout dan diarahkan untuk login kembali dengan password baru.
+                {t('forceChangePassword.securityNote')}
               </div>
             </div>
           </>
@@ -354,7 +355,7 @@ export default function ForceChangePasswordPage() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       <div style={{ marginTop: 24, color: C.muted, fontSize: 11, textAlign: 'center' }}>
-        © 2026 Gizku · dev.wiryawan@gmail.com
+        {t('forceChangePassword.footer')}
       </div>
     </div>
   )

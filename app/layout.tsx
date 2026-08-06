@@ -6,6 +6,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import StagingBanner from '@/components/StagingBanner'
 import TopLoader from '@/components/ui/TopLoader'
+import { LanguageProvider } from '@/lib/i18n/LanguageContext'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -78,20 +79,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-        <TopLoader />
-        <StagingBanner />
-        {children}
-        <Toaster
-          richColors
-          position="top-center"
-          toastOptions={{
-            style: {
-              borderRadius: 'var(--radius-lg)',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-sm)',
-            },
-          }}
-        />
+        <LanguageProvider>
+          <TopLoader />
+          <StagingBanner />
+          {children}
+          <Toaster
+            richColors
+            position="top-center"
+            toastOptions={{
+              style: {
+                borderRadius: 'var(--radius-lg)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 'var(--text-sm)',
+              },
+            }}
+          />
+        </LanguageProvider>
         <Analytics />
         <SpeedInsights />
       </body>

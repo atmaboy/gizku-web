@@ -6,6 +6,7 @@ import ScreenHeader from '@/components/ui/ScreenHeader'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { IconGauge, IconLightbulb } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type LimitRequestListItem = {
   id: string
@@ -20,11 +21,6 @@ type LimitRequestListItem = {
   decidedAt: string | null
 }
 
-const STATUS_LABEL: Record<LimitRequestListItem['status'], string> = {
-  pending: 'Menunggu Review',
-  approved: 'Disetujui',
-  rejected: 'Ditolak',
-}
 const STATUS_COLOR: Record<LimitRequestListItem['status'], string> = {
   pending: 'var(--color-warning)',
   approved: 'var(--color-success)',
@@ -40,8 +36,8 @@ function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('nl_token') || ''}` }
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+function fmtDate(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
 }
 function fmtRupiah(n: number) {
   return n.toLocaleString('id-ID')
@@ -49,9 +45,17 @@ function fmtRupiah(n: number) {
 
 export default function LimitListPage() {
   const router = useRouter()
+  const { t, language } = useTranslation()
+  const locale = language === 'en' ? 'en-US' : 'id-ID'
   const [loading, setLoading] = useState(true)
   const [featureEnabled, setFeatureEnabled] = useState<boolean | null>(null)
   const [items, setItems] = useState<LimitRequestListItem[]>([])
+
+  const STATUS_LABEL: Record<LimitRequestListItem['status'], string> = {
+    pending: t('limitFormat.statusPending'),
+    approved: t('limitFormat.statusApproved'),
+    rejected: t('limitFormat.statusRejected'),
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -79,13 +83,13 @@ export default function LimitListPage() {
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <ScreenHeader title="Request Limit" onBack={() => router.back()} />
+      <ScreenHeader title={t('limitList.title')} onBack={() => router.back()} />
 
       <div className="flex-1 overflow-auto px-4 pt-4 pb-10">
         {featureEnabled && (
           <div className="flex justify-end mb-3.5">
             <Button size="md" fullWidth={false} onClick={() => router.push('/main/limit/new')}>
-              + Ajukan
+              {t('limitList.addNew')}
             </Button>
           </div>
         )}
@@ -99,9 +103,9 @@ export default function LimitListPage() {
         {!loading && featureEnabled === false && (
           <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
             <IconGauge size={40} color="var(--color-text-tertiary)" strokeWidth={1.5} />
-            <div className="text-lg font-semibold text-primary">Coming Soon</div>
+            <div className="text-lg font-semibold text-primary">{t('limitList.comingSoonTitle')}</div>
             <div className="text-sm text-secondary leading-normal max-w-[260px]">
-              Fitur pengajuan penambahan limit analisa belum tersedia saat ini.
+              {t('limitList.comingSoonBody')}
             </div>
           </div>
         )}
@@ -109,9 +113,9 @@ export default function LimitListPage() {
         {!loading && featureEnabled && items.length === 0 && (
           <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
             <IconLightbulb size={40} color="var(--color-text-tertiary)" strokeWidth={1.5} />
-            <div className="text-lg font-semibold text-primary">Belum Ada Request</div>
+            <div className="text-lg font-semibold text-primary">{t('limitList.emptyTitle')}</div>
             <div className="text-sm text-secondary leading-normal max-w-[260px]">
-              Ajukan penambahan limit analisa harianmu dengan sekali transfer.
+              {t('limitList.emptyBody')}
             </div>
           </div>
         )}
@@ -133,10 +137,10 @@ export default function LimitListPage() {
                   </span>
                 </div>
                 <div className="text-base font-medium text-primary">
-                  {item.tierLabel} · {item.totalPerDay} analisa/hari
+                  {item.tierLabel} · {t('limitList.perDay', { count: item.totalPerDay })}
                 </div>
                 <div className="text-xs text-secondary mt-0.5">
-                  Diajukan {fmtDate(item.submittedAt)} · Rp {fmtRupiah(item.totalTransfer)} · berlaku 30 hari
+                  {t('limitList.submittedOn', { date: fmtDate(item.submittedAt, locale), amount: fmtRupiah(item.totalTransfer) })}
                 </div>
               </Card>
             ))}

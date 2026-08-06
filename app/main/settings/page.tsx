@@ -7,8 +7,9 @@ import ListItem from '@/components/ui/ListItem'
 import Dialog from '@/components/ui/Dialog'
 import Button from '@/components/ui/Button'
 import {
-  IconTelegram, IconLock, IconMail, IconReport, IconInfo, IconLogout, IconGauge, IconHistory,
+  IconTelegram, IconLock, IconMail, IconReport, IconInfo, IconLogout, IconGauge, IconHistory, IconGlobe,
 } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type Profile = {
   username: string
@@ -31,16 +32,18 @@ function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('nl_token') || ''}` }
 }
 
-function fmtJoined(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+function fmtJoined(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
 }
 
-function fmtLimitDate(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+function fmtLimitDate(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { t, language } = useTranslation()
+  const locale = language === 'en' ? 'en-US' : 'id-ID'
   const [profile, setProfile] = useState<Profile | null>(null)
   const [logoutConfirm, setLogoutConfirm] = useState(false)
   const [limitSummary, setLimitSummary] = useState<LimitSummary | null>(null)
@@ -79,7 +82,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex-1 overflow-auto px-4 pb-8">
-        <div className="text-2xl font-semibold text-primary my-2 mb-4">Pengaturan</div>
+        <div className="text-2xl font-semibold text-primary my-2 mb-4">{t('settingsHome.title')}</div>
 
         <Card className="p-4 mb-4 flex items-center gap-3.5">
           <div className="w-[60px] h-[60px] rounded-full bg-brand flex items-center justify-center shrink-0">
@@ -89,8 +92,8 @@ export default function SettingsPage() {
             <div className="text-lg font-semibold text-primary">@{profile?.username ?? '...'}</div>
             {profile ? (
               <>
-                <div className="text-xs text-secondary mt-0.5">Terdaftar sejak {fmtJoined(profile.createdAt)}</div>
-                <div className="text-xs text-secondary">{profile.totalMeals} Makanan Dianalisa</div>
+                <div className="text-xs text-secondary mt-0.5">{t('settingsHome.registeredSince', { date: fmtJoined(profile.createdAt, locale) })}</div>
+                <div className="text-xs text-secondary">{t('settingsHome.mealsAnalyzed', { count: profile.totalMeals })}</div>
               </>
             ) : (
               <>
@@ -109,13 +112,13 @@ export default function SettingsPage() {
             >
               <IconGauge size={16} />
             </div>
-            <div className="text-base font-semibold text-primary">Limit Analisa Gambar</div>
+            <div className="text-base font-semibold text-primary">{t('settingsHome.limitCardTitle')}</div>
           </div>
 
           {limitSummary ? (
             <>
-              <div className="text-xs text-secondary mb-1">Limit harian saat ini</div>
-              <div className="text-xl font-semibold text-primary mb-2.5">{limitSummary.dailyLimit} analisa/hari</div>
+              <div className="text-xs text-secondary mb-1">{t('settingsHome.currentDailyLimit')}</div>
+              <div className="text-xl font-semibold text-primary mb-2.5">{t('settingsHome.perDay', { count: limitSummary.dailyLimit })}</div>
 
               <div className="h-2 rounded-pill bg-muted overflow-hidden mb-1.5">
                 <div
@@ -126,7 +129,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="text-xs text-secondary mb-3.5">
-                Terpakai {limitSummary.used} dari {limitSummary.dailyLimit} ({limitSummary.remaining} tersisa hari ini)
+                {t('settingsHome.usedOfLimit', { used: limitSummary.used, total: limitSummary.dailyLimit, remaining: limitSummary.remaining })}
               </div>
 
               {limitSummary.featureEnabled && (
@@ -135,16 +138,16 @@ export default function SettingsPage() {
                     className="inline-flex items-center rounded-pill px-3 py-1.5 text-xs font-semibold mb-3.5"
                     style={{ background: 'var(--color-bg-brand-tint)', color: 'var(--color-text-brand)' }}
                   >
-                    Paket {limitSummary.activeTier.label} aktif hingga {fmtLimitDate(limitSummary.activeTier.expiresAt)} (siklus 30 hari)
+                    {t('settingsHome.tierActiveUntil', { tier: limitSummary.activeTier.label, date: fmtLimitDate(limitSummary.activeTier.expiresAt, locale) })}
                   </div>
                 ) : (
                   <div className="inline-flex items-center rounded-pill px-3 py-1.5 text-xs font-semibold mb-3.5 bg-muted text-secondary">
-                    Limit dasar gratis — 3x analisa/hari
+                    {t('settingsHome.freeBaseLimit')}
                   </div>
                 )
               )}
 
-              <Button onClick={() => router.push('/main/limit')}>Ajukan Penambahan Limit</Button>
+              <Button onClick={() => router.push('/main/limit')}>{t('settingsHome.requestLimitIncrease')}</Button>
             </>
           ) : (
             <>
@@ -157,7 +160,7 @@ export default function SettingsPage() {
 
         <Card className="overflow-hidden mb-4">
           <ListItem
-            label="Riwayat Penggunaan & Penambahan Limit"
+            label={t('settingsHome.usageHistory')}
             leadingIcon={<IconHistory size={16} />}
             onClick={() => router.push('/main/limit/riwayat')}
           />
@@ -165,8 +168,8 @@ export default function SettingsPage() {
 
         <Card className="overflow-hidden mb-4">
           <ListItem
-            label="Pengaturan Koneksi Telegram"
-            supporting={profile ? (profile.telegramId ? `Terhubung sebagai @${profile.telegramUsername}` : 'Belum terhubung') : undefined}
+            label={t('settingsHome.telegramSettings')}
+            supporting={profile ? (profile.telegramId ? t('settingsHome.telegramConnectedAs', { username: profile.telegramUsername ?? '' }) : t('settingsHome.telegramNotConnected')) : undefined}
             leadingIcon={<IconTelegram size={16} />}
             onClick={() => router.push('/main/settings/telegram')}
           />
@@ -174,32 +177,35 @@ export default function SettingsPage() {
 
         <Card className="overflow-hidden mb-4">
           <div style={{ borderBottom: '1px solid var(--color-border-default)' }}>
-            <ListItem label="Ubah Password" leadingIcon={<IconLock size={16} strokeWidth={1.8} />} onClick={() => router.push('/main/settings/change-password')} />
+            <ListItem label={t('settingsHome.changePassword')} leadingIcon={<IconLock size={16} strokeWidth={1.8} />} onClick={() => router.push('/main/settings/change-password')} />
           </div>
           <div style={{ borderBottom: '1px solid var(--color-border-default)' }}>
-            <ListItem label="Ubah Email" supporting={profile?.email ?? undefined} leadingIcon={<IconMail size={16} />} onClick={() => router.push('/main/settings/change-email')} />
+            <ListItem label={t('settingsHome.changeEmail')} supporting={profile?.email ?? undefined} leadingIcon={<IconMail size={16} />} onClick={() => router.push('/main/settings/change-email')} />
           </div>
-          <ListItem label="Kirim / Laporkan Masukan" leadingIcon={<IconReport size={16} />} onClick={() => router.push('/main/settings/feedback')} />
+          <ListItem label={t('settingsHome.sendFeedback')} leadingIcon={<IconReport size={16} />} onClick={() => router.push('/main/settings/feedback')} />
         </Card>
 
         <Card className="overflow-hidden mb-4">
           <div style={{ borderBottom: '1px solid var(--color-border-default)' }}>
-            <ListItem label="Tentang Aplikasi" supporting="v1.2.0" leadingIcon={<IconInfo size={16} />} onClick={() => router.push('/main/settings/about')} />
+            <ListItem label={t('language.settingsRowLabel')} leadingIcon={<IconGlobe size={16} />} onClick={() => router.push('/main/settings/language')} />
           </div>
-          <ListItem label="Logout" danger leadingIcon={<IconLogout size={16} />} showChevron={false} onClick={() => setLogoutConfirm(true)} />
+          <div style={{ borderBottom: '1px solid var(--color-border-default)' }}>
+            <ListItem label={t('settingsHome.about')} supporting="v1.2.0" leadingIcon={<IconInfo size={16} />} onClick={() => router.push('/main/settings/about')} />
+          </div>
+          <ListItem label={t('settingsHome.logout')} danger leadingIcon={<IconLogout size={16} />} showChevron={false} onClick={() => setLogoutConfirm(true)} />
         </Card>
 
-        <div className="text-center text-2xs text-tertiary mt-3">© 2026 gizku.com</div>
+        <div className="text-center text-2xs text-tertiary mt-3">{t('settingsHome.footer')}</div>
       </div>
 
       <Dialog
         open={logoutConfirm}
         onClose={() => setLogoutConfirm(false)}
-        title="Keluar dari akun?"
-        description="Kamu perlu masuk kembali untuk melanjutkan pelacakan nutrisimu."
+        title={t('settingsHome.logoutConfirmTitle')}
+        description={t('settingsHome.logoutConfirmDesc')}
         actions={[
-          { label: 'Ya, Keluar', variant: 'danger-outline', onClick: logout },
-          { label: 'Batal', variant: 'outline', onClick: () => setLogoutConfirm(false) },
+          { label: t('settingsHome.confirmLogout'), variant: 'danger-outline', onClick: logout },
+          { label: t('common.cancel'), variant: 'outline', onClick: () => setLogoutConfirm(false) },
         ]}
       />
     </div>

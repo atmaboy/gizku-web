@@ -5,16 +5,22 @@ import { useRouter } from 'next/navigation'
 import ScreenHeader from '@/components/ui/ScreenHeader'
 import Card from '@/components/ui/Card'
 import { IconHistory } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { ledgerRowTitle } from '@/lib/limitFormat'
+import type { LedgerTitleKey, LedgerTitleParams } from '@/lib/limitLedger'
 
 type LedgerRowType = 'usage' | 'tier-approved-reset' | 'expiry-reset' | 'daily-reset'
-type LedgerRow = { date: string; type: LedgerRowType; title: string; before: number; after: number; delta: number }
-
-const BADGE_LABEL: Record<LedgerRowType, string> = {
-  usage: 'Pemakaian',
-  'tier-approved-reset': 'Disetujui',
-  'expiry-reset': 'Kedaluwarsa',
-  'daily-reset': 'Reset Harian',
+type LedgerRow = {
+  date: string
+  type: LedgerRowType
+  title: string
+  titleKey?: LedgerTitleKey
+  titleParams?: LedgerTitleParams
+  before: number
+  after: number
+  delta: number
 }
+
 const BADGE_COLOR: Record<LedgerRowType, string> = {
   usage: 'var(--color-text-secondary)',
   'tier-approved-reset': 'var(--color-success)',
@@ -31,18 +37,27 @@ const BADGE_BG: Record<LedgerRowType, string> = {
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('nl_token') || ''}` }
 }
-function fmtDate(dateStr: string) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+function fmtDate(dateStr: string, locale: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export default function LimitLedgerPage() {
   const router = useRouter()
+  const { t, language } = useTranslation()
+  const locale = language === 'en' ? 'en-US' : 'id-ID'
   const [loading, setLoading] = useState(true)
   const [balance, setBalance] = useState<number | null>(null)
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [page, setPage] = useState(1)
   const [pageCount, setPageCount] = useState(1)
   const [total, setTotal] = useState(0)
+
+  const BADGE_LABEL: Record<LedgerRowType, string> = {
+    usage: t('limitFormat.typeUsage'),
+    'tier-approved-reset': t('limitFormat.typeApproved'),
+    'expiry-reset': t('limitFormat.typeExpired'),
+    'daily-reset': t('limitFormat.typeDailyReset'),
+  }
 
   function loadLedger(p: number) {
     setLoading(true)
@@ -69,16 +84,16 @@ export default function LimitLedgerPage() {
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <ScreenHeader title="Riwayat Limit" onBack={() => router.back()} />
+      <ScreenHeader title={t('limitHistory.title')} onBack={() => router.back()} />
 
       <div className="flex-1 overflow-auto px-4 pt-4 pb-10">
         <div className="rounded-lg bg-brand-tint px-4 py-4 mb-4">
-          <div className="text-xs font-medium" style={{ color: 'var(--color-text-brand)' }}>Saldo limit saat ini</div>
+          <div className="text-xs font-medium" style={{ color: 'var(--color-text-brand)' }}>{t('limitHistory.currentBalance')}</div>
           {loading ? (
             <div className="gizku-skeleton h-8 w-24 mt-1.5" />
           ) : (
             <div className="text-3xl font-bold mt-0.5" style={{ color: 'var(--color-text-brand)' }}>
-              {balance} <span className="text-base font-semibold">analisa/hari</span>
+              {balance} <span className="text-base font-semibold">{t('limitHistory.perDay')}</span>
             </div>
           )}
         </div>
@@ -92,9 +107,9 @@ export default function LimitLedgerPage() {
         {!loading && rows.length === 0 && (
           <div className="flex flex-col items-center text-center py-16 px-6 gap-2">
             <IconHistory size={40} color="var(--color-text-tertiary)" strokeWidth={1.5} />
-            <div className="text-lg font-semibold text-primary">Belum Ada Riwayat</div>
+            <div className="text-lg font-semibold text-primary">{t('limitHistory.emptyTitle')}</div>
             <div className="text-sm text-secondary leading-normal max-w-[260px]">
-              Riwayat pemakaian dan penambahan limit akan muncul di sini.
+              {t('limitHistory.emptyBody')}
             </div>
           </div>
         )}
@@ -115,8 +130,8 @@ export default function LimitLedgerPage() {
                     >
                       {BADGE_LABEL[row.type]}
                     </span>
-                    <div className="text-sm font-medium text-primary truncate">{row.title}</div>
-                    <div className="text-xs text-secondary mt-0.5">{fmtDate(row.date)} · {row.after}/hari</div>
+                    <div className="text-sm font-medium text-primary truncate">{ledgerRowTitle(row, t)}</div>
+                    <div className="text-xs text-secondary mt-0.5">{fmtDate(row.date, locale)} · {row.after}/{t('limitHistory.perDay')}</div>
                   </div>
                   <div
                     className="text-base font-semibold whitespace-nowrap shrink-0"
@@ -129,21 +144,21 @@ export default function LimitLedgerPage() {
             </Card>
 
             <div className="flex items-center justify-between gap-3 mt-3">
-              <span className="text-xs text-secondary tabular-nums">{page}/{pageCount} · {total} data</span>
+              <span className="text-xs text-secondary tabular-nums">{t('limitHistory.pageInfo', { page, pageCount, total })}</span>
               <div className="flex items-center gap-2">
                 <button
                   disabled={page <= 1}
                   onClick={() => loadLedger(page - 1)}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg text-secondary shadow-hairline-strong transition disabled:opacity-40"
                 >
-                  ← Sebelumnya
+                  {t('limitHistory.prevPage')}
                 </button>
                 <button
                   disabled={page >= pageCount}
                   onClick={() => loadLedger(page + 1)}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg text-secondary shadow-hairline-strong transition disabled:opacity-40"
                 >
-                  Berikutnya →
+                  {t('limitHistory.nextPage')}
                 </button>
               </div>
             </div>

@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import { IconWrench, IconCheck } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 export default function MaintenanceView({ title, description }: { title: string; description: string }) {
   const router = useRouter()
+  const { t } = useTranslation()
   const [checking, setChecking] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
 
@@ -34,8 +36,8 @@ export default function MaintenanceView({ title, description }: { title: string;
         </div>
 
         <div className="pt-3.5 mb-[18px]" style={{ borderTop: '1px solid var(--color-border-default)' }}>
-          <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2.5">Yang Sedang Kami Tingkatkan</div>
-          {['Performa analisa foto makanan lebih cepat', 'Perbaikan stabilitas aplikasi'].map((item, i) => (
+          <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2.5">{t('maintenance.improvingLabel')}</div>
+          {[t('maintenance.improve1'), t('maintenance.improve2')].map((item, i) => (
             <div key={i} className="flex items-start gap-2.5 mb-2.5 last:mb-0">
               <div className="w-5 h-5 rounded-full bg-brand-tint flex items-center justify-center shrink-0" style={{ color: 'var(--color-text-brand)' }}>
                 <IconCheck size={11} />
@@ -45,20 +47,20 @@ export default function MaintenanceView({ title, description }: { title: string;
           ))}
         </div>
 
-        <Button loading={checking} onClick={retry}>Coba Lagi</Button>
+        <Button loading={checking} onClick={retry}>{t('maintenance.retry')}</Button>
       </div>
 
       <button onClick={() => setContactOpen(true)} className="text-sm font-medium text-link cursor-pointer mt-[18px]">
-        Butuh bantuan? Hubungi kami
+        {t('maintenance.needHelp')}
       </button>
-      <div className="text-2xs text-tertiary mt-5">© 2026 gizku.com</div>
+      <div className="text-2xs text-tertiary mt-5">{t('maintenance.footer')}</div>
 
       <Dialog
         open={contactOpen}
         onClose={() => setContactOpen(false)}
-        title="Butuh Bantuan?"
-        description="Hubungi kami di Telegram @GizkuSupport atau email support@gizku.com — tim kami akan segera merespons."
-        actions={[{ label: 'Tutup', variant: 'primary', onClick: () => setContactOpen(false) }]}
+        title={t('maintenance.needHelpTitle')}
+        description={t('maintenance.needHelpDesc')}
+        actions={[{ label: t('maintenance.closeButton'), variant: 'primary', onClick: () => setContactOpen(false) }]}
       />
     </div>
   )

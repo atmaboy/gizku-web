@@ -7,12 +7,14 @@ import GizkuLogo from '@/components/GizkuLogo'
 import Button from '@/components/ui/Button'
 import TextField from '@/components/ui/TextField'
 import { IconArrowLeft, IconLock, IconPerson, IconMail } from '@/components/ui/icons'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 type MaintenanceInfo = { title: string; description: string } | null
 type PageTab = 'login' | 'register' | 'reset'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { language, setLanguage, t } = useTranslation()
   const [tab, setTab] = useState<PageTab>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -58,9 +60,9 @@ export default function LoginPage() {
     try {
       if (tab === 'register') {
         const trimmedEmail = email.trim().toLowerCase()
-        if (!trimmedEmail) { setError('Email diperlukan'); setLoading(false); return }
+        if (!trimmedEmail) { setError(t('login.errors.emailRequired')); setLoading(false); return }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailRegex.test(trimmedEmail)) { setError('Format email tidak valid'); setLoading(false); return }
+        if (!emailRegex.test(trimmedEmail)) { setError(t('login.errors.emailInvalid')); setLoading(false); return }
       }
 
       const endpoint = tab === 'login' ? '/api/auth?action=login' : '/api/auth?action=register'
@@ -76,13 +78,13 @@ export default function LoginPage() {
 
       if (data.maintenance) {
         setMaintenance({
-          title: data.maintenance.title || 'Aplikasi Sedang Dalam Pemeliharaan',
-          description: data.maintenance.description || 'Silakan coba beberapa saat lagi.',
+          title: data.maintenance.title || t('login.maintenanceDefaultTitle'),
+          description: data.maintenance.description || t('login.maintenanceDefaultDescription'),
         })
         return
       }
 
-      if (!res.ok) { setError(data.error || 'Terjadi kesalahan'); return }
+      if (!res.ok) { setError(data.error || t('login.errors.genericError')); return }
 
       localStorage.setItem('nl_token', data.token)
       localStorage.setItem('nl_user', JSON.stringify(data.user))
@@ -99,7 +101,7 @@ export default function LoginPage() {
       localStorage.removeItem('nl_must_change_password')
       router.replace('/main/riwayat')
     } catch {
-      setError('Tidak dapat terhubung ke server')
+      setError(t('common.connectFailed'))
     } finally {
       setLoading(false)
     }
@@ -111,10 +113,10 @@ export default function LoginPage() {
     setError('')
     setSuccessMsg('')
 
-    if (!username.trim()) { setError('Username diperlukan'); return }
-    if (!newPassword) { setError('Password baru diperlukan'); return }
-    if (newPassword.length < 6) { setError('Password minimal 6 karakter'); return }
-    if (newPassword !== confirmPassword) { setError('Konfirmasi password tidak cocok'); return }
+    if (!username.trim()) { setError(t('login.errors.usernameRequired')); return }
+    if (!newPassword) { setError(t('login.errors.newPasswordRequired')); return }
+    if (newPassword.length < 6) { setError(t('login.errors.passwordMin')); return }
+    if (newPassword !== confirmPassword) { setError(t('login.errors.confirmMismatch')); return }
 
     setLoading(true)
     try {
@@ -127,15 +129,15 @@ export default function LoginPage() {
         }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error || 'Gagal reset password'); return }
+      if (!res.ok) { setError(data.error || t('login.errors.resetFailed')); return }
 
-      setSuccessMsg('Password berhasil direset! Silakan login dengan password baru.')
+      setSuccessMsg(t('login.resetSuccess'))
       setUsername('')
       setNewPassword('')
       setConfirmPassword('')
       setTimeout(() => switchTab('login'), 2000)
     } catch {
-      setError('Tidak dapat terhubung ke server')
+      setError(t('common.connectFailed'))
     } finally {
       setLoading(false)
     }
@@ -147,25 +149,56 @@ export default function LoginPage() {
     </div>
   ) : null
 
+  const LangSwitch = (
+    <div className="w-full flex justify-end gap-1.5 mb-3">
+      <button
+        type="button"
+        onClick={() => setLanguage('id')}
+        className="h-[30px] px-3 rounded-pill text-xs font-semibold cursor-pointer"
+        style={{
+          background: language === 'id' ? 'var(--color-bg-brand-tint)' : 'var(--color-bg-sunken)',
+          color: language === 'id' ? 'var(--color-text-brand)' : 'var(--color-text-secondary)',
+          border: `1px solid ${language === 'id' ? 'var(--color-border-brand)' : 'var(--color-border-default)'}`,
+        }}
+      >
+        ID
+      </button>
+      <button
+        type="button"
+        onClick={() => setLanguage('en')}
+        className="h-[30px] px-3 rounded-pill text-xs font-semibold cursor-pointer"
+        style={{
+          background: language === 'en' ? 'var(--color-bg-brand-tint)' : 'var(--color-bg-sunken)',
+          color: language === 'en' ? 'var(--color-text-brand)' : 'var(--color-text-secondary)',
+          border: `1px solid ${language === 'en' ? 'var(--color-border-brand)' : 'var(--color-border-default)'}`,
+        }}
+      >
+        EN
+      </button>
+    </div>
+  )
+
   // ── Render: Reset Password View ───────────────────────────────────
   if (tab === 'reset') {
     return (
       <div className="min-h-dvh bg-page flex items-center justify-center px-5 py-8">
         <div className="w-full max-w-[380px]">
+          {LangSwitch}
+
           <div
             onClick={() => switchTab('login')}
             className="w-full flex items-center gap-1.5 mb-[22px] cursor-pointer text-secondary text-sm font-medium"
           >
             <IconArrowLeft size={16} />
-            Kembali ke Login
+            {t('login.backToLogin')}
           </div>
 
           <div className="w-full bg-surface rounded-2xl p-6 box-border" style={{ boxShadow: 'var(--shadow-hairline), var(--shadow-sm)' }}>
             <div className="flex items-center gap-2 mb-1">
               <IconLock size={18} color="var(--color-text-brand)" strokeWidth={1.8} />
-              <div className="text-xl font-semibold text-primary">Reset Password</div>
+              <div className="text-xl font-semibold text-primary">{t('login.resetTitle')}</div>
             </div>
-            <div className="text-sm text-secondary leading-normal mb-[22px]">Masukkan username dan password baru kamu</div>
+            <div className="text-sm text-secondary leading-normal mb-[22px]">{t('login.resetSubtitle')}</div>
 
             {successMsg && (
               <div className="rounded-md px-3.5 py-2.5 text-sm mb-3.5 text-center" style={{ background: 'var(--color-bg-brand-tint)', color: 'var(--color-text-brand)' }}>
@@ -176,38 +209,38 @@ export default function LoginPage() {
 
             <form onSubmit={handleReset}>
               <TextField
-                label="Username"
+                label={t('login.usernameLabel')}
                 leadingIcon={<IconPerson size={18} color="var(--color-text-tertiary)" />}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                placeholder="Masukkan username kamu"
+                placeholder={t('login.usernameConfirmPlaceholder')}
                 required
                 autoFocus
               />
               <TextField
-                label="Password Baru"
+                label={t('login.newPasswordLabel')}
                 isPassword
                 leadingIcon={<IconLock size={18} color="var(--color-text-tertiary)" strokeWidth={1.8} />}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                placeholder="Minimal 6 karakter"
+                placeholder={t('login.newPasswordPlaceholder')}
                 required
               />
               <div>
                 <TextField
-                  label="Konfirmasi Password Baru"
+                  label={t('login.confirmPasswordLabel')}
                   isPassword
                   leadingIcon={<IconLock size={18} color="var(--color-text-tertiary)" strokeWidth={1.8} />}
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="Ulangi password baru"
+                  placeholder={t('login.confirmPasswordPlaceholder')}
                   required
-                  errorText={confirmPassword && confirmPassword !== newPassword ? 'Password tidak cocok' : undefined}
+                  errorText={confirmPassword && confirmPassword !== newPassword ? t('login.confirmMismatch') : undefined}
                 />
               </div>
 
               <div className="mt-1">
-                <Button type="submit" loading={loading}>Reset Password</Button>
+                <Button type="submit" loading={loading}>{t('login.resetSubmit')}</Button>
               </div>
             </form>
           </div>
@@ -220,9 +253,11 @@ export default function LoginPage() {
   return (
     <div className="min-h-dvh bg-page flex items-center justify-center px-5 py-8">
       <div className="w-full max-w-[380px]">
+        {LangSwitch}
+
         <div className="flex flex-col items-center gap-1.5 mb-7">
           <GizkuLogo size={52} />
-          <div className="text-xl font-semibold text-primary tracking-tight">Gizku</div>
+          <div className="text-xl font-semibold text-primary tracking-tight">{t('common.appName')}</div>
         </div>
 
         <BrandAnnouncement />
@@ -243,13 +278,13 @@ export default function LoginPage() {
         <div className="w-full bg-surface rounded-2xl p-6 box-border" style={{ boxShadow: 'var(--shadow-hairline), var(--shadow-sm)' }}>
           {tab === 'login' ? (
             <>
-              <div className="text-xl font-semibold text-primary mb-1">Selamat datang kembali</div>
-              <div className="text-sm text-secondary leading-normal mb-[22px]">Masuk untuk lanjutkan pelacakan nutrisimu</div>
+              <div className="text-xl font-semibold text-primary mb-1">{t('login.welcomeTitle')}</div>
+              <div className="text-sm text-secondary leading-normal mb-[22px]">{t('login.welcomeSubtitle')}</div>
             </>
           ) : (
             <>
-              <div className="text-xl font-semibold text-primary mb-1">Buat akun baru</div>
-              <div className="text-sm text-secondary leading-normal mb-[22px]">Mulai pantau nutrisimu bersama Gizku</div>
+              <div className="text-xl font-semibold text-primary mb-1">{t('login.registerTitle')}</div>
+              <div className="text-sm text-secondary leading-normal mb-[22px]">{t('login.registerSubtitle')}</div>
             </>
           )}
 
@@ -257,60 +292,60 @@ export default function LoginPage() {
             {ErrorBanner}
 
             <TextField
-              label="Username"
+              label={t('login.usernameLabel')}
               leadingIcon={<IconPerson size={18} color="var(--color-text-tertiary)" />}
               value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="Masukkan username"
+              placeholder={t('login.usernamePlaceholder')}
               required
               autoFocus
             />
 
             <TextField
-              label="Password"
+              label={t('login.passwordLabel')}
               isPassword
               leadingIcon={<IconLock size={18} color="var(--color-text-tertiary)" strokeWidth={1.8} />}
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Masukkan password"
+              placeholder={t('login.passwordPlaceholder')}
               required
             />
 
             {tab === 'login' && (
               <div className="flex justify-end -mt-2 mb-[18px]">
                 <span onClick={() => switchTab('reset')} className="text-xs font-medium text-link cursor-pointer">
-                  Lupa password?
+                  {t('login.forgotPassword')}
                 </span>
               </div>
             )}
 
             {tab === 'register' && (
               <TextField
-                label="Email"
+                label={t('login.emailLabel')}
                 leadingIcon={<IconMail size={16} color="var(--color-text-tertiary)" />}
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="contoh@email.com"
+                placeholder={t('login.emailPlaceholder')}
                 required
               />
             )}
 
             <Button type="submit" loading={loading}>
-              {tab === 'login' ? 'Masuk' : 'Daftar'}
+              {tab === 'login' ? t('login.signIn') : t('login.register')}
             </Button>
           </form>
 
           <div className="flex justify-center gap-1.5 mt-[18px] text-xs">
-            <span className="text-secondary">{tab === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}</span>
+            <span className="text-secondary">{tab === 'login' ? t('login.noAccount') : t('login.haveAccount')}</span>
             <span onClick={() => switchTab(tab === 'login' ? 'register' : 'login')} className="text-link font-semibold cursor-pointer">
-              {tab === 'login' ? 'Daftar sekarang' : 'Masuk'}
+              {tab === 'login' ? t('login.registerNow') : t('login.signInLink')}
             </span>
           </div>
         </div>
 
         {tab === 'login' && (
-          <div className="text-center text-2xs text-tertiary mt-5">© 2026 gizku.com</div>
+          <div className="text-center text-2xs text-tertiary mt-5">{t('common.footer')}</div>
         )}
       </div>
     </div>

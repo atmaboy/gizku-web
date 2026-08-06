@@ -4,15 +4,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { IconHistory, IconSettings, IconCamera } from './icons'
 import { useCapture } from '@/components/capture/CaptureContext'
-
-const TABS = [
-  { href: '/main/riwayat', label: 'Riwayat', icon: IconHistory },
-  { href: '/main/settings', label: 'Pengaturan', icon: IconSettings },
-] as const
+import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 export default function BottomNav() {
   const pathname = usePathname()
   const { openCaptureMenu } = useCapture()
+  const { t } = useTranslation()
+
+  const TABS = [
+    { href: '/main/riwayat', label: t('nav.riwayat'), icon: IconHistory },
+    { href: '/main/settings', label: t('nav.settings'), icon: IconSettings },
+  ] as const
 
   return (
     <div
@@ -47,7 +49,7 @@ export default function BottomNav() {
         <button
           type="button"
           onClick={openCaptureMenu}
-          aria-label="Catat makanan baru"
+          aria-label={t('nav.captureAriaLabel')}
           className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-brand shadow-md cursor-pointer"
           style={{ top: -26, width: 56, height: 56 }}
         >

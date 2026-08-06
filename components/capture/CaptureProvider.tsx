@@ -10,6 +10,8 @@ import {
   IconInfo, IconAlertCircle,
 } from '@/components/ui/icons'
 import { CaptureContext, MEAL_SAVED_EVENT } from './CaptureContext'
+import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { pickLocalizedText } from '@/lib/i18n/localizedAnalysis'
 
 type Dish = {
   name: string
@@ -24,8 +26,10 @@ type AnalysisResult = {
   dishes: Dish[]
   total: { calories: number; protein: number; carbs: number; fat: number }
   notes: string
+  notesEn?: string
   healthScore?: number
   assessment?: string
+  assessmentEn?: string
 }
 
 type Step = 'idle' | 'analyzing' | 'error' | 'result'
@@ -34,6 +38,7 @@ const inputClass = 'w-full box-border h-[38px] rounded-md bg-surface shadow-hair
 
 export default function CaptureProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const { t, language } = useTranslation()
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
 
@@ -179,12 +184,12 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
         body: JSON.stringify({ analysis, imageDataUrl: thumbnail }),
       })
       if (res.status === 401) { handle401(); return }
-      if (!res.ok) { toast.error('Gagal menyimpan ke riwayat'); return }
+      if (!res.ok) { toast.error(t('captureModal.errors.saveFailed')); return }
       const data = await res.json() as { meal?: { id: string } }
       setSavedMealId(data.meal?.id ?? null)
-      toast.success('Tersimpan otomatis ke riwayat')
+      toast.success(t('captureModal.success.autoSaved'))
     } catch {
-      toast.error('Gagal menyimpan ke riwayat')
+      toast.error(t('captureModal.errors.saveFailed'))
     } finally {
       setAutoSaving(false)
     }
@@ -212,18 +217,18 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
       })
       const data = await res.json() as { analysis?: AnalysisResult; error?: string }
       if (res.status === 401) { handle401(); return }
-      if (res.status === 429) { toast.error(data.error ?? 'Batas analisa harian tercapai'); return }
-      if (!res.ok) { toast.error(data.error ?? 'Analisa ulang gagal'); return }
-      if (!data.analysis) { toast.error('Analisa ulang gagal'); return }
+      if (res.status === 429) { toast.error(data.error ?? t('captureModal.errors.limitReachedDefault')); return }
+      if (!res.ok) { toast.error(data.error ?? t('captureModal.errors.reanalyzeFailed')); return }
+      if (!data.analysis) { toast.error(t('captureModal.errors.reanalyzeFailed')); return }
 
       const analysis: AnalysisResult = data.analysis
       setResult(analysis)
       setShowKoreksi(false)
       setKoreksiText('')
       await patchMeal(analysis)
-      toast.success('Hasil koreksi diperbarui')
+      toast.success(t('captureModal.success.correctionUpdated'))
     } catch {
-      toast.error('Tidak dapat terhubung ke server')
+      toast.error(t('common.connectFailed'))
     } finally {
       setReanalyzing(false)
     }
@@ -239,9 +244,9 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
       setShowFullEdit(false)
       setEditResult(null)
       await patchMeal(updated)
-      toast.success('Menu & nutrisi diperbarui')
+      toast.success(t('captureModal.success.menuUpdated'))
     } catch {
-      toast.error('Gagal memperbarui riwayat')
+      toast.error(t('captureModal.errors.updateHistoryFailed'))
     } finally {
       setPatchingManual(false)
     }
@@ -257,15 +262,15 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
       })
       const data = await res.json() as { analysis?: AnalysisResult; error?: string }
       if (res.status === 401) { handle401(); return }
-      if (res.status === 429) { setError(data.error ?? 'Batas analisa harian tercapai'); setStep('error'); return }
-      if (!res.ok || !data.analysis) { setError(data.error ?? 'Analisa gagal'); setStep('error'); return }
+      if (res.status === 429) { setError(data.error ?? t('captureModal.errors.limitReachedDefault')); setStep('error'); return }
+      if (!res.ok || !data.analysis) { setError(data.error ?? t('captureModal.errors.analysisFailedDefault')); setStep('error'); return }
 
       const analysis: AnalysisResult = data.analysis
       setResult(analysis)
       setStep('result')
       await autoSaveNew(analysis, dataUrl)
     } catch {
-      setError('Tidak dapat terhubung ke server')
+      setError(t('common.connectFailed'))
       setStep('error')
     }
   }
@@ -285,7 +290,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
 
   function healthScoreInfo(score: number) {
     const color = score >= 8 ? 'var(--color-success)' : score >= 6 ? 'var(--color-warning)' : 'var(--color-danger)'
-    const label = score >= 8 ? 'Sangat Baik' : score >= 6 ? 'Cukup Baik' : 'Kurang Baik'
+    const label = score >= 8 ? t('captureModal.healthGood') : score >= 6 ? t('captureModal.healthOk') : t('captureModal.healthPoor')
     return { color, label }
   }
 
@@ -295,6 +300,8 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
       <span className="text-2xs text-secondary uppercase tracking-[0.4px]">{label}</span>
     </div>
   )
+
+  const localizedAssessment = result ? pickLocalizedText(result.assessment, result.assessmentEn, language) : undefined
 
   return (
     <CaptureContext.Provider value={{ openCaptureMenu }}>
@@ -314,25 +321,25 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
           <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 182 }}>
             <button
               onClick={e => { e.stopPropagation(); pickCamera() }}
-              aria-label="Ambil Foto"
+              aria-label={t('nav.takePhoto')}
               className="w-[52px] h-[52px] rounded-full bg-surface shadow-md flex items-center justify-center cursor-pointer"
             >
               <IconCamera size={20} color="var(--color-text-primary)" />
             </button>
             <span className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-sm font-medium text-primary bg-surface shadow-sm px-3 py-1.5 rounded-sm" style={{ right: 'calc(100% + 12px)' }}>
-              Ambil Foto
+              {t('nav.takePhoto')}
             </span>
           </div>
           <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 114 }}>
             <button
               onClick={e => { e.stopPropagation(); pickGallery() }}
-              aria-label="Pilih dari Galeri"
+              aria-label={t('nav.pickGallery')}
               className="w-[52px] h-[52px] rounded-full bg-surface shadow-md flex items-center justify-center cursor-pointer"
             >
               <IconGallery size={20} color="var(--color-text-primary)" />
             </button>
             <span className="absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-sm font-medium text-primary bg-surface shadow-sm px-3 py-1.5 rounded-sm" style={{ right: 'calc(100% + 12px)' }}>
-              Pilih dari Galeri
+              {t('nav.pickGallery')}
             </span>
           </div>
         </div>
@@ -342,7 +349,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
         <div className="absolute inset-0 z-[260] bg-page flex flex-col">
           {step !== 'analyzing' && (
             <ScreenHeader
-              title={step === 'result' ? 'Hasil Analisa' : 'Analisis Gagal'}
+              title={step === 'result' ? t('captureModal.headerResult') : t('captureModal.headerError')}
               onBack={closeOverlay}
             />
           )}
@@ -354,19 +361,19 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                   className="w-16 h-16 rounded-full animate-spin"
                   style={{ border: '3px solid var(--color-border-default)', borderTopColor: 'var(--color-bg-brand)' }}
                 />
-                <div className="text-lg font-semibold text-primary mt-2">Menganalisis makanan…</div>
-                <div className="text-sm text-secondary">AI sedang menghitung kandungan gizi</div>
+                <div className="text-lg font-semibold text-primary mt-2">{t('captureModal.analyzingTitle')}</div>
+                <div className="text-sm text-secondary">{t('captureModal.analyzingSubtitle')}</div>
               </div>
             )}
 
             {step === 'error' && (
               <div className="flex flex-col items-center justify-center gap-3 text-center py-14 px-4">
                 <IconAlertCircle size={40} color="var(--color-danger)" />
-                <div className="text-lg font-semibold text-primary">Analisis Gagal</div>
+                <div className="text-lg font-semibold text-primary">{t('captureModal.headerError')}</div>
                 <div className="text-sm text-secondary leading-normal max-w-[280px]">{error}</div>
                 <div className="w-full max-w-[260px] mt-2 flex flex-col gap-2.5">
-                  <Button onClick={retryAnalyze}>Analisis Ulang Makanan</Button>
-                  <Button variant="outline" onClick={closeOverlay}>Tutup</Button>
+                  <Button onClick={retryAnalyze}>{t('captureModal.errorRetry')}</Button>
+                  <Button variant="outline" onClick={closeOverlay}>{t('captureModal.errorClose')}</Button>
                 </div>
               </div>
             )}
@@ -376,7 +383,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                 {imageDataUrl && (
                   <div className="relative rounded-2xl overflow-hidden mb-[18px]" style={{ maxHeight: 220 }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imageDataUrl} alt="Foto makanan" className="w-full block object-cover" style={{ maxHeight: 220 }} />
+                    <img src={imageDataUrl} alt="" className="w-full block object-cover" style={{ maxHeight: 220 }} />
                     <div
                       className="absolute bottom-2.5 right-2.5 rounded-md px-2.5 py-1 text-xs font-semibold"
                       style={{
@@ -384,7 +391,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                         color: autoSaving ? '#fff' : 'var(--color-text-brand)',
                       }}
                     >
-                      {autoSaving ? 'Menyimpan...' : 'Tersimpan'}
+                      {autoSaving ? t('captureModal.savingBadge') : t('captureModal.savedBadge')}
                     </div>
                   </div>
                 )}
@@ -393,27 +400,27 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                   <div className="bg-surface shadow-hairline rounded-lg p-4 mb-4">
                     <div className="flex justify-between items-start mb-3.5">
                       <div>
-                        <div className="text-base font-semibold text-primary">Edit Menu</div>
-                        <div className="text-xs text-secondary mt-0.5">Nutrisi dihitung ulang otomatis setelah disimpan</div>
+                        <div className="text-base font-semibold text-primary">{t('captureModal.editMenu')}</div>
+                        <div className="text-xs text-secondary mt-0.5">{t('captureModal.editMenuSubtitle')}</div>
                       </div>
                       <button
                         onClick={() => { setShowFullEdit(false); setEditResult(null) }}
                         className="text-xs font-medium text-secondary bg-muted px-3 py-1.5 rounded-sm cursor-pointer shrink-0"
                       >
-                        ✕ Batal
+                        {t('captureModal.cancelChip')}
                       </button>
                     </div>
 
                     {editResult.dishes.map((dish, i) => (
                       <div key={i} className="bg-sunken rounded-lg p-3 mb-2.5">
-                        <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2">Menu {i + 1}</div>
-                        <div className="text-2xs text-secondary mb-1">Nama</div>
+                        <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2">{t('captureModal.menuLabel', { n: i + 1 })}</div>
+                        <div className="text-2xs text-secondary mb-1">{t('captureModal.nameLabel')}</div>
                         <input className={inputClass} value={dish.name}
                           onChange={e => {
                             const dishes = editResult.dishes.map((d, j) => j === i ? { ...d, name: e.target.value } : d)
                             setEditResult({ ...editResult, dishes })
                           }} />
-                        <div className="text-2xs text-secondary mb-1">Porsi</div>
+                        <div className="text-2xs text-secondary mb-1">{t('captureModal.portionLabel')}</div>
                         <input className={inputClass} value={dish.portion}
                           onChange={e => {
                             const dishes = editResult.dishes.map((d, j) => j === i ? { ...d, portion: e.target.value } : d)
@@ -423,7 +430,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                           {(['calories', 'protein', 'carbs', 'fat'] as const).map(key => (
                             <div key={key} style={{ width: 'calc(50% - 4px)' }}>
                               <div className="text-2xs text-secondary mb-1">
-                                {key === 'calories' ? 'Kalori (kkal)' : key === 'protein' ? 'Protein (g)' : key === 'carbs' ? 'Karbo (g)' : 'Lemak (g)'}
+                                {key === 'calories' ? t('captureModal.caloriesLabel') : key === 'protein' ? t('captureModal.proteinLabel') : key === 'carbs' ? t('captureModal.carbsLabel') : t('captureModal.fatLabel')}
                               </div>
                               <input type="number" inputMode="decimal" className={inputClass} value={dish[key]}
                                 onChange={e => {
@@ -439,7 +446,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                             className="flex items-center gap-1.5 mt-2.5 cursor-pointer"
                           >
                             <IconTrash size={13} color="var(--color-danger)" />
-                            <span className="text-xs" style={{ color: 'var(--color-danger)' }}>Hapus menu ini</span>
+                            <span className="text-xs" style={{ color: 'var(--color-danger)' }}>{t('captureModal.removeDish')}</span>
                           </button>
                         )}
                       </div>
@@ -451,12 +458,12 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                         size="md"
                         onClick={() => setEditResult({ ...editResult, dishes: [...editResult.dishes, { name: '', portion: '', calories: 0, protein: 0, carbs: 0, fat: 0 }] })}
                       >
-                        + Tambah Menu
+                        {t('captureModal.addDish')}
                       </Button>
                     </div>
 
                     <Button onClick={applyManualEdit} loading={patchingManual} icon={<IconCheck size={16} color="#fff" />}>
-                      Terapkan & Simpan
+                      {t('captureModal.applySave')}
                     </Button>
                   </div>
                 )}
@@ -464,27 +471,27 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                 {!showFullEdit && (
                   <>
                     <div className="bg-surface shadow-hairline rounded-lg px-4 py-3.5 mb-4">
-                      <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-3.5">Total Kandungan Gizi</div>
+                      <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-3.5">{t('captureModal.totalNutrition')}</div>
                       <div className="flex justify-between gap-2 mb-3.5">
-                        {macroBadge('Kalori', String(result.total.calories), 'var(--color-kcal)')}
-                        {macroBadge('Protein', `${result.total.protein.toFixed(1)}g`, 'var(--color-protein)')}
-                        {macroBadge('Karbo', `${result.total.carbs.toFixed(1)}g`, 'var(--color-carbs)')}
-                        {macroBadge('Lemak', `${result.total.fat.toFixed(1)}g`, 'var(--color-fat)')}
+                        {macroBadge(t('captureModal.kcal'), String(result.total.calories), 'var(--color-kcal)')}
+                        {macroBadge(t('captureModal.protein'), `${result.total.protein.toFixed(1)}g`, 'var(--color-protein)')}
+                        {macroBadge(t('captureModal.carbs'), `${result.total.carbs.toFixed(1)}g`, 'var(--color-carbs)')}
+                        {macroBadge(t('captureModal.fat'), `${result.total.fat.toFixed(1)}g`, 'var(--color-fat)')}
                       </div>
                       {!!result.healthScore && (
                         <div className="flex items-center gap-2 bg-muted rounded-sm px-3 py-2 mb-2.5">
                           <div className="w-2 h-2 rounded-full shrink-0" style={{ background: healthScoreInfo(result.healthScore).color }} />
                           <span className="text-xs font-semibold" style={{ color: healthScoreInfo(result.healthScore).color }}>
-                            Health Score {result.healthScore}/10
+                            {t('captureModal.healthScore', { score: result.healthScore })}
                           </span>
                           <span className="text-xs text-secondary">· {healthScoreInfo(result.healthScore).label}</span>
                         </div>
                       )}
-                      {result.assessment && <div className="text-sm text-secondary leading-normal">{result.assessment}</div>}
+                      {localizedAssessment && <div className="text-sm text-secondary leading-normal">{localizedAssessment}</div>}
                     </div>
 
                     <div className="text-2xs font-semibold text-secondary uppercase tracking-[0.5px] mb-2.5">
-                      Menu Terdeteksi ({result.dishes.length})
+                      {t('captureModal.detectedMenuCount', { count: result.dishes.length })}
                     </div>
                     {result.dishes.map((dish, i) => (
                       <div key={i} className="bg-surface shadow-hairline rounded-lg px-3.5 py-3 mb-2">
@@ -493,12 +500,12 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                             <div className="text-base font-medium text-primary">{dish.name}</div>
                             <div className="text-xs text-secondary mt-0.5">{dish.portion}</div>
                           </div>
-                          <div className="text-base font-semibold whitespace-nowrap" style={{ color: 'var(--color-kcal)' }}>{dish.calories} Kkal</div>
+                          <div className="text-base font-semibold whitespace-nowrap" style={{ color: 'var(--color-kcal)' }}>{dish.calories} {t('captureModal.kkalSuffix')}</div>
                         </div>
                         <div className="flex gap-3.5 mt-2">
-                          <span className="text-xs" style={{ color: 'var(--color-protein)' }}>P: {dish.protein}g</span>
-                          <span className="text-xs" style={{ color: 'var(--color-carbs)' }}>K: {dish.carbs}g</span>
-                          <span className="text-xs" style={{ color: 'var(--color-fat)' }}>L: {dish.fat}g</span>
+                          <span className="text-xs" style={{ color: 'var(--color-protein)' }}>{t('common.proteinAbbr')}: {dish.protein}g</span>
+                          <span className="text-xs" style={{ color: 'var(--color-carbs)' }}>{t('common.carbsAbbr')}: {dish.carbs}g</span>
+                          <span className="text-xs" style={{ color: 'var(--color-fat)' }}>{t('common.fatAbbr')}: {dish.fat}g</span>
                         </div>
                       </div>
                     ))}
@@ -508,7 +515,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                 <div className="flex gap-2.5 bg-muted rounded-md px-3.5 py-3 my-3.5 mb-5">
                   <IconInfo size={16} color="var(--color-text-secondary)" className="shrink-0 mt-0.5" />
                   <span className="text-xs text-secondary leading-normal">
-                    <b className="text-primary">Disclaimer:</b> Hasil analisa foto ini sepenuhnya dihasilkan oleh AI dan dapat mengandung ketidaktepatan.
+                    <b className="text-primary">{t('captureModal.disclaimerLabel')}</b> {t('captureModal.disclaimerText')}
                   </span>
                 </div>
 
@@ -520,45 +527,45 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
                         className="w-full h-12 rounded-md bg-brand-tint flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <IconEdit size={16} color="var(--color-text-brand)" />
-                        <span className="text-sm font-semibold" style={{ color: 'var(--color-text-brand)' }}>Koreksi Hasil Analisa</span>
+                        <span className="text-sm font-semibold" style={{ color: 'var(--color-text-brand)' }}>{t('captureModal.correctResult')}</span>
                       </button>
                     ) : (
                       <div className="bg-surface shadow-hairline rounded-lg p-4 mb-2.5">
                         <div className="flex justify-between items-start mb-3">
-                          <div className="text-base font-semibold text-primary">Koreksi Hasil Analisa</div>
-                          <button onClick={() => { setShowKoreksi(false); setKoreksiText('') }} className="text-xs text-secondary bg-muted px-2.5 py-1 rounded-sm cursor-pointer">✕</button>
+                          <div className="text-base font-semibold text-primary">{t('captureModal.correctResult')}</div>
+                          <button onClick={() => { setShowKoreksi(false); setKoreksiText('') }} className="text-xs text-secondary bg-muted px-2.5 py-1 rounded-sm cursor-pointer">{t('captureModal.cancelChipShort')}</button>
                         </div>
 
                         <div className="bg-sunken rounded-lg p-3.5 mb-2.5">
                           <div className="mb-2.5">
-                            <div className="text-sm font-semibold text-primary">Nama/deskripsi makanan salah?</div>
-                            <div className="text-xs text-secondary">AI akan analisa ulang berdasarkan koreksimu</div>
+                            <div className="text-sm font-semibold text-primary">{t('captureModal.correctNameTitle')}</div>
+                            <div className="text-xs text-secondary">{t('captureModal.correctNameSubtitle')}</div>
                           </div>
                           <textarea
                             value={koreksiText}
                             onChange={e => setKoreksiText(e.target.value)}
-                            placeholder="Contoh: Ini nasi goreng kampung dengan telur, bukan nasi putih biasa..."
+                            placeholder={t('captureModal.correctPlaceholder')}
                             className="w-full box-border rounded-md bg-surface shadow-hairline border-none outline-none px-3 py-2.5 text-base text-primary resize-none mb-2.5"
                             style={{ minHeight: 70 }}
                           />
                           {koreksiText.trim() && (
                             <Button size="md" loading={reanalyzing} icon={<IconSearch size={16} color="#fff" />} onClick={analyzeWithCorrection}>
-                              Analisis Ulang
+                              {t('captureModal.reanalyze')}
                             </Button>
                           )}
                         </div>
 
                         <div className="bg-sunken rounded-lg p-3.5">
                           <div className="mb-2.5">
-                            <div className="text-sm font-semibold text-primary">Edit menu &amp; angka nutrisi manual</div>
-                            <div className="text-xs text-secondary">Ubah nama, porsi, kalori, protein, karbo, lemak langsung</div>
+                            <div className="text-sm font-semibold text-primary">{t('captureModal.manualEditTitle')}</div>
+                            <div className="text-xs text-secondary">{t('captureModal.manualEditSubtitle')}</div>
                           </div>
-                          <Button variant="outline" size="md" onClick={openFullEdit}>Buka Editor Manual</Button>
+                          <Button variant="outline" size="md" onClick={openFullEdit}>{t('captureModal.openManualEditor')}</Button>
                         </div>
                       </div>
                     )}
 
-                    <Button variant="outline" onClick={closeOverlay}>Foto Makanan Lain</Button>
+                    <Button variant="outline" onClick={closeOverlay}>{t('captureModal.anotherPhoto')}</Button>
                   </div>
                 )}
               </>
