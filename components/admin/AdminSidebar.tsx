@@ -68,6 +68,17 @@ const nav = [
     ),
   },
   {
+    href: '/admin/legal',
+    label: 'Dokumen Legal',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M7 3h7l4 4v14H7z"/>
+        <path d="M14 3v4h4"/>
+        <path d="M9.5 12h5M9.5 15.5h5"/>
+      </svg>
+    ),
+  },
+  {
     href: '/admin/telegram',
     label: 'Telegram Bot',
     icon: (
