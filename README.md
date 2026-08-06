@@ -40,7 +40,8 @@ Backend ini juga menjadi **satu-satunya API** untuk [gizku-mobile](https://githu
 - 🔧 **Maintenance mode** — aktifkan/nonaktifkan mode pemeliharaan aplikasi
 
 ### ⚙️ Infrastruktur
-- ⏱️ **Vercel Cron** — `send-scheduled-blasts` (setiap hari 00:00) mengirim blast terjadwal; `prune-old-usage` (setiap hari 03:00) membersihkan data telemetri `daily_usage` yang sudah lewat masa retensi
+- 🗄️ **Supabase** — database PostgreSQL utama (via Drizzle ORM) sekaligus Supabase Storage untuk file upload (hero image, bukti transfer limit, dll)
+- ⏱️ **Cron job** — `send-scheduled-blasts` (setiap hari 00:00) mengirim blast terjadwal; `prune-old-usage` (setiap hari 03:00) membersihkan data telemetri `daily_usage` yang sudah lewat masa retensi. Dikonfigurasi di `vercel.json`, tapi **dipicu lewat [cron-job.org](https://cron-job.org)** (bukan Vercel Cron bawaan) selama project masih di plan Vercel **Hobby** (gratis) — lihat catatan di bagian [`/api/cron/*`](#apicron-dipicu-eksternal)
 - 📈 **Vercel Analytics & Speed Insights** — tracking page view dan web vitals otomatis
 - 🌐 **CORS global** — di-inject lewat middleware untuk semua route `/api/*`, agar bisa diakses dari aplikasi mobile
 
@@ -119,8 +120,8 @@ gizku-web/
 │       │   ├── verify/route.ts       # GET dipanggil bot untuk verifikasi & link akun
 │       │   └── webhook/route.ts      # POST webhook Telegram (pesan masuk ke bot)
 │       ├── cron/
-│       │   ├── send-scheduled-blasts/route.ts  # GET (Vercel Cron) kirim blast terjadwal
-│       │   └── prune-old-usage/route.ts        # GET (Vercel Cron) bersihkan daily_usage lama
+│       │   ├── send-scheduled-blasts/route.ts  # GET (dipicu cron-job.org) kirim blast terjadwal
+│       │   └── prune-old-usage/route.ts        # GET (dipicu cron-job.org) bersihkan daily_usage lama
 │       └── admin/
 │           ├── route.ts              # Login/logout admin; CRUD user, config, maintenance, laporan
 │           ├── upload-image/route.ts # POST upload hero image ke Supabase Storage
@@ -171,7 +172,7 @@ gizku-web/
 ├── public/                           # Static assets (favicon, manifest.json, icons)
 │
 ├── middleware.ts                     # Edge middleware — guard admin, redirect maintenance, inject CORS
-├── vercel.json                       # Konfigurasi Vercel Cron (send-scheduled-blasts, prune-old-usage)
+├── vercel.json                       # Referensi jadwal cron (send-scheduled-blasts, prune-old-usage) — pemicu aktual: cron-job.org
 ├── drizzle.config.ts                 # Konfigurasi Drizzle Kit
 ├── next.config.ts                    # Konfigurasi Next.js
 ├── tailwind.config.ts                # Konfigurasi Tailwind CSS
@@ -204,7 +205,7 @@ cp .env.example .env.local
 | `TELEGRAM_WHITELIST_ENABLED` | `true` untuk membatasi bot hanya ke ID tertentu — **hanya untuk dev/staging**, tanpa efek di production |
 | `TELEGRAM_WHITELIST_IDS` | Daftar Telegram user ID yang diizinkan (comma-separated), dipakai jika whitelist aktif |
 | `EXPO_ACCESS_TOKEN` | Opsional — hanya diperlukan jika project Expo mengaktifkan "Enhanced Security" untuk push notification |
-| `CRON_SECRET` | Melindungi endpoint `/api/cron/*` dari akses publik; Vercel Cron otomatis mengirim header ini |
+| `CRON_SECRET` | Melindungi endpoint `/api/cron/*` dari akses publik; diset sebagai `Authorization: Bearer <CRON_SECRET>` di job cron-job.org (lihat [Cara Deploy](#cara-deploy-ke-vercel)) |
 | `NEXT_PUBLIC_APP_ENV` | Set ke `staging` atau `preview` di environment non-production agar `StagingBanner` tampil |
 
 ---
@@ -385,14 +386,17 @@ Endpoint publik (tanpa autentikasi), sumber konten CMS untuk halaman publik:
 
 ---
 
-### `/api/cron/*` (Vercel Cron only)
+<a id="apicron-dipicu-eksternal"></a>
+### `/api/cron/*` (dipicu eksternal)
 
-Dilindungi header `Authorization: Bearer <CRON_SECRET>` yang otomatis dikirim Vercel Cron — memanggil manual tanpa secret yang benar akan ditolak.
+Dilindungi header `Authorization: Bearer <CRON_SECRET>` — memanggil tanpa secret yang benar akan ditolak (`401`).
+
+`vercel.json` mendeklarasikan jadwalnya untuk dokumentasi/referensi, tapi **Vercel Cron tidak benar-benar menjalankannya** selama project di plan **Hobby** (gratis) — Hobby hanya mengizinkan cron dieksekusi sekali per hari di jam yang tidak presisi/tidak terjamin. Sebagai gantinya, jadwal aktual dijalankan oleh **[cron-job.org](https://cron-job.org)** (layanan cron eksternal gratis) yang melakukan `GET` HTTP request langsung ke endpoint ini dengan header `Authorization: Bearer <CRON_SECRET>` sesuai jadwal masing-masing. Jika project di-upgrade ke plan Vercel **Pro**, `vercel.json` sudah siap dipakai dan cron-job.org bisa dinonaktifkan.
 
 | Endpoint | Jadwal | Keterangan |
 |---|---|---|
-| `/api/cron/send-scheduled-blasts` | `0 0 * * *` (setiap hari 00:00) | Kirim `notification_blasts` berstatus `scheduled` yang jadwalnya sudah lewat |
-| `/api/cron/prune-old-usage` | `0 3 * * *` (setiap hari 03:00) | Hapus baris `daily_usage` yang lebih tua dari `USAGE_RETENTION_DAYS` (90 hari) |
+| `/api/cron/send-scheduled-blasts` | `0 0 * * *` (setiap hari 00:00 UTC) | Kirim `notification_blasts` berstatus `scheduled` yang jadwalnya sudah lewat |
+| `/api/cron/prune-old-usage` | `0 3 * * *` (setiap hari 03:00 UTC) | Hapus baris `daily_usage` yang lebih tua dari `USAGE_RETENTION_DAYS` (90 hari) |
 
 ---
 
@@ -420,6 +424,7 @@ Semua endpoint admin memerlukan cookie/header `Authorization: Bearer <nl_admin_t
 
 ---
 
+<a id="cara-deploy-ke-vercel"></a>
 ## 🚀 Cara Deploy ke Vercel
 
 ### 1. Fork & Clone
@@ -452,7 +457,18 @@ npm install
 
 > ⚠️ **Deployment Protection:** Pastikan **Settings → Deployment Protection** di-set ke `Disabled` agar user eksternal dan aplikasi mobile bisa mengakses API.
 
-> ⏱️ **Vercel Cron** aktif otomatis lewat `vercel.json` — pastikan `CRON_SECRET` sudah diset di Project Settings agar Vercel bisa mengautentikasi panggilannya sendiri.
+### 5. Siapkan Cron Job (cron-job.org)
+
+Project ini masih berjalan di plan Vercel **Hobby** (gratis), yang tidak menjalankan `vercel.json` cron sesuai jadwal presisi (dibatasi maks. sekali/hari, waktu eksekusi tidak dijamin). Jadwal aktual dijalankan lewat [cron-job.org](https://cron-job.org):
+
+1. Daftar/login di [cron-job.org](https://cron-job.org)
+2. Buat dua cronjob baru, masing-masing memanggil `GET` ke:
+   - `https://<domain-kamu>/api/cron/send-scheduled-blasts` — jadwal harian `00:00 UTC`
+   - `https://<domain-kamu>/api/cron/prune-old-usage` — jadwal harian `03:00 UTC`
+3. Di tiap job, tambahkan custom header `Authorization: Bearer <CRON_SECRET>` (nilai yang sama dengan env var `CRON_SECRET` di Vercel)
+4. Aktifkan notifikasi kegagalan (email) di cron-job.org agar tahu jika salah satu job gagal jalan
+
+> Jika project di-upgrade ke plan **Pro**, cron bawaan Vercel (`vercel.json`) bisa dipakai langsung tanpa perlu cron-job.org — cukup pastikan `CRON_SECRET` tetap diset di Project Settings.
 
 ---
 
@@ -490,7 +506,7 @@ npm run typecheck
 
 #### 📣 Notification Blast (Push & Telegram)
 - Admin bisa mengirim broadcast ke seluruh user atau user tertentu lewat push notification (Expo → FCM/APNs) atau Telegram
-- Bisa dijadwalkan (dieksekusi oleh Vercel Cron `send-scheduled-blasts`), dengan tracking terkirim/diklik/dibaca/gagal per penerima dan pengecekan delivery receipt
+- Bisa dijadwalkan (dieksekusi oleh cron job `send-scheduled-blasts`, dipicu cron-job.org karena plan Vercel Hobby), dengan tracking terkirim/diklik/dibaca/gagal per penerima dan pengecekan delivery receipt
 
 #### 📜 Legal Document Configuration & Footer CMS
 - Backoffice baru untuk mengelola dokumen legal (Syarat & Ketentuan, Kebijakan Privasi, tipe custom) secara dwibahasa dengan rich text editor, output disanitasi sebelum disimpan
@@ -505,6 +521,7 @@ npm run typecheck
 - Cron `prune-old-usage` — pembersihan otomatis data telemetri `daily_usage` yang sudah lewat masa retensi
 - Ubah email dari halaman Settings (`/api/user?action=update_email`)
 - Response API disederhanakan menjadi data mentah di top-level untuk sukses, `{ error }` untuk gagal (menggantikan pembungkus `{ ok, data }` lama)
+- Penjadwalan cron (`send-scheduled-blasts`, `prune-old-usage`) dipindah dari Vercel Cron ke **cron-job.org** — plan Vercel saat ini masih **Hobby**, yang tidak menjalankan `vercel.json` cron sesuai jadwal presisi
 
 ---
 
@@ -581,7 +598,8 @@ npm run typecheck
 | Push Notification | Expo Push Service (relay ke FCM/APNs) |
 | i18n | Context provider custom (ID/EN) |
 | Analytics | Vercel Analytics, Vercel Speed Insights |
-| Scheduler | Vercel Cron |
+| Database hosting | Supabase (PostgreSQL + Storage) |
+| Scheduler | cron-job.org (eksternal) memicu `/api/cron/*` — plan Vercel saat ini **Hobby**, jadi cron bawaan Vercel (`vercel.json`) tidak dipakai |
 | Deploy | Vercel + Custom Domain |
 
 ---
