@@ -4,6 +4,7 @@ import { users } from '@/drizzle/schema'
 import { hashPassword, signUserToken, verifyToken, extractToken } from '@/lib/auth'
 import { ok, err, setCors } from '@/lib/utils'
 import { checkMaintenance, maintenanceResponse } from '@/lib/maintenance'
+import { sendVerificationEmailInBackground } from '@/lib/emailVerification'
 import { eq } from 'drizzle-orm'
 
 function isValidEmail(email: string) {
@@ -43,6 +44,10 @@ export async function POST(req: NextRequest) {
         .values({ username: username.toLowerCase().trim(), passwordHash: hash, email: trimmedEmail })
         .returning({ id: users.id, username: users.username })
       const token = await signUserToken({ userId: user.id, username: user.username })
+
+      // Non-blocking — verifikasi email bukan syarat menyelesaikan pendaftaran.
+      sendVerificationEmailInBackground({ userId: user.id, email: trimmedEmail, username: user.username })
+
       return ok({ token, user: { id: user.id, username: user.username } })
     } catch {
       return err('Username sudah digunakan', 409)
