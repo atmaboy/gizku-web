@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import BrandAnnouncement from '@/components/BrandAnnouncement'
 import GizkuLogo from '@/components/GizkuLogo'
-import LegalConsentLine from '@/components/LegalConsentLine'
+import LegalConsentCheckbox from '@/components/LegalConsentCheckbox'
 import Button from '@/components/ui/Button'
 import TextField from '@/components/ui/TextField'
 import { IconArrowLeft, IconLock, IconPerson, IconMail } from '@/components/ui/icons'
@@ -26,6 +26,8 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [maintenance, setMaintenance] = useState<MaintenanceInfo>(null)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [consentRequired, setConsentRequired] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('nl_token')
@@ -49,6 +51,7 @@ export default function LoginPage() {
     setPassword('')
     setNewPassword('')
     setConfirmPassword('')
+    setAgreedToTerms(false)
   }
 
   // ── Handler: Login & Register ───────────────────────────────────────────
@@ -64,6 +67,7 @@ export default function LoginPage() {
         if (!trimmedEmail) { setError(t('login.errors.emailRequired')); setLoading(false); return }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(trimmedEmail)) { setError(t('login.errors.emailInvalid')); setLoading(false); return }
+        if (consentRequired && !agreedToTerms) { setError(t('legalConsent.mustAgree')); setLoading(false); return }
       }
 
       const endpoint = tab === 'login' ? '/api/auth?action=login' : '/api/auth?action=register'
@@ -321,23 +325,28 @@ export default function LoginPage() {
             )}
 
             {tab === 'register' && (
-              <TextField
-                label={t('login.emailLabel')}
-                leadingIcon={<IconMail size={16} color="var(--color-text-tertiary)" />}
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder={t('login.emailPlaceholder')}
-                required
-              />
+              <>
+                <TextField
+                  label={t('login.emailLabel')}
+                  leadingIcon={<IconMail size={16} color="var(--color-text-tertiary)" />}
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder={t('login.emailPlaceholder')}
+                  required
+                />
+                <LegalConsentCheckbox
+                  checked={agreedToTerms}
+                  onChange={setAgreedToTerms}
+                  onAvailabilityChange={setConsentRequired}
+                />
+              </>
             )}
 
-            <Button type="submit" loading={loading}>
+            <Button type="submit" loading={loading} disabled={tab === 'register' && consentRequired && !agreedToTerms}>
               {tab === 'login' ? t('login.signIn') : t('login.register')}
             </Button>
           </form>
-
-          <LegalConsentLine />
 
           <div className="flex justify-center gap-1.5 mt-[18px] text-xs">
             <span className="text-secondary">{tab === 'login' ? t('login.noAccount') : t('login.haveAccount')}</span>

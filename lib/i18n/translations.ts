@@ -114,6 +114,7 @@ const id: Dict = {
     both: 'Dengan ini saya setuju terhadap {{terms}} serta {{privacy}} aplikasi',
     termsOnly: 'Dengan ini saya setuju terhadap {{terms}} aplikasi',
     privacyOnly: 'Dengan ini saya setuju terhadap {{privacy}} aplikasi',
+    mustAgree: 'Kamu perlu menyetujui ketentuan di atas terlebih dahulu',
   },
   changeEmail: {
     title: 'Ubah Email',
@@ -542,6 +543,7 @@ const en: Dict = {
     both: "By continuing, I agree to the app's {{terms}} and {{privacy}}",
     termsOnly: "By continuing, I agree to the app's {{terms}}",
     privacyOnly: "By continuing, I agree to the app's {{privacy}}",
+    mustAgree: 'Please agree to the terms above first',
   },
   changeEmail: {
     title: 'Change Email',
