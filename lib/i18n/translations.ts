@@ -110,6 +110,11 @@ const id: Dict = {
     documentNotFound: 'Dokumen tidak ditemukan.',
     loading: 'Memuat…',
   },
+  legalConsent: {
+    both: 'Dengan ini saya setuju terhadap {{terms}} serta {{privacy}} aplikasi',
+    termsOnly: 'Dengan ini saya setuju terhadap {{terms}} aplikasi',
+    privacyOnly: 'Dengan ini saya setuju terhadap {{privacy}} aplikasi',
+  },
   changeEmail: {
     title: 'Ubah Email',
     currentEmailLabel: 'Email Saat Ini',
@@ -532,6 +537,11 @@ const en: Dict = {
     documentFallbackTitle: 'Document',
     documentNotFound: 'Document not found.',
     loading: 'Loading…',
+  },
+  legalConsent: {
+    both: "By continuing, I agree to the app's {{terms}} and {{privacy}}",
+    termsOnly: "By continuing, I agree to the app's {{terms}}",
+    privacyOnly: "By continuing, I agree to the app's {{privacy}}",
   },
   changeEmail: {
     title: 'Change Email',

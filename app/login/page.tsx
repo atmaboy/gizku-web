@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import BrandAnnouncement from '@/components/BrandAnnouncement'
 import GizkuLogo from '@/components/GizkuLogo'
+import LegalConsentLine from '@/components/LegalConsentLine'
 import Button from '@/components/ui/Button'
 import TextField from '@/components/ui/TextField'
 import { IconArrowLeft, IconLock, IconPerson, IconMail } from '@/components/ui/icons'
@@ -335,6 +336,8 @@ export default function LoginPage() {
               {tab === 'login' ? t('login.signIn') : t('login.register')}
             </Button>
           </form>
+
+          <LegalConsentLine />
 
           <div className="flex justify-center gap-1.5 mt-[18px] text-xs">
             <span className="text-secondary">{tab === 'login' ? t('login.noAccount') : t('login.haveAccount')}</span>

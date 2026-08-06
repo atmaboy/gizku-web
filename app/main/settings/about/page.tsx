@@ -6,32 +6,33 @@ import ScreenHeader from '@/components/ui/ScreenHeader'
 import Card from '@/components/ui/Card'
 import ListItem from '@/components/ui/ListItem'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { fetchLegalContent } from '@/lib/legalContent'
 
 type LegalDocumentSummary = { slug: string; title: string }
-type LegalContent = {
-  documents: { slug: string; langs: { id: { title: string } } }[]
-  about: { id: { description: string; disclaimer: string } }
-}
 
 export default function AboutPage() {
   const router = useRouter()
-  const { t } = useTranslation()
+  const { language, t } = useTranslation()
   const [documents, setDocuments] = useState<LegalDocumentSummary[]>([])
   const [description, setDescription] = useState<string | null>(null)
   const [disclaimer, setDisclaimer] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/legal-content')
-      .then(r => r.json())
-      .then((j: LegalContent) => {
-        if (j.about?.id?.description) setDescription(j.about.id.description)
-        if (j.about?.id?.disclaimer) setDisclaimer(j.about.id.disclaimer)
-        setDocuments((j.documents ?? []).filter(d => d.langs.id.title).map(d => ({ slug: d.slug, title: d.langs.id.title })))
+    fetchLegalContent()
+      .then(data => {
+        const aboutLang = data.about[language]?.description ? data.about[language] : data.about.id
+        if (aboutLang.description) setDescription(aboutLang.description)
+        if (aboutLang.disclaimer) setDisclaimer(aboutLang.disclaimer)
+        setDocuments(
+          data.documents
+            .filter(d => d.langs[language]?.title || d.langs.id.title)
+            .map(d => ({ slug: d.slug, title: d.langs[language]?.title || d.langs.id.title }))
+        )
       })
       .catch(() => {
         // fail-open — halaman tetap tampil dengan copy default
       })
-  }, [])
+  }, [language])
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
@@ -47,7 +48,7 @@ export default function AboutPage() {
         <Card className="w-full overflow-hidden mt-6">
           {documents.map(doc => (
             <div key={doc.slug} style={{ borderBottom: '1px solid var(--color-border-default)' }}>
-              <ListItem label={doc.title} onClick={() => router.push(`/main/settings/about/${doc.slug}`)} />
+              <ListItem label={doc.title} onClick={() => router.push(`/legal/${doc.slug}`)} />
             </div>
           ))}
           <a href="https://gizku.com" target="_blank" rel="noopener noreferrer" className="block">
