@@ -174,3 +174,21 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* Admin — Legal Document rich-text editor (components/admin/RichTextEditor.tsx) */
+.gz-rte:empty:before { content: attr(data-placeholder); color: #9CA3AF; }
+.gz-rte:focus { outline: none; }
+.gz-rte h3 { font-size: 15px; margin: 14px 0 6px; font-weight: 700; color: #111827; }
+.gz-rte p { margin: 0 0 9px; }
+.gz-rte ul, .gz-rte ol { margin: 0 0 9px; padding-left: 18px; }
+.gz-rte li { margin-bottom: 3px; }
+
+/* User-facing legal document body (app/main/settings/about/[slug]) — renders
+   the sanitized bodyHtml configured in the backoffice. */
+.legal-doc-body { color: var(--color-text-secondary); font-size: 14px; line-height: 1.7; }
+.legal-doc-body h3 { font-size: 15px; margin: 18px 0 8px; font-weight: 700; color: var(--color-text-primary); }
+.legal-doc-body h3:first-child { margin-top: 0; }
+.legal-doc-body p { margin: 0 0 12px; }
+.legal-doc-body ul, .legal-doc-body ol { margin: 0 0 12px; padding-left: 20px; }
+.legal-doc-body li { margin-bottom: 4px; }
+.legal-doc-body strong { color: var(--color-text-primary); }

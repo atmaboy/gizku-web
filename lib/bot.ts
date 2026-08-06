@@ -485,6 +485,7 @@ export function createBot(token: string): Bot {
         const cfgModel = await getCfg('anthropic_model')
         if (cfgModel) modelId = cfgModel
       } catch {}
+      console.info(`[bot] Using model "${modelId}"`)
 
       if (!apiKey) {
         console.error('[bot] ANTHROPIC_API_KEY not set')
