@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { sendVerificationEmailInBackground, resendVerification } from '@/lib/emailVerification'
 import { db } from '@/lib/db'
 import { users, meals, dailyUsage, telegramUsers } from '@/drizzle/schema'
 import { verifyToken, extractToken, hashPassword } from '@/lib/auth'
@@ -34,11 +35,12 @@ export async function GET(req: NextRequest) {
   if (action === 'profile') {
     // Fetch user row
     const [userData] = await db.select({
-      id:           users.id,
-      username:     users.username,
-      email:        users.email,
-      dailyLimit:   users.dailyLimit,
-      createdAt:    users.createdAt,
+      id:              users.id,
+      username:        users.username,
+      email:           users.email,
+      dailyLimit:      users.dailyLimit,
+      createdAt:       users.createdAt,
+      emailVerifiedAt: users.emailVerifiedAt,
     }).from(users).where(eq(users.id, user.userId)).limit(1)
 
     if (!userData) return err('User tidak ditemukan', 404)
@@ -66,6 +68,7 @@ export async function GET(req: NextRequest) {
     return ok({
       user: {
         ...userData,
+        emailVerified: userData.emailVerifiedAt !== null,
         dailyLimit:    limit,
         todayUsage:    usageRow?.count ?? 0,
         remaining:     Math.max(0, limit - (usageRow?.count ?? 0)),
@@ -117,10 +120,28 @@ export async function POST(req: NextRequest) {
       .from(users).where(eq(users.email, trimmedEmail)).limit(1)
     if (existing && existing.id !== user.userId) return err('Email sudah digunakan', 409)
 
-    await db.update(users).set({ email: trimmedEmail, updatedAt: new Date() })
+    if (existing?.id === user.userId) {
+      // Email tidak benar-benar berubah — jangan reset status verifikasi.
+      return ok({ message: 'Email berhasil disimpan' })
+    }
+
+    // Email benar-benar berubah → selalu reset status verifikasi & kirim ulang
+    // link verifikasi ke email yang baru, terlepas email lama sudah terverifikasi
+    // atau belum.
+    await db.update(users).set({ email: trimmedEmail, emailVerifiedAt: null, updatedAt: new Date() })
       .where(eq(users.id, user.userId))
+    sendVerificationEmailInBackground({ userId: user.userId, email: trimmedEmail, username: user.username })
 
     return ok({ message: 'Email berhasil disimpan' })
+  }
+
+  if (action === 'resend_verification') {
+    const result = await resendVerification(user.userId)
+    if (!result.ok && result.code === 'already_verified') return err('Email sudah terverifikasi', 409)
+    if (!result.ok && result.code === 'rate_limited')
+      return err('Batas 3x pengiriman dalam 24 jam tercapai, coba lagi nanti', 429)
+
+    return ok({ message: 'Email verifikasi telah dikirim ulang' })
   }
 
   return err('Action tidak dikenal')

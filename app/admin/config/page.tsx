@@ -11,6 +11,7 @@ export default function ConfigPage() {
   const [mEnabled, setMEnabled] = useState(false)
   const [mTitle, setMTitle]     = useState('')
   const [mDesc, setMDesc]       = useState('')
+  const [verifyHours, setVerifyHours] = useState('72')
   const [loading, setLoading]   = useState<string | null>(null)
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function ConfigPage() {
         }
         if (d.dailyLimit !== undefined) setLimit(String(d.dailyLimit))
         if (d.anthropicModel) setAiModel(d.anthropicModel)
+        if (d.emailVerificationExpiryHours !== undefined) setVerifyHours(String(d.emailVerificationExpiryHours))
       })
       .catch(() => {})
   }, [])
@@ -138,6 +140,25 @@ export default function ConfigPage() {
         </div>
         <p className="text-xs text-[#6B7280] mt-2">
           Ganti ke model lebih ringan jika muncul error &quot;Server AI sedang sibuk&quot;. Sistem akan otomatis retry 3x sebelum menyerah.
+        </p>
+      </Section>
+
+      {/* Verifikasi Email */}
+      <Section title="Verifikasi Email">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="number" value={verifyHours} onChange={e => setVerifyHours(e.target.value)} min={1} max={120}
+            className={inputCls}
+          />
+          <BtnPrimary
+            onClick={() => save('update_config', { emailVerificationExpiryHours: parseInt(verifyHours) }, 'Masa berlaku verifikasi email')}
+            disabled={loading !== null}
+          >
+            {loading !== null ? '…' : 'Simpan'}
+          </BtnPrimary>
+        </div>
+        <p className="text-xs text-[#6B7280] mt-2">
+          Masa berlaku link verifikasi email (dalam jam). Default 72 jam (3 hari), maksimal 120 jam (5 hari).
         </p>
       </Section>
 

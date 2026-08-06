@@ -26,6 +26,8 @@ export const users = pgTable('users', {
   passwordChangedBy:  text('password_changed_by'),
   mustChangePassword: boolean('must_change_password').default(false).notNull(),
   adminResetBy:       text('admin_reset_by'),
+
+  emailVerifiedAt:    timestamp('email_verified_at', { withTimezone: true }),
 }, t => ({ usernameIdx: index('idx_users_username').on(t.username) }))
 
 export const meals = pgTable('meals', {
@@ -85,6 +87,26 @@ export const landingContent = pgTable('landing_content', {
 }, t => ({
   sectionIdx: index('idx_landing_section').on(t.section),
   activeIdx:  index('idx_landing_active').on(t.isActive, t.section, t.sortOrder),
+}))
+
+// ── Email Verification Tokens ────────────────────────────────────────────────
+// Single-use tokens sent via email on register / email change, consumed by
+// GET /verify?token=XXX. Only the sha256 hash is stored (mirrors passwordHash
+// pattern) — the raw token lives only in the emailed link. Old tokens are not
+// deleted when a new one is issued; they stay valid until they expire or are
+// consumed, so a resend never silently breaks a link already in someone's inbox.
+export const emailVerificationTokens = pgTable('email_verification_tokens', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  userId:     uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash:  text('token_hash').unique().notNull(),
+  email:      text('email').notNull(),
+  expiresAt:  timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  userIdx:      index('idx_email_verification_tokens_user_id').on(t.userId),
+  tokenHashIdx: index('idx_email_verification_tokens_token_hash').on(t.tokenHash),
+  userCreatedIdx: index('idx_email_verification_tokens_user_created').on(t.userId, t.createdAt),
 }))
 
 // ── Telegram Users ────────────────────────────────────────────────────────────
@@ -279,14 +301,18 @@ export const aboutContent = pgTable('about_content', {
 
 // ── Relations ─────────────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
-  meals:              many(meals),
-  dailyUsage:         many(dailyUsage),
-  reports:            many(reports),
-  telegramUsers:      many(telegramUsers),
-  telegramLinkTokens: many(telegramLinkTokens),
-  pushTokens:         many(pushTokens),
-  blastRecipients:    many(notificationBlastRecipients),
-  limitRequests:      many(limitRequests),
+  meals:                  many(meals),
+  dailyUsage:             many(dailyUsage),
+  reports:                many(reports),
+  telegramUsers:          many(telegramUsers),
+  telegramLinkTokens:     many(telegramLinkTokens),
+  pushTokens:             many(pushTokens),
+  blastRecipients:        many(notificationBlastRecipients),
+  limitRequests:          many(limitRequests),
+  emailVerificationTokens: many(emailVerificationTokens),
+}))
+export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
+  user: one(users, { fields: [emailVerificationTokens.userId], references: [users.id] }),
 }))
 export const limitTiersRelations = relations(limitTiers, ({ many }) => ({
   requests: many(limitRequests),
@@ -347,3 +373,5 @@ export type NewLegalDocumentType       = typeof legalDocumentTypes.$inferInsert
 export type LegalDocument              = typeof legalDocuments.$inferSelect
 export type NewLegalDocument           = typeof legalDocuments.$inferInsert
 export type AboutContent               = typeof aboutContent.$inferSelect
+export type EmailVerificationToken     = typeof emailVerificationTokens.$inferSelect
+export type NewEmailVerificationToken  = typeof emailVerificationTokens.$inferInsert
