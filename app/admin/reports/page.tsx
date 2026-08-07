@@ -28,7 +28,16 @@ export default async function ReportsPage() {
           <tbody>
             {items.map((r, i) => (
               <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]'}>
-                <td className="px-4 py-3 text-[#6B7280]">{r.username ?? '—'}</td>
+                <td className="px-4 py-3 text-[#6B7280]">
+                  {r.username ?? '—'}
+                  {r.source === 'email' && (
+                    <div className="mt-0.5">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#4F46E5] bg-[#EEF2FF] rounded-full px-2 py-0.5">
+                        ✉ {r.fromEmail}
+                      </span>
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 max-w-sm text-[#111827]">{r.message}</td>
                 <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{fmtDateTime(r.createdAt)}</td>
                 <td className="px-4 py-3"><ReportActions id={r.id} status={r.status} /></td>
@@ -74,6 +83,14 @@ export default async function ReportsPage() {
                 {fmtDateTime(r.createdAt)}
               </span>
             </div>
+
+            {r.source === 'email' && (
+              <div className="px-4 pt-2.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#4F46E5] bg-[#EEF2FF] rounded-full px-2 py-0.5">
+                  ✉ {r.fromEmail}
+                </span>
+              </div>
+            )}
 
             {/* Card Body — pesan laporan */}
             <div className="px-4 py-3">
