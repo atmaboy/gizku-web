@@ -5,6 +5,7 @@ import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMainten
 import { signAdminToken } from '@/lib/auth'
 import { ok, err, setCors } from '@/lib/utils'
 import { invalidateMaintenanceCache } from '@/lib/maintenance'
+import { sendVerificationEmailInBackground, clampExpiryHours, getVerificationExpiryHours } from '@/lib/emailVerification'
 import { eq, desc, count, and, gte, lte } from 'drizzle-orm'
 
 function isValidEmail(email: string) {
@@ -63,6 +64,10 @@ export async function POST(req: NextRequest) {
       if (body.dailyLimit !== undefined)      await setCfg('default_daily_limit', String(body.dailyLimit))
       if (body.anthropicApiKey !== undefined) await setCfg('anthropic_api_key', body.anthropicApiKey)
       if (body.anthropicModel !== undefined)  await setCfg('anthropic_model', body.anthropicModel)
+      if (body.emailVerificationExpiryHours !== undefined) {
+        const hours = clampExpiryHours(Number(body.emailVerificationExpiryHours))
+        await setCfg('email_verification_expiry_hours', String(hours))
+      }
       return ok({ message: 'Konfigurasi disimpan' })
     }
 
@@ -111,6 +116,7 @@ export async function POST(req: NextRequest) {
         const [user] = await db.insert(users)
           .values({ username: username.toLowerCase().trim(), passwordHash: hash, dailyLimit: dailyLimit || null, email: resolvedEmail })
           .returning({ id: users.id, username: users.username })
+        if (resolvedEmail) sendVerificationEmailInBackground({ userId: user.id, email: resolvedEmail, username: user.username })
         return ok({ user })
       } catch {
         return err('Username sudah digunakan', 409)
@@ -123,9 +129,14 @@ export async function POST(req: NextRequest) {
       const updateData: Record<string, unknown> = { updatedAt: new Date() }
       if (isActive !== undefined) updateData.isActive = isActive
       if (dailyLimit !== undefined) updateData.dailyLimit = dailyLimit === '' ? null : Number(dailyLimit)
+      let newVerificationEmail: string | null = null
       if (email !== undefined) {
+        const [current] = await db.select({ email: users.email })
+          .from(users).where(eq(users.id, userId)).limit(1)
+
         if (email === '' || email === null) {
           updateData.email = null
+          updateData.emailVerifiedAt = null
         } else {
           const trimmedEmail = String(email).trim().toLowerCase()
           if (!isValidEmail(trimmedEmail)) return err('Format email tidak valid')
@@ -133,9 +144,19 @@ export async function POST(req: NextRequest) {
             .from(users).where(eq(users.email, trimmedEmail)).limit(1)
           if (existingEmail && existingEmail.id !== userId) return err('Email sudah digunakan', 409)
           updateData.email = trimmedEmail
+          // Email benar-benar berubah → reset status verifikasi & kirim ulang
+          // link, terlepas apakah email sebelumnya sudah terverifikasi atau belum.
+          if (current?.email !== trimmedEmail) {
+            updateData.emailVerifiedAt = null
+            newVerificationEmail = trimmedEmail
+          }
         }
       }
-      await db.update(users).set(updateData).where(eq(users.id, userId))
+      const [updated] = await db.update(users).set(updateData)
+        .where(eq(users.id, userId))
+        .returning({ username: users.username })
+      if (newVerificationEmail && updated)
+        sendVerificationEmailInBackground({ userId, email: newVerificationEmail, username: updated.username })
       return ok({ message: 'User diperbarui' })
     }
 
@@ -289,8 +310,9 @@ export async function GET(req: NextRequest) {
         passwordChangedBy:  users.passwordChangedBy,
         mustChangePassword: users.mustChangePassword,
         adminResetBy:       users.adminResetBy,
+        emailVerifiedAt:    users.emailVerifiedAt,
       }).from(users).orderBy(desc(users.createdAt))
-      return ok({ users: allUsers })
+      return ok({ users: allUsers.map(u => ({ ...u, emailVerified: u.emailVerifiedAt !== null })) })
     }
 
     if (action === 'stats') {
@@ -305,7 +327,8 @@ export async function GET(req: NextRequest) {
       const apiKey         = await getCfg('anthropic_api_key')
       const anthropicModel = await getCfg('anthropic_model') || 'claude-sonnet-5'
       const maintenance    = await getMaintenance()
-      return ok({ globalLimit, apiKey: apiKey ? '••••••••' : '', anthropicModel, maintenance })
+      const emailVerificationExpiryHours = await getVerificationExpiryHours()
+      return ok({ globalLimit, apiKey: apiKey ? '••••••••' : '', anthropicModel, maintenance, emailVerificationExpiryHours })
     }
 
     // ── list all reports (for client-side fetching) ─────────────────────────────────────────────────

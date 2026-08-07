@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import ScreenHeader from '@/components/ui/ScreenHeader'
 import TextField from '@/components/ui/TextField'
 import Button from '@/components/ui/Button'
-import { IconMail } from '@/components/ui/icons'
+import { IconMail, IconCheck, IconClock } from '@/components/ui/icons'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
 
 function authHeaders() {
@@ -17,19 +17,50 @@ export default function ChangeEmailPage() {
   const router = useRouter()
   const { t } = useTranslation()
   const [currentEmail, setCurrentEmail] = useState('')
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null)
   const [next, setNext] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    fetch('/api/user?action=profile', { headers: authHeaders(), cache: 'no-store' })
+  function loadProfile() {
+    return fetch('/api/user?action=profile', { headers: authHeaders(), cache: 'no-store' })
       .then(res => {
         if (res.status === 401) { router.replace('/login'); return null }
         return res.json()
       })
-      .then(data => { if (data?.user?.email) setCurrentEmail(data.user.email) })
+      .then(data => {
+        if (data?.user?.email) setCurrentEmail(data.user.email)
+        if (data?.user) setEmailVerified(Boolean(data.user.emailVerified))
+      })
       .catch(() => {})
+  }
+
+  useEffect(() => {
+    loadProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
+
+  async function resendVerification() {
+    setResending(true)
+    try {
+      const res = await fetch('/api/user?action=resend_verification', {
+        method: 'POST',
+        headers: authHeaders(),
+      })
+      const data = await res.json()
+      if (res.status === 401) { router.replace('/login'); return }
+      if (res.status === 409) { toast.error(t('changeEmail.resendAlreadyVerified')); await loadProfile(); return }
+      if (res.status === 429) { toast.error(t('changeEmail.resendRateLimited')); return }
+      if (!res.ok) { toast.error(data.error || t('changeEmail.resendFailed')); return }
+
+      toast.success(t('changeEmail.resendSuccess'))
+    } catch {
+      toast.error(t('common.connectFailed'))
+    } finally {
+      setResending(false)
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -52,6 +83,7 @@ export default function ChangeEmailPage() {
 
       toast.success(t('changeEmail.updateSuccess'))
       setCurrentEmail(trimmed)
+      setEmailVerified(false)
       setNext('')
     } catch {
       setError(t('common.connectFailed'))
@@ -71,6 +103,34 @@ export default function ChangeEmailPage() {
             <IconMail size={14} color="var(--color-text-tertiary)" />
             <span className="flex-1 text-base text-secondary">{currentEmail || '—'}</span>
           </div>
+
+          {emailVerified === true && (
+            <div className="flex items-center gap-1.5 mt-2 px-0.5">
+              <IconCheck size={13} color="var(--color-text-brand)" />
+              <span className="text-xs font-medium" style={{ color: 'var(--color-text-brand)' }}>
+                {t('changeEmail.verifiedBadge')}
+              </span>
+            </div>
+          )}
+
+          {emailVerified === false && (
+            <div className="flex items-center justify-between gap-3 mt-2 px-0.5">
+              <div className="flex items-center gap-1.5">
+                <IconClock size={13} color="var(--color-warning)" />
+                <span className="text-xs font-medium" style={{ color: 'var(--color-warning)' }}>
+                  {t('changeEmail.unverifiedBadge')}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={resendVerification}
+                disabled={resending}
+                className="text-xs font-semibold text-link disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              >
+                {resending ? t('changeEmail.resendSending') : t('changeEmail.resendButton')}
+              </button>
+            </div>
+          )}
         </div>
 
         <form onSubmit={submit}>

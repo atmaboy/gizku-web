@@ -138,7 +138,7 @@ gizku-web/
 │           └── users/[userId]/meals/route.ts  # GET riwayat meal milik satu user (untuk admin)
 │
 ├── components/                       # Shared React components
-│   ├── GizkuLogo.tsx                 # Komponen logo terpusat (bowl+spoon SVG)
+│   ├── GizkuLogo.tsx                 # Komponen logo terpusat (progress ring + pie mark SVG)
 │   ├── BrandAnnouncement.tsx         # Widget notifikasi rebrand NutriLog → Gizku (dismissible)
 │   ├── StagingBanner.tsx             # Banner peringatan environment staging
 │   ├── LegalConsentCheckbox.tsx      # Checkbox wajib setuju T&C/Privasi saat register
