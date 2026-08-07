@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none">
-  <rect width="180" height="180" rx="40" fill="#4f9142"/>
-  <!-- bowl base -->
-  <path d="M45 90 Q45 129 90 129 Q135 129 135 90" stroke="white" stroke-width="10" stroke-linecap="round" fill="none"/>
-  <!-- bowl rim -->
-  <line x1="45" y1="90" x2="135" y2="90" stroke="white" stroke-width="10" stroke-linecap="round"/>
-  <!-- check -->
-  <polyline points="67,62 84,82 115,51" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-</svg>
