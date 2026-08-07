@@ -4,7 +4,8 @@ const FROM = 'Gizku <no-reply@gizku.com>'
 
 let client: Resend | null = null
 
-function getResendClient(): Resend | null {
+/** Exported for lib/emailInbound.ts (webhook signature verify + fetch full received email). */
+export function getResendClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) return null
   if (!client) client = new Resend(apiKey)

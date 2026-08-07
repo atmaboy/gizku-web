@@ -62,7 +62,19 @@ export const reports = pgTable('reports', {
   status:    text('status').notNull().default('open'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-}, t => ({ statusIdx: index('idx_reports_status').on(t.status) }))
+
+  // Origin of the report — 'app' (in-app feedback form, default) or 'email'
+  // (inbound to support@..., see app/api/webhooks/resend-inbound). Only
+  // 'email' reports carry the fields below — needed to eventually reply
+  // in-thread (In-Reply-To/References headers on the outbound reply).
+  source:         text('source').notNull().default('app'),
+  fromEmail:      text('from_email'),
+  emailMessageId: text('email_message_id'),
+  emailSubject:   text('email_subject'),
+}, t => ({
+  statusIdx: index('idx_reports_status').on(t.status),
+  sourceIdx: index('idx_reports_source').on(t.source),
+}))
 
 export const maintenanceConfig = pgTable('maintenance_config', {
   id:          serial('id').primaryKey(),
