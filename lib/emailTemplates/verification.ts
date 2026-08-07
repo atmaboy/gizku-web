@@ -8,7 +8,9 @@ export function buildVerificationEmailHtml(opts: {
   expiryHours: number
 }): string {
   const { username, verifyUrl, expiryHours } = opts
-  const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'}/gizku-logo-email.jpg`
+  // Query param busts Gmail/Outlook's image proxy cache, which caches by
+  // exact URL — bump this whenever gizku-logo-email.jpg is replaced.
+  const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'}/gizku-logo-email.jpg?v=2`
 
   return `<!DOCTYPE html>
 <html lang="id" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">

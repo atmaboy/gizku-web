@@ -1,8 +1,8 @@
 /**
  * GizkuLogo — komponen logo resmi Gizku
  *
- * Lingkaran hijau solid dengan ikon mangkuk dan sendok,
- * sama persis dengan logo di halaman login user.
+ * Rounded square hijau dengan progress ring dan pie breakdown
+ * protein/karbo/lemak, sama persis dengan mark resmi Gizku.
  *
  * Props:
  *   size      — ukuran width & height dalam px (default: 48)
@@ -19,43 +19,36 @@ export default function GizkuLogo({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 32 32"
+      viewBox="0 0 200 200"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Gizku"
       role="img"
       className={className}
     >
-      {/* Lingkaran hijau solid — brand green Gizku Design System (--green-500) */}
-      <circle cx="16" cy="16" r="16" fill="#4f9142" />
+      {/* Rounded square — brand green Gizku Design System (--green-600) */}
+      <rect x="20" y="20" width="160" height="160" rx="36" fill="#3d7833" />
 
-      {/* Mangkuk — setengah lingkaran bawah */}
+      {/* Progress ring */}
       <path
-        d="M8 16 Q8 23 16 23 Q24 23 24 16"
+        d="M136.8,130.9 A48,48 0 1,1 147.3,91.6"
         stroke="white"
-        strokeWidth="2"
+        strokeWidth="16"
         strokeLinecap="round"
         fill="none"
       />
-
-      {/* Garis atas mangkuk */}
       <line
-        x1="8" y1="16"
-        x2="24" y2="16"
+        x1="132.8" y1="108.8"
+        x2="146.4" y2="112.42"
         stroke="white"
-        strokeWidth="2"
+        strokeWidth="10"
         strokeLinecap="round"
       />
 
-      {/* Sendok / garpu */}
-      <polyline
-        points="12,11 15,14.5 20.5,9"
-        stroke="white"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      {/* Pie breakdown — protein / karbo / lemak */}
+      <path d="M100,100 L100,76 A24,24 0 0,1 120.78,112 Z" fill="#c1603f" />
+      <path d="M100,100 L120.78,112 A24,24 0 0,1 79.22,112 Z" fill="#d99b3f" />
+      <path d="M100,100 L79.22,112 A24,24 0 0,1 100,76 Z" fill="#6f9b7c" />
     </svg>
   )
 }
