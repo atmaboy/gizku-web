@@ -1,12 +1,15 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { users, meals, reports, maintenanceConfig } from '@/drizzle/schema'
-import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMaintenance } from '@/lib/admin'
+import { users, meals, reports, reportMessages, reportAttachments, dailyUsage, maintenanceConfig } from '@/drizzle/schema'
+import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMaintenance, requireAdmin } from '@/lib/admin'
 import { signAdminToken } from '@/lib/auth'
-import { ok, err, setCors } from '@/lib/utils'
+import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { invalidateMaintenanceCache } from '@/lib/maintenance'
 import { sendVerificationEmailInBackground, clampExpiryHours, getVerificationExpiryHours } from '@/lib/emailVerification'
-import { eq, desc, count, and, gte, lte } from 'drizzle-orm'
+import { sendReportReplyEmail } from '@/lib/reportReplyEmail'
+import { eq, desc, count, and, gte, lte, inArray, sql } from 'drizzle-orm'
+
+const REPORT_STATUSES = ['open', 'replied', 'waiting', 'done'] as const
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
@@ -208,13 +211,87 @@ export async function POST(req: NextRequest) {
 
     // ── update report status ───────────────────────────────────────────────────────────────
     if (action === 'update_report') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+
       const { id, status } = await req.json()
       if (!id) return err('id laporan diperlukan')
-      if (!['open', 'closed'].includes(status)) return err('Status tidak valid')
+      if (!REPORT_STATUSES.includes(status)) return err('Status tidak valid')
+
+      const [report] = await db.select({ source: reports.source }).from(reports).where(eq(reports.id, id)).limit(1)
+      if (!report) return err('Laporan tidak ditemukan', 404)
+      // 'replied'/'waiting' are helpdesk-reply states — in-app reports have
+      // no reply channel yet, so only 'open'/'done' are valid for them.
+      if (report.source === 'app' && (status === 'replied' || status === 'waiting'))
+        return err('Status ini hanya berlaku untuk laporan dari email', 400)
+
       await db.update(reports)
         .set({ status, updatedAt: new Date() })
         .where(eq(reports.id, id))
       return ok({ message: 'Status laporan diperbarui' })
+    }
+
+    // ── reply to an email-sourced report (sends the actual email + logs the message) ────────
+    if (action === 'reply_report') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+
+      const body = await req.json()
+      const id = body.id as string | undefined
+      const text = typeof body.text === 'string' ? body.text.trim() : ''
+      const attachments: { url: string; kind: 'image' | 'video'; sizeBytes?: number }[] =
+        Array.isArray(body.attachments) ? body.attachments : []
+      if (!id) return err('id laporan diperlukan')
+      if (!text && attachments.length === 0) return err('Balasan tidak boleh kosong')
+
+      const [report] = await db.select().from(reports).where(eq(reports.id, id)).limit(1)
+      if (!report) return err('Laporan tidak ditemukan', 404)
+      // Security boundary, not just a UI affordance — in-app reports have no
+      // reply channel, so this must be rejected server-side too.
+      if (report.source !== 'email' || !report.fromEmail)
+        return err('Laporan ini tidak bisa dibalas lewat email', 400)
+
+      const priorMessages = await db.select({ emailMessageId: reportMessages.emailMessageId })
+        .from(reportMessages).where(eq(reportMessages.reportId, id)).orderBy(reportMessages.createdAt)
+      const threadEmailIds = [report.emailMessageId, ...priorMessages.map(m => m.emailMessageId)]
+        .filter((v): v is string => !!v)
+      const inReplyTo = threadEmailIds[threadEmailIds.length - 1] ?? null
+
+      const subject = report.emailSubject
+        ? (/^re:/i.test(report.emailSubject) ? report.emailSubject : `Re: ${report.emailSubject}`)
+        : 'Re: Laporan Anda ke Gizku'
+
+      let sentEmailId: string | null = null
+      try {
+        const result = await sendReportReplyEmail({
+          to: report.fromEmail,
+          subject,
+          bodyText: text,
+          attachments: attachments.map(a => ({ url: a.url, kind: a.kind })),
+          inReplyTo,
+          references: threadEmailIds,
+        })
+        sentEmailId = result.id
+      } catch (e) {
+        console.error('[reply_report] gagal mengirim email balasan', e)
+        return jsonErr('Gagal mengirim email balasan', 502)
+      }
+
+      const [message] = await db.insert(reportMessages).values({
+        reportId: id, sender: 'admin', body: text, emailMessageId: sentEmailId,
+      }).returning()
+
+      if (attachments.length) {
+        await db.insert(reportAttachments).values(attachments.map(a => ({
+          messageId: message.id, kind: a.kind, url: a.url, sizeBytes: a.sizeBytes ?? null,
+        })))
+      }
+
+      await db.update(reports)
+        .set({ status: report.status === 'open' ? 'replied' : report.status, updatedAt: new Date() })
+        .where(eq(reports.id, id))
+
+      return ok({ message: 'Balasan terkirim ke user' })
     }
 
     return err('Action tidak dikenal')
@@ -234,8 +311,12 @@ export async function DELETE(req: NextRequest) {
       return ok({ message: 'Riwayat analisa dihapus' })
     }
     if (action === 'delete_report') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+
       const { id } = await req.json()
       if (!id) return err('report id diperlukan')
+      // report_messages/report_attachments cascade-delete via FK.
       await db.delete(reports).where(eq(reports.id, id))
       return ok({ message: 'Laporan dihapus' })
     }
@@ -333,11 +414,72 @@ export async function GET(req: NextRequest) {
 
     // ── list all reports (for client-side fetching) ─────────────────────────────────────────────────
     if (action === 'reports') {
-      const status = req.nextUrl.searchParams.get('status') // optional: 'open' | 'closed'
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+
+      const status = req.nextUrl.searchParams.get('status') // optional: open|replied|waiting|done
       const rows = status
         ? await db.select().from(reports).where(eq(reports.status, status)).orderBy(desc(reports.createdAt))
         : await db.select().from(reports).orderBy(desc(reports.createdAt))
       return ok({ reports: rows })
+    }
+
+    // ── single report: full thread + resolved account context ───────────────────────────────
+    if (action === 'report_thread') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+
+      const id = req.nextUrl.searchParams.get('id')
+      if (!id) return err('id laporan diperlukan')
+
+      const [report] = await db.select().from(reports).where(eq(reports.id, id)).limit(1)
+      if (!report) return err('Laporan tidak ditemukan', 404)
+
+      const userSelect = {
+        id: users.id, username: users.username, email: users.email, isActive: users.isActive, dailyLimit: users.dailyLimit,
+      }
+      let user: { id: string; username: string; email: string | null; isActive: boolean; dailyLimit: number | null } | null = null
+      if (report.userId) {
+        const [u] = await db.select(userSelect).from(users).where(eq(users.id, report.userId)).limit(1)
+        user = u ?? null
+      } else if (report.source === 'email' && report.fromEmail) {
+        // Resolved at READ time (not on inbound insert) so a sender who
+        // registers an account after emailing support retroactively shows
+        // as "Terdaftar" without touching historical rows.
+        const [u] = await db.select(userSelect).from(users)
+          .where(sql`lower(${users.email}) = lower(${report.fromEmail})`).limit(1)
+        user = u ?? null
+      }
+
+      const globalLimit = await getGlobalLimit()
+      let todayUsage = 0
+      if (user) {
+        const [row] = await db.select({ count: dailyUsage.count }).from(dailyUsage)
+          .where(and(eq(dailyUsage.userId, user.id), eq(dailyUsage.date, todayISO()))).limit(1)
+        todayUsage = row?.count ?? 0
+      }
+
+      const msgs = await db.select().from(reportMessages)
+        .where(eq(reportMessages.reportId, id)).orderBy(reportMessages.createdAt)
+      const msgIds = msgs.map(m => m.id)
+      const atts = msgIds.length
+        ? await db.select().from(reportAttachments).where(inArray(reportAttachments.messageId, msgIds))
+        : []
+
+      const messages = [
+        { id: 'initial', sender: 'user' as const, body: report.message, createdAt: report.createdAt, attachments: [] as typeof atts },
+        ...msgs.map(m => ({ ...m, attachments: atts.filter(a => a.messageId === m.id) })),
+      ]
+
+      return ok({
+        report,
+        user: user ? {
+          id: user.id, username: user.username, email: user.email, isActive: user.isActive,
+          dailyLimit: user.dailyLimit ?? globalLimit, isCustomLimit: user.dailyLimit != null,
+          todayUsage,
+        } : null,
+        messages,
+      })
     }
 
     return err('Action tidak dikenal')

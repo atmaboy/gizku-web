@@ -59,14 +59,17 @@ export const reports = pgTable('reports', {
   userId:    uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   username:  text('username'),
   message:   text('message').notNull(),
+  // 'open' | 'replied' | 'waiting' (menunggu user) | 'done' — 'replied'/
+  // 'waiting' only apply to source: 'email' (helpdesk reply pipeline).
   status:    text('status').notNull().default('open'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 
   // Origin of the report — 'app' (in-app feedback form, default) or 'email'
   // (inbound to support@..., see app/api/webhooks/resend-inbound). Only
-  // 'email' reports carry the fields below — needed to eventually reply
-  // in-thread (In-Reply-To/References headers on the outbound reply).
+  // 'email' reports carry the fields below — used to reply in-thread
+  // (In-Reply-To/References headers on the outbound reply, see
+  // lib/reportReplyEmail.ts).
   source:         text('source').notNull().default('app'),
   fromEmail:      text('from_email'),
   emailMessageId: text('email_message_id'),
@@ -75,6 +78,32 @@ export const reports = pgTable('reports', {
   statusIdx: index('idx_reports_status').on(t.status),
   sourceIdx: index('idx_reports_source').on(t.source),
 }))
+
+// ── Report Messages ──────────────────────────────────────────────────────────
+// Reply thread for a report. The report's own `message`/`createdAt` are the
+// thread's first entry (sender 'user') and are NOT duplicated here — rows in
+// this table are every message AFTER that (admin replies, and in future,
+// inbound follow-up emails).
+export const reportMessages = pgTable('report_messages', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  reportId:       uuid('report_id').notNull().references(() => reports.id, { onDelete: 'cascade' }),
+  sender:         text('sender').notNull(), // 'admin' | 'user'
+  body:           text('body').notNull(),
+  // Message-ID of the outbound email this row represents (set on admin
+  // sends) — chained into the NEXT reply's In-Reply-To/References headers.
+  emailMessageId: text('email_message_id'),
+  createdAt:      timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({ reportIdx: index('idx_report_messages_report_id').on(t.reportId) }))
+
+// ── Report Attachments ───────────────────────────────────────────────────────
+export const reportAttachments = pgTable('report_attachments', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  messageId: uuid('message_id').notNull().references(() => reportMessages.id, { onDelete: 'cascade' }),
+  kind:      text('kind').notNull(), // 'image' | 'video'
+  url:       text('url').notNull(),
+  sizeBytes: integer('size_bytes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({ messageIdx: index('idx_report_attachments_message_id').on(t.messageId) }))
 
 export const maintenanceConfig = pgTable('maintenance_config', {
   id:          serial('id').primaryKey(),
@@ -339,8 +368,16 @@ export const mealsRelations = relations(meals, ({ one }) => ({
 export const dailyUsageRelations = relations(dailyUsage, ({ one }) => ({
   user: one(users, { fields: [dailyUsage.userId], references: [users.id] }),
 }))
-export const reportsRelations = relations(reports, ({ one }) => ({
-  user: one(users, { fields: [reports.userId], references: [users.id] }),
+export const reportsRelations = relations(reports, ({ one, many }) => ({
+  user:     one(users, { fields: [reports.userId], references: [users.id] }),
+  messages: many(reportMessages),
+}))
+export const reportMessagesRelations = relations(reportMessages, ({ one, many }) => ({
+  report:      one(reports, { fields: [reportMessages.reportId], references: [reports.id] }),
+  attachments: many(reportAttachments),
+}))
+export const reportAttachmentsRelations = relations(reportAttachments, ({ one }) => ({
+  message: one(reportMessages, { fields: [reportAttachments.messageId], references: [reportMessages.id] }),
 }))
 export const telegramUsersRelations = relations(telegramUsers, ({ one }) => ({
   user: one(users, { fields: [telegramUsers.userId], references: [users.id] }),
@@ -365,6 +402,10 @@ export type User                       = typeof users.$inferSelect
 export type NewUser                    = typeof users.$inferInsert
 export type Meal                       = typeof meals.$inferSelect
 export type Report                     = typeof reports.$inferSelect
+export type ReportMessage              = typeof reportMessages.$inferSelect
+export type NewReportMessage           = typeof reportMessages.$inferInsert
+export type ReportAttachment           = typeof reportAttachments.$inferSelect
+export type NewReportAttachment        = typeof reportAttachments.$inferInsert
 export type LandingContent             = typeof landingContent.$inferSelect
 export type NewLandingContent          = typeof landingContent.$inferInsert
 export type TelegramUser               = typeof telegramUsers.$inferSelect

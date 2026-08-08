@@ -36,7 +36,7 @@ Backend ini juga menjadi **satu-satunya API** untuk [gizku-mobile](https://githu
 - 💳 **Review Request Kenaikan Limit** — approve/reject pengajuan user (dengan alasan reject terstruktur), konfigurasi tier paket & rekening bank tujuan transfer
 - 📣 **Notification Blast** — kirim broadcast lewat **push notification** (Expo → FCM/APNs) atau **Telegram**, ke seluruh user atau user tertentu (maks. 10 username), bisa dijadwalkan; tracking terkirim/diklik/dibaca/gagal per penerima
 - 🤖 **Konfigurasi & statistik Bot Telegram** — atur bot dari backoffice, lihat statistik pemakaian
-- 📝 **Laporan masukan user** — lihat & kelola laporan yang dikirim user
+- 📝 **Laporan & Helpdesk** — kelola laporan dari dalam aplikasi maupun inbound email (support@...) dalam satu inbox: balas laporan berbasis email langsung dari backoffice (thread berbalas, lampiran foto/video, threading `In-Reply-To`/`References`), pipeline status 4 tahap (Open/Dibalas/Menunggu user/Selesai), pencarian & filter
 - 🔧 **Maintenance mode** — aktifkan/nonaktifkan mode pemeliharaan aplikasi
 
 ### ⚙️ Infrastruktur

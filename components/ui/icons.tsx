@@ -253,6 +253,26 @@ export const IconUpload = ({ size = 20, color = 'currentColor', strokeWidth = 1.
   </svg>
 )
 
+export const IconPhone = ({ size = 10, color = 'currentColor', strokeWidth = 2.5, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x={7} y={2} width={10} height={20} rx={2} />
+    <line x1={11} y1={18} x2={13} y2={18} />
+  </svg>
+)
+
+export const IconPlay = ({ size = 26, color = 'white', className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={color} className={className}>
+    <polygon points="8 5 19 12 8 19 8 5" />
+  </svg>
+)
+
+export const IconVideoCamera = ({ size = 14, color = 'currentColor', strokeWidth = 2, className }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polygon points="23 7 16 12 23 17 23 7" />
+    <rect x={1} y={5} width={15} height={14} rx={2} />
+  </svg>
+)
+
 export const IconGlobe = ({ size = 16, color = 'currentColor', strokeWidth = 2, className }: IconProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <circle cx={12} cy={12} r={10} />
