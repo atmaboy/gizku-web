@@ -7,6 +7,7 @@ import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { invalidateMaintenanceCache } from '@/lib/maintenance'
 import { sendVerificationEmailInBackground, clampExpiryHours, getVerificationExpiryHours } from '@/lib/emailVerification'
 import { sendReportReplyEmail } from '@/lib/reportReplyEmail'
+import { buildReplySubject } from '@/lib/reportTicket'
 import { eq, desc, count, and, gte, lte, inArray, sql } from 'drizzle-orm'
 
 const REPORT_STATUSES = ['open', 'replied', 'waiting', 'done'] as const
@@ -257,9 +258,7 @@ export async function POST(req: NextRequest) {
         .filter((v): v is string => !!v)
       const inReplyTo = threadEmailIds[threadEmailIds.length - 1] ?? null
 
-      const subject = report.emailSubject
-        ? (/^re:/i.test(report.emailSubject) ? report.emailSubject : `Re: ${report.emailSubject}`)
-        : 'Re: Laporan Anda ke Gizku'
+      const subject = buildReplySubject(report.emailSubject, report.ticketNumber)
 
       let sentEmailId: string | null = null
       try {

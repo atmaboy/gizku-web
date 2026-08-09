@@ -74,6 +74,13 @@ export const reports = pgTable('reports', {
   fromEmail:      text('from_email'),
   emailMessageId: text('email_message_id'),
   emailSubject:   text('email_subject'),
+
+  // Sequential, human-facing reference (every report, both sources — DB
+  // auto-assigns via a sequence). Embedded as `[GZK-{n}]` in outbound reply
+  // subjects (see lib/reportTicket.ts) and parsed back out of inbound
+  // replies to match them to the right thread — far more reliable than
+  // depending on mail providers to round-trip In-Reply-To/References intact.
+  ticketNumber: serial('ticket_number').notNull().unique(),
 }, t => ({
   statusIdx: index('idx_reports_status').on(t.status),
   sourceIdx: index('idx_reports_source').on(t.source),

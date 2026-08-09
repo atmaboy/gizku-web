@@ -26,6 +26,7 @@ type ReportRow = {
   fromEmail: string | null
   emailMessageId: string | null
   emailSubject: string | null
+  ticketNumber: number
 }
 
 type Attachment = { id?: string; url: string; kind: 'image' | 'video'; sizeBytes?: number | null }
@@ -54,10 +55,10 @@ const FILTERS: { key: 'all' | ReportStatus; label: string }[] = [
   { key: 'done', label: 'Selesai' },
 ]
 const QUICK_REPLIES = [
-  'Terima kasih laporannya, kami cek dulu ya.',
-  'Boleh minta detail tambahan (screenshot / tipe HP)?',
-  'Sudah kami perbaiki, silakan dicoba kembali.',
-  'Mohon maaf atas ketidaknyamanannya.',
+  { value: 'qr1', label: 'Terima kasih laporannya', text: 'Terima kasih laporannya, kami cek dulu ya.' },
+  { value: 'qr2', label: 'Minta detail tambahan', text: 'Boleh minta detail tambahan (screenshot / tipe HP)?' },
+  { value: 'qr3', label: 'Sudah diperbaiki', text: 'Sudah kami perbaiki, silakan dicoba kembali.' },
+  { value: 'qr4', label: 'Mohon maaf', text: 'Mohon maaf atas ketidaknyamanannya.' },
 ]
 
 function displayName(r: { username: string | null; fromEmail?: string | null }) {
@@ -120,16 +121,6 @@ function AttachmentThumb({ att, size, onRemove }: { att: Attachment; size: numbe
   )
 }
 
-function StatMini({ title, value, caption, tone = 'default' }: { title: string; value: string; caption?: string; tone?: 'default' | 'danger' }) {
-  return (
-    <div className="bg-sunken rounded-lg shadow-hairline p-3 flex flex-col gap-1 min-w-0">
-      <span className="text-2xs text-tertiary font-medium">{title}</span>
-      <span className={`text-lg font-semibold tabular-nums truncate ${tone === 'danger' ? 'text-danger' : 'text-primary'}`}>{value}</span>
-      {caption && <span className="text-2xs text-secondary truncate">{caption}</span>}
-    </div>
-  )
-}
-
 export default function ReportsPage() {
   const [reports, setReports] = useState<ReportRow[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -150,6 +141,7 @@ export default function ReportsPage() {
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [reopenAfterCancel, setReopenAfterCancel] = useState<string | null>(null)
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
@@ -254,8 +246,21 @@ export default function ReportsPage() {
     }
   }
 
-  function askDelete(id: string) { setConfirmDeleteId(id) }
-  function cancelDelete() { setConfirmDeleteId(null) }
+  // The drawer is a position:fixed panel with its own stacking context — if
+  // it stayed mounted while the confirm Dialog opened, closing it first
+  // (rather than juggling z-index) is what keeps the Dialog reliably on top.
+  // Closing also means Cancel needs to know whether to reopen the drawer.
+  function askDelete(id: string) {
+    setReopenAfterCancel(selectedId)
+    closeDrawer()
+    setConfirmDeleteId(id)
+  }
+  function cancelDelete() {
+    setConfirmDeleteId(null)
+    const toReopen = reopenAfterCancel
+    setReopenAfterCancel(null)
+    if (toReopen) openDrawer(toReopen)
+  }
 
   async function confirmDelete() {
     if (!confirmDeleteId) return
@@ -268,13 +273,13 @@ export default function ReportsPage() {
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Gagal menghapus laporan'); return }
       setReports(rs => rs?.filter(r => r.id !== confirmDeleteId) ?? rs)
-      if (selectedId === confirmDeleteId) closeDrawer()
       toast.success('Laporan dihapus')
     } catch {
       toast.error('Gagal menghapus laporan')
     } finally {
       setDeleting(false)
       setConfirmDeleteId(null)
+      setReopenAfterCancel(null)
     }
   }
 
@@ -306,6 +311,11 @@ export default function ReportsPage() {
   }
   function appendDraft(text: string) {
     setDraft(prev => prev ? `${prev}\n${text}` : text)
+  }
+  function pickQuickReply(e: React.ChangeEvent<HTMLSelectElement>) {
+    const opt = QUICK_REPLIES.find(q => q.value === e.target.value)
+    if (opt) appendDraft(opt.text)
+    e.target.value = ''
   }
 
   async function sendReply() {
@@ -383,7 +393,7 @@ export default function ReportsPage() {
             <div className="flex flex-col gap-0.5 min-w-0 flex-1">
               <div className="flex items-baseline gap-2 flex-wrap">
                 <span className="font-medium text-base text-primary truncate">{displayName(r)}</span>
-                <span className="text-xs text-tertiary whitespace-nowrap">{fmtRelativeID(r.createdAt)}</span>
+                <span className="text-xs text-tertiary whitespace-nowrap">#{r.ticketNumber} · {fmtRelativeID(r.createdAt)}</span>
               </div>
               <span className="text-base text-secondary truncate">{r.message}</span>
             </div>
@@ -437,6 +447,7 @@ export default function ReportsPage() {
                   <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span className="font-semibold text-md text-primary truncate">{displayName(thread.report)}</span>
+                      <span className="text-2xs text-tertiary whitespace-nowrap">#{thread.report.ticketNumber}</span>
                       <SourcePill source={thread.report.source} />
                       {thread.report.source === 'email' && (
                         thread.user
@@ -464,49 +475,46 @@ export default function ReportsPage() {
                   </button>
                 </div>
 
-                {/* Status chips */}
-                <div className="px-5 py-3.5 border-b border-border flex flex-col gap-2 shrink-0">
-                  <span className="text-xs uppercase tracking-[0.5px] text-tertiary font-semibold">Status Laporan</span>
-                  <div className="flex gap-2 flex-wrap">
-                    <Chip label="Open" selected={thread.report.status === 'open'} onClick={() => changeStatus('open')} />
+                {/* Status */}
+                <div className="px-5 py-2.5 border-b border-border flex items-center gap-2.5 shrink-0">
+                  <span className="text-2xs text-tertiary font-semibold whitespace-nowrap">Status Laporan</span>
+                  <select
+                    value={thread.report.status}
+                    onChange={e => changeStatus(e.target.value as ReportStatus)}
+                    className="flex-1 min-w-0 rounded-md border border-border bg-surface text-primary text-xs font-medium px-2.5 py-1.5 outline-none cursor-pointer"
+                  >
+                    <option value="open">Open</option>
                     {thread.report.source === 'email' && (
                       <>
-                        <Chip label="Dibalas" selected={thread.report.status === 'replied'} onClick={() => changeStatus('replied')} />
-                        <Chip label="Menunggu user" selected={thread.report.status === 'waiting'} onClick={() => changeStatus('waiting')} />
+                        <option value="replied">Dibalas</option>
+                        <option value="waiting">Menunggu user</option>
                       </>
                     )}
-                    <Chip label="Selesai" selected={thread.report.status === 'done'} onClick={() => changeStatus('done')} />
-                  </div>
+                    <option value="done">Selesai</option>
+                  </select>
                 </div>
 
                 {/* Account context */}
                 {thread.user && (
-                  <div className="px-5 py-4 border-b border-border flex flex-col gap-3 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base text-secondary">Status akun:</span>
-                      <span className={`text-xs font-medium px-2.5 py-[3px] rounded-pill ${thread.user.isActive ? 'bg-green-100 text-green-700' : 'bg-sand-200 text-clay-600'}`}>
+                  <div className="px-5 py-2 border-b border-border flex items-center gap-2.5 flex-wrap shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-2xs text-tertiary">Akun</span>
+                      <span className={`text-2xs font-medium px-[7px] py-0.5 rounded-pill ${thread.user.isActive ? 'bg-green-100 text-green-700' : 'bg-sand-200 text-clay-600'}`}>
                         {thread.user.isActive ? 'Aktif' : 'Nonaktif'}
                       </span>
                     </div>
-                    <div className="flex gap-3">
-                      <div className="flex-1 min-w-0 flex flex-col gap-1">
-                        <StatMini
-                          title="Limit Harian"
-                          value={`${thread.user.dailyLimit} foto/hari`}
-                          caption={thread.user.isCustomLimit ? 'Custom (override)' : undefined}
-                        />
-                        <span className="text-2xs text-tertiary px-0.5">Data per {todayLabel}</span>
-                      </div>
-                      <div className="flex-1 min-w-0 flex flex-col gap-1">
-                        <StatMini
-                          title="Pemakaian Hari Ini"
-                          value={`${thread.user.todayUsage}/${thread.user.dailyLimit}`}
-                          tone={thread.user.todayUsage >= thread.user.dailyLimit ? 'danger' : 'default'}
-                          caption={thread.user.todayUsage >= thread.user.dailyLimit ? 'Limit tercapai' : `${thread.user.dailyLimit - thread.user.todayUsage} tersisa hari ini`}
-                        />
-                        <span className="text-2xs text-tertiary px-0.5">Data per {todayLabel}</span>
-                      </div>
-                    </div>
+                    <span className="w-px h-3 bg-border" />
+                    <span className="text-2xs text-tertiary">
+                      Limit harian <b className="text-primary font-semibold">{thread.user.dailyLimit} foto/hari</b>
+                    </span>
+                    <span className="w-px h-3 bg-border" />
+                    <span className="text-2xs text-tertiary">
+                      Pemakaian{' '}
+                      <b className={`font-semibold ${thread.user.todayUsage >= thread.user.dailyLimit ? 'text-danger' : 'text-primary'}`}>
+                        {thread.user.todayUsage}/{thread.user.dailyLimit}
+                      </b>
+                    </span>
+                    <span className="ml-auto text-2xs text-tertiary whitespace-nowrap">per {todayLabel}</span>
                   </div>
                 )}
                 {thread.report.source === 'email' && !thread.user && (
@@ -537,15 +545,20 @@ export default function ReportsPage() {
                 {/* Composer (email source only) */}
                 {thread.report.source === 'email' ? (
                   <>
-                    <div className="px-5 pt-2.5 pb-2 border-t border-border flex flex-col gap-2 shrink-0">
-                      <span className="text-xs uppercase tracking-[0.5px] text-tertiary font-semibold">Balasan Cepat</span>
-                      <div className="flex gap-2 flex-wrap">
+                    <div className="px-5 py-2 border-t border-border flex items-center gap-2.5 shrink-0">
+                      <span className="text-2xs text-tertiary font-semibold whitespace-nowrap">Balasan Cepat</span>
+                      <select
+                        defaultValue=""
+                        onChange={pickQuickReply}
+                        className="flex-1 min-w-0 rounded-md border border-border bg-surface text-secondary text-xs px-2.5 py-1.5 outline-none cursor-pointer"
+                      >
+                        <option value="">Pilih balasan cepat…</option>
                         {QUICK_REPLIES.map(q => (
-                          <Chip key={q} label={q} selected={false} onClick={() => appendDraft(q)} />
+                          <option key={q.value} value={q.value}>{q.label}</option>
                         ))}
-                      </div>
+                      </select>
                     </div>
-                    <div className="px-5 pt-3.5 pb-5 border-t border-border flex flex-col gap-2.5 shrink-0">
+                    <div className="px-5 pt-2.5 pb-4 border-t border-border flex flex-col gap-2.5 shrink-0">
                       {draftAttachments.length > 0 && (
                         <div className="flex gap-2 flex-wrap">
                           {draftAttachments.map((a, i) => (

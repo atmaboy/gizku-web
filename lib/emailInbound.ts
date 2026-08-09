@@ -2,7 +2,8 @@ import type { WebhookEventPayload } from 'resend'
 import { db } from '@/lib/db'
 import { reports, reportMessages } from '@/drizzle/schema'
 import { getResendClient } from '@/lib/email'
-import { eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, ne } from 'drizzle-orm'
+import { extractTicketNumber } from '@/lib/reportTicket'
 
 /**
  * Verify a Resend inbound webhook request (Svix signature under the hood).
@@ -47,8 +48,12 @@ function stripHtml(html: string): string {
 // ("On <date>, <sender> wrote: > ...", Outlook's "-----Original Message-----",
 // or its "From:/Sent:/To:" header block) so a thread reply shows only what
 // the user actually typed, not the whole prior conversation re-quoted.
+// The "On ... wrote:" marker is matched non-greedily up to 300 chars (it can
+// wrap across a line break between the sender name and the email address)
+// and doesn't require a trailing newline — some clients glue the first
+// quoted line right after "wrote:" with no break.
 const QUOTE_TAIL_PATTERNS = [
-  /\r?\n?On .{1,150} wrote:\s*\r?\n[\s\S]*$/i,
+  /\r?\n?On [\s\S]{1,300}?\swrote:[\s\S]*$/i,
   /\r?\n?-{2,}\s*Original Message\s*-{2,}[\s\S]*$/i,
   /\r?\n?From:\s*.+\r?\nSent:\s*.+\r?\nTo:\s*.+[\s\S]*$/i,
 ]
@@ -78,8 +83,25 @@ function extractReferencedMessageIds(headers: Record<string, string> | null): st
 }
 
 /**
- * If this inbound email is a reply within an existing report's thread,
- * returns that report's id — checked against both the report's own
+ * Primary matching signal: every outbound reply's subject carries a
+ * `[GZK-{ticketNumber}]` tag (lib/reportTicket.ts), which mail clients keep
+ * intact across "Re:" replies. Scoped to the same sender so a guessable
+ * ticket number typed into an unrelated email can't land in someone else's
+ * thread — no status restriction, since referencing a specific ticket is an
+ * unambiguous, deliberate signal even if that ticket was already 'done'.
+ */
+async function findThreadByTicketTag(subject: string | null | undefined, fromEmail: string): Promise<string | null> {
+  const ticketNumber = extractTicketNumber(subject)
+  if (ticketNumber === null) return null
+
+  const [hit] = await db.select({ id: reports.id }).from(reports)
+    .where(and(eq(reports.ticketNumber, ticketNumber), eq(reports.fromEmail, fromEmail))).limit(1)
+  return hit?.id ?? null
+}
+
+/**
+ * Secondary signal, for replies sent before the ticket tag exists yet (i.e.
+ * before any admin reply went out) — checked against both the report's own
  * `emailMessageId` (the original inbound message) and every admin reply's
  * `emailMessageId` (in case References is missing and In-Reply-To only
  * points at the most recent admin message).
@@ -94,6 +116,34 @@ async function findThreadForReply(referencedIds: string[]): Promise<string | nul
   const [byMessage] = await db.select({ reportId: reportMessages.reportId }).from(reportMessages)
     .where(inArray(reportMessages.emailMessageId, referencedIds)).limit(1)
   return byMessage?.reportId ?? null
+}
+
+function normalizeSubject(subject: string | null | undefined): string {
+  if (!subject) return ''
+  // Strip one or more leading Re:/Fwd:/Fw: prefixes (any client, any language variant)
+  return subject.replace(/^\s*((re|fwd?)\s*:\s*)+/i, '').trim().toLowerCase()
+}
+
+/**
+ * Fallback for when Message-ID header matching comes up empty — whether
+ * because the sending/receiving provider didn't preserve the headers we set,
+ * or a client that doesn't populate References. Matches the reply to the
+ * most recently active OPEN thread from the same sender with the same
+ * (Re:-stripped) subject. Deliberately excludes 'done' reports so a genuinely
+ * new email about an old, already-closed issue starts its own report instead
+ * of silently reopening history.
+ */
+async function findThreadBySubjectAndSender(fromEmail: string, subject: string | null): Promise<string | null> {
+  const normalized = normalizeSubject(subject)
+  if (!normalized) return null
+
+  const candidates = await db.select({ id: reports.id, emailSubject: reports.emailSubject })
+    .from(reports)
+    .where(and(eq(reports.source, 'email'), eq(reports.fromEmail, fromEmail), ne(reports.status, 'done')))
+    .orderBy(desc(reports.updatedAt))
+
+  const hit = candidates.find(c => normalizeSubject(c.emailSubject) === normalized)
+  return hit?.id ?? null
 }
 
 /**
@@ -130,8 +180,12 @@ export async function processInboundEmail(eventData: {
     const rawBody = email.text?.trim() || stripHtml(email.html ?? '') || '(email tanpa isi teks)'
     const body = stripQuotedReply(rawBody)
 
+    const senderEmail = extractEmailAddress(email.from)
     const referencedIds = extractReferencedMessageIds(email.headers)
-    const existingReportId = await findThreadForReply(referencedIds)
+    const existingReportId =
+      (await findThreadByTicketTag(email.subject, senderEmail)) ??
+      (await findThreadForReply(referencedIds)) ??
+      (await findThreadBySubjectAndSender(senderEmail, email.subject))
 
     if (existingReportId) {
       await db.insert(reportMessages).values({
@@ -151,7 +205,7 @@ export async function processInboundEmail(eventData: {
       username:       extractDisplayName(email.from),
       message:        body,
       source:         'email',
-      fromEmail:      extractEmailAddress(email.from),
+      fromEmail:      senderEmail,
       emailMessageId: email.message_id,
       emailSubject:   email.subject,
     })
