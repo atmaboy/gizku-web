@@ -125,7 +125,11 @@ export async function GET(req: NextRequest) {
         telegramId:   String(u.telegramId),
         username:     u.username,
         firstName:    u.firstName,
-        dailyCount:   u.dailyCount,
+        // dailyCount is lazily reset in the bot on the user's *next* message
+        // (see getOrCreateTelegramUser in lib/bot.ts), so a stale row still
+        // holds the count from lastUsedDate, not today. Mirror that same
+        // reset rule here so "Analisa Hari Ini" doesn't show stale counts.
+        dailyCount:   u.lastUsedDate === today ? (u.dailyCount ?? 0) : 0,
         lastUsedDate: u.lastUsedDate,
         linkedTo:     u.linkedTo ?? null,
         userId:       u.userId ?? null,
