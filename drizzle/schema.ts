@@ -234,7 +234,10 @@ export const notificationBlasts = pgTable('notification_blasts', {
 export const notificationBlastRecipients = pgTable('notification_blast_recipients', {
   id:          uuid('id').primaryKey().defaultRandom(),
   blastId:     uuid('blast_id').notNull().references(() => notificationBlasts.id, { onDelete: 'cascade' }),
-  userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // Nullable: a Telegram recipient may never have linked a Gizku account.
+  userId:      uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  // Set for telegram-channel recipients (linked or not) — null for push, which is always app-account-based.
+  telegramUserId: bigint('telegram_user_id', { mode: 'bigint' }).references(() => telegramUsers.telegramId, { onDelete: 'set null' }),
   pushTokenId: uuid('push_token_id').references(() => pushTokens.id, { onDelete: 'set null' }),
   provider:    text('provider'), // 'fcm' | 'apns' | 'telegram' — set once dispatch resolves a delivery path
   status:      text('status').notNull().default('pending'), // pending|sent|failed|clicked|read
@@ -254,9 +257,10 @@ export const notificationBlastRecipients = pgTable('notification_blast_recipient
   readAt:      timestamp('read_at', { withTimezone: true }),
   createdAt:   timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, t => ({
-  blastIdx:  index('idx_blast_recipients_blast_id').on(t.blastId),
-  userIdx:   index('idx_blast_recipients_user_id').on(t.userId),
-  statusIdx: index('idx_blast_recipients_status').on(t.blastId, t.status),
+  blastIdx:    index('idx_blast_recipients_blast_id').on(t.blastId),
+  userIdx:     index('idx_blast_recipients_user_id').on(t.userId),
+  telegramIdx: index('idx_blast_recipients_telegram_user_id').on(t.telegramUserId),
+  statusIdx:   index('idx_blast_recipients_status').on(t.blastId, t.status),
 }))
 
 // ── Limit Tiers ───────────────────────────────────────────────────────────────
@@ -400,9 +404,10 @@ export const notificationBlastsRelations = relations(notificationBlasts, ({ many
   recipients: many(notificationBlastRecipients),
 }))
 export const notificationBlastRecipientsRelations = relations(notificationBlastRecipients, ({ one }) => ({
-  blast:     one(notificationBlasts, { fields: [notificationBlastRecipients.blastId], references: [notificationBlasts.id] }),
-  user:      one(users, { fields: [notificationBlastRecipients.userId], references: [users.id] }),
-  pushToken: one(pushTokens, { fields: [notificationBlastRecipients.pushTokenId], references: [pushTokens.id] }),
+  blast:        one(notificationBlasts, { fields: [notificationBlastRecipients.blastId], references: [notificationBlasts.id] }),
+  user:         one(users, { fields: [notificationBlastRecipients.userId], references: [users.id] }),
+  telegramUser: one(telegramUsers, { fields: [notificationBlastRecipients.telegramUserId], references: [telegramUsers.telegramId] }),
+  pushToken:    one(pushTokens, { fields: [notificationBlastRecipients.pushTokenId], references: [pushTokens.id] }),
 }))
 
 export type User                       = typeof users.$inferSelect

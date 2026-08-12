@@ -13,7 +13,7 @@
  */
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { users, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
+import { users, telegramUsers, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
 import { requireAdmin } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
 import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel, checkPushReceipts } from '@/lib/blast'
@@ -22,6 +22,7 @@ import { eq, and, desc, count, inArray } from 'drizzle-orm'
 export const runtime = 'nodejs'
 
 const MAX_SPECIFIC_TARGETS = 10
+const MAX_BODY_LENGTH = 300
 
 function jsonErr(msg: string, status = 500) {
   const h = new Headers()
@@ -91,9 +92,15 @@ async function handleGet(req: NextRequest) {
     const perPage = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get('per_page') || '25', 10)))
     const offset = (page - 1) * perPage
 
+    // Telegram recipients may have no linked Gizku account (userId null) since
+    // the "Semua User" blast now reaches every bot user — left join both
+    // identities so those rows still show up, falling back to their Telegram
+    // handle/name for display instead of the app username.
     const rows = await db.select({
       id: notificationBlastRecipients.id,
       username: users.username,
+      telegramUsername: telegramUsers.username,
+      telegramFirstName: telegramUsers.firstName,
       provider: notificationBlastRecipients.provider,
       status: notificationBlastRecipients.status,
       errorMessage: notificationBlastRecipients.errorMessage,
@@ -105,7 +112,8 @@ async function handleGet(req: NextRequest) {
       readAt: notificationBlastRecipients.readAt,
     })
       .from(notificationBlastRecipients)
-      .innerJoin(users, eq(users.id, notificationBlastRecipients.userId))
+      .leftJoin(users, eq(users.id, notificationBlastRecipients.userId))
+      .leftJoin(telegramUsers, eq(telegramUsers.telegramId, notificationBlastRecipients.telegramUserId))
       .where(eq(notificationBlastRecipients.blastId, id))
       .orderBy(notificationBlastRecipients.status, users.username)
       .limit(perPage).offset(offset)
@@ -175,6 +183,7 @@ async function handlePost(req: NextRequest) {
     if (!batchName) return err('Nama batch diperlukan')
     if (channel === 'push' && !title) return err('Judul notifikasi diperlukan')
     if (!messageBody) return err(channel === 'push' ? 'Isi pesan diperlukan' : 'Isi chat Telegram diperlukan')
+    if (messageBody.length > MAX_BODY_LENGTH) return err(`Isi pesan maksimum ${MAX_BODY_LENGTH} karakter`)
     if (scheduledAtRaw && isNaN(scheduledAtRaw.getTime())) return err('Waktu pengiriman tidak valid')
     if (scheduledAtRaw && scheduledAtRaw.getTime() < Date.now() - 60_000) return err('Waktu pengiriman tidak boleh di masa lalu')
 

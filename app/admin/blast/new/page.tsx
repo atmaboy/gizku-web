@@ -243,10 +243,10 @@ export default function BlastComposePage() {
                 <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide">
                   {channel === 'push' ? 'Isi Pesan' : 'Isi Chat Telegram'}
                 </label>
-                <span className="text-xs text-[#9CA3AF]">{body.length}/240</span>
+                <span className="text-xs text-[#9CA3AF]">{body.length}/300</span>
               </div>
               <textarea
-                value={body} onChange={e => setBody(e.target.value.slice(0, 240))} rows={4}
+                value={body} onChange={e => setBody(e.target.value.slice(0, 300))} rows={4}
                 placeholder={channel === 'push' ? 'Tuliskan isi notifikasi di sini...' : 'Tuliskan isi pesan chat Telegram di sini...'}
                 className="w-full border border-[#E5E7EB] rounded-xl px-3.5 py-3 text-base bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition resize-y"
               />
@@ -266,7 +266,7 @@ export default function BlastComposePage() {
               <div className="flex items-center gap-2.5 bg-[#F9FAFB] rounded-xl px-3.5 py-3">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4" /><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0-3-3.87" /></svg>
                 <span className="text-sm text-[#6B7280]">
-                  Akan dikirim ke seluruh <strong className="text-[#111827]">{estimate ? `${estimate.targeted} user terdaftar` : '…'}</strong>.
+                  Akan dikirim ke seluruh <strong className="text-[#111827]">{estimate ? `${estimate.targeted} ${channel === 'telegram' ? 'user Bot Telegram' : 'user terdaftar'}` : '…'}</strong>{channel === 'telegram' ? ', terhubung akun Gizku atau belum' : ''}.
                 </span>
               </div>
             ) : (

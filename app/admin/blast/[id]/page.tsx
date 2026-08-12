@@ -27,7 +27,9 @@ type Failure = { errorMessage: string | null; count: number }
 type Provider = { provider: string; targeted: number; success: number; failed: number }
 type Recipient = {
   id: string
-  username: string
+  username: string | null
+  telegramUsername: string | null
+  telegramFirstName: string | null
   provider: string | null
   status: 'pending' | 'sent' | 'failed'
   errorMessage: string | null
@@ -331,7 +333,9 @@ export default function BlastDetailPage() {
                       className={`cursor-pointer ${i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]'}`}
                       onClick={() => setExpandedRecipient(expandedRecipient === r.id ? null : r.id)}
                     >
-                      <td className="px-4 py-2.5 font-medium text-[#111827] whitespace-nowrap">@{r.username}</td>
+                      <td className="px-4 py-2.5 font-medium text-[#111827] whitespace-nowrap">
+                        {r.username ? `@${r.username}` : r.telegramUsername ? `@${r.telegramUsername}` : (r.telegramFirstName ?? '—')}
+                      </td>
                       <td className="px-4 py-2.5 text-[#6B7280] whitespace-nowrap">{r.provider ? (PROVIDER_LABEL[r.provider] ?? r.provider) : '—'}</td>
                       <td className="px-4 py-2.5">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${RECIPIENT_STATUS_STYLE[r.status]}`}>

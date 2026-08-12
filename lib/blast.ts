@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { users, pushTokens, telegramUsers, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
-import { eq, and, inArray, ilike, sql } from 'drizzle-orm'
+import { eq, and, inArray, ilike, sql, count } from 'drizzle-orm'
 import { Api, GrammyError } from 'grammy'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
@@ -76,6 +76,27 @@ async function resolveTargetUsers(targetType: string, targetUsernames: string[] 
     .where(and(inArray(users.username, targetUsernames), eq(users.isActive, true)))
 }
 
+type TelegramTarget = { telegramId: bigint; userId: string | null }
+
+/**
+ * Resolve blast targets for the telegram channel directly from telegram_users
+ * instead of `users` — 'all' must reach every bot user, linked or not, since
+ * most Telegram users never bother connecting their Gizku account. 'specific'
+ * still goes through app usernames (chips are resolved to a linked account at
+ * compose time via resolveUsernameForChannel/searchUsernamesForChannel), so
+ * hand-picking an unlinked user by name isn't supported yet.
+ */
+async function resolveTelegramTargets(targetType: string, targetUsernames: string[] | null): Promise<TelegramTarget[]> {
+  if (targetType === 'all') {
+    return db.select({ telegramId: telegramUsers.telegramId, userId: telegramUsers.userId }).from(telegramUsers)
+  }
+  if (!targetUsernames || targetUsernames.length === 0) return []
+  return db.select({ telegramId: telegramUsers.telegramId, userId: telegramUsers.userId })
+    .from(telegramUsers)
+    .innerJoin(users, eq(users.id, telegramUsers.userId))
+    .where(and(inArray(users.username, targetUsernames), eq(users.isActive, true)))
+}
+
 /**
  * Cari username untuk chip target penerima. Identitas yang dicari mengikuti
  * channel yang dipilih: push mencari username app Gizku (karena push token
@@ -130,18 +151,23 @@ export async function resolveUsernameForChannel(channel: string, raw: string): P
 
 /** Estimasi jumlah penerima + berapa yang bisa dijangkau lewat channel terpilih, dipakai saat compose. */
 export async function estimateRecipients(channel: string, targetType: string, targetUsernames: string[] | null) {
+  if (channel === 'telegram') {
+    // Every telegram_users row has a chat id to send to — "reachable" here
+    // just means "resolved as a target"; whether the bot is blocked is only
+    // known after actually attempting the send.
+    if (targetType === 'all') {
+      const [{ c }] = await db.select({ c: count() }).from(telegramUsers)
+      return { targeted: c, reachable: c, platforms: { ios: 0, android: 0 } }
+    }
+    const targets = await resolveTelegramTargets(targetType, targetUsernames)
+    return { targeted: targets.length, reachable: targets.length, platforms: { ios: 0, android: 0 } }
+  }
+
   const targetUsers = await resolveTargetUsers(targetType, targetUsernames)
   if (targetUsers.length === 0) {
     return { targeted: 0, reachable: 0, platforms: { ios: 0, android: 0 } }
   }
   const userIds = targetUsers.map(u => u.id)
-
-  if (channel === 'telegram') {
-    const linked = await db.select({ userId: telegramUsers.userId })
-      .from(telegramUsers)
-      .where(inArray(telegramUsers.userId, userIds))
-    return { targeted: targetUsers.length, reachable: linked.length, platforms: { ios: 0, android: 0 } }
-  }
 
   const tokens = await db.select({ userId: pushTokens.userId, platform: pushTokens.platform })
     .from(pushTokens)
@@ -233,27 +259,18 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
   return perUser
 }
 
-async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSelect, targetUsers: { id: string; username: string }[]) {
+async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSelect, targets: TelegramTarget[]) {
   const token = process.env.TELEGRAM_BOT_TOKEN
-  const perUser = new Map<string, RecipientResult>()
+  const perTarget = new Map<string, RecipientResult>()
   if (!token) throw new Error('TELEGRAM_BOT_TOKEN belum dikonfigurasi')
-
-  const links = await db.select({ userId: telegramUsers.userId, telegramId: telegramUsers.telegramId })
-    .from(telegramUsers)
-    .where(inArray(telegramUsers.userId, targetUsers.map(u => u.id)))
-  const chatIdByUser = new Map(links.filter(l => l.userId).map(l => [l.userId as string, l.telegramId]))
 
   const api = new Api(token)
 
-  for (const u of targetUsers) {
-    const chatId = chatIdByUser.get(u.id)
-    if (!chatId) {
-      perUser.set(u.id, { status: 'failed', errorMessage: 'Akun Telegram belum terhubung', pushTokenId: null, provider: null })
-      continue
-    }
+  for (const t of targets) {
+    const key = t.telegramId.toString()
     try {
-      const message = await api.sendMessage(chatId.toString(), blast.body)
-      perUser.set(u.id, {
+      const message = await api.sendMessage(key, blast.body)
+      perTarget.set(key, {
         status: 'sent',
         pushTokenId: null,
         provider: 'telegram',
@@ -264,7 +281,7 @@ async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSe
       const raw = e instanceof GrammyError
         ? { error_code: e.error_code, description: e.description, parameters: e.parameters }
         : { error: String(e) }
-      perUser.set(u.id, {
+      perTarget.set(key, {
         status: 'failed',
         errorMessage: telegramErrorMessage(e),
         pushTokenId: null,
@@ -274,7 +291,7 @@ async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSe
     }
   }
 
-  return perUser
+  return perTarget
 }
 
 /**
@@ -293,25 +310,38 @@ export async function dispatchBlast(blastId: string): Promise<void> {
   if (!blast) return // already dispatched, cancelled, or not found
 
   try {
-    const targetUsers = await resolveTargetUsers(blast.targetType, blast.targetUsernames)
-
-    if (targetUsers.length === 0) {
-      await db.update(notificationBlasts)
-        .set({ status: 'completed', sentAt: new Date(), targetedCount: 0, updatedAt: new Date() })
-        .where(eq(notificationBlasts.id, blastId))
+    if (blast.channel === 'telegram') {
+      const targets = await resolveTelegramTargets(blast.targetType, blast.targetUsernames)
+      const perTarget = targets.length > 0 ? await dispatchTelegramChannel(blast, targets) : new Map<string, RecipientResult>()
+      const now = new Date()
+      const recipientRows = targets.map(t => {
+        const r = perTarget.get(t.telegramId.toString())!
+        return {
+          blastId: blast.id,
+          userId: t.userId,
+          telegramUserId: t.telegramId,
+          pushTokenId: r.pushTokenId,
+          provider: r.provider,
+          status: r.status,
+          errorMessage: r.errorMessage ?? null,
+          providerMessageId: r.providerMessageId ?? null,
+          providerResponse: r.providerResponse ?? null,
+          sentAt: r.status === 'sent' ? now : null,
+        }
+      })
+      await finalizeBlast(blast.id, targets.length, recipientRows)
       return
     }
 
-    const perUser = blast.channel === 'telegram'
-      ? await dispatchTelegramChannel(blast, targetUsers)
-      : await dispatchPushChannel(blast, targetUsers)
-
+    const targetUsers = await resolveTargetUsers(blast.targetType, blast.targetUsernames)
+    const perUser = targetUsers.length > 0 ? await dispatchPushChannel(blast, targetUsers) : new Map<string, RecipientResult>()
     const now = new Date()
     const recipientRows = targetUsers.map(u => {
       const r = perUser.get(u.id)!
       return {
         blastId: blast.id,
         userId: u.id,
+        telegramUserId: null,
         pushTokenId: r.pushTokenId,
         provider: r.provider,
         status: r.status,
@@ -321,29 +351,37 @@ export async function dispatchBlast(blastId: string): Promise<void> {
         sentAt: r.status === 'sent' ? now : null,
       }
     })
-    if (recipientRows.length > 0) {
-      await db.insert(notificationBlastRecipients).values(recipientRows)
-    }
-
-    const sentCount = recipientRows.filter(r => r.status === 'sent').length
-    const failedCount = recipientRows.filter(r => r.status === 'failed').length
-
-    await db.update(notificationBlasts)
-      .set({
-        status: 'completed',
-        sentAt: now,
-        targetedCount: targetUsers.length,
-        sentCount,
-        failedCount,
-        updatedAt: now,
-      })
-      .where(eq(notificationBlasts.id, blastId))
+    await finalizeBlast(blast.id, targetUsers.length, recipientRows)
   } catch (e) {
     console.error('[dispatchBlast]', e)
     await db.update(notificationBlasts)
       .set({ status: 'failed', updatedAt: new Date() })
       .where(eq(notificationBlasts.id, blastId))
   }
+}
+
+async function finalizeBlast(
+  blastId: string,
+  targetedCount: number,
+  recipientRows: (typeof notificationBlastRecipients.$inferInsert)[],
+) {
+  if (recipientRows.length > 0) {
+    await db.insert(notificationBlastRecipients).values(recipientRows)
+  }
+
+  const sentCount = recipientRows.filter(r => r.status === 'sent').length
+  const failedCount = recipientRows.filter(r => r.status === 'failed').length
+
+  await db.update(notificationBlasts)
+    .set({
+      status: 'completed',
+      sentAt: new Date(),
+      targetedCount,
+      sentCount,
+      failedCount,
+      updatedAt: new Date(),
+    })
+    .where(eq(notificationBlasts.id, blastId))
 }
 
 async function fetchExpoReceipts(ids: string[]): Promise<Record<string, ExpoPushReceipt>> {
