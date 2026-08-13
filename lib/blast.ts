@@ -80,11 +80,9 @@ type TelegramTarget = { telegramId: bigint; userId: string | null }
 
 /**
  * Resolve blast targets for the telegram channel directly from telegram_users
- * instead of `users` — 'all' must reach every bot user, linked or not, since
- * most Telegram users never bother connecting their Gizku account. 'specific'
- * still goes through app usernames (chips are resolved to a linked account at
- * compose time via resolveUsernameForChannel/searchUsernamesForChannel), so
- * hand-picking an unlinked user by name isn't supported yet.
+ * instead of `users`, identified by Telegram username rather than app
+ * username — both 'all' and 'specific' must reach bot users regardless of
+ * whether they've ever linked a Gizku account, since most haven't.
  */
 async function resolveTelegramTargets(targetType: string, targetUsernames: string[] | null): Promise<TelegramTarget[]> {
   if (targetType === 'all') {
@@ -93,28 +91,26 @@ async function resolveTelegramTargets(targetType: string, targetUsernames: strin
   if (!targetUsernames || targetUsernames.length === 0) return []
   return db.select({ telegramId: telegramUsers.telegramId, userId: telegramUsers.userId })
     .from(telegramUsers)
-    .innerJoin(users, eq(users.id, telegramUsers.userId))
-    .where(and(inArray(users.username, targetUsernames), eq(users.isActive, true)))
+    .where(inArray(telegramUsers.username, targetUsernames))
 }
 
 /**
- * Cari username untuk chip target penerima. Identitas yang dicari mengikuti
- * channel yang dipilih: push mencari username app Gizku (karena push token
- * menempel ke akun app), telegram mencari username Telegram (identitas yang
- * admin kenal dari chat, bisa berbeda dari username app). Hasil selalu
- * di-map balik ke username app — identitas yang dipakai untuk menyimpan
- * target & query recipient di database.
+ * Cari identitas untuk chip target penerima. Identitas yang dicari DAN
+ * disimpan mengikuti channel yang dipilih: push pakai username app Gizku
+ * (karena push token menempel ke akun app), telegram pakai username Telegram
+ * langsung dari telegram_users — tanpa syarat akun itu sudah menghubungkan
+ * Gizku, karena banyak bot user belum pernah link tapi tetap harus bisa
+ * ditarget satu-satu.
  */
 export async function searchUsernamesForChannel(channel: string, q: string) {
   if (channel === 'telegram') {
-    const rows = await db.select({ username: users.username, tgUsername: telegramUsers.username })
+    const rows = await db.select({ tgUsername: telegramUsers.username })
       .from(telegramUsers)
-      .innerJoin(users, eq(users.id, telegramUsers.userId))
-      .where(and(eq(users.isActive, true), ilike(telegramUsers.username, `%${q}%`)))
+      .where(ilike(telegramUsers.username, `%${q}%`))
       .limit(8)
     return rows
-      .filter((r): r is { username: string; tgUsername: string } => !!r.tgUsername)
-      .map(r => ({ value: r.username, label: `@${r.tgUsername}` }))
+      .filter((r): r is { tgUsername: string } => !!r.tgUsername)
+      .map(r => ({ value: r.tgUsername, label: `@${r.tgUsername}` }))
   }
 
   const rows = await db.select({ username: users.username }).from(users)
@@ -125,28 +121,27 @@ export async function searchUsernamesForChannel(channel: string, q: string) {
 
 /**
  * Cocokkan satu input admin secara persis ke identitas channel yang dipilih
- * (username app untuk push, username Telegram untuk telegram), dipakai saat
- * admin menekan Enter tanpa memilih dari daftar saran. Mengembalikan username
- * app yang jadi identitas penyimpanan, plus label untuk ditampilkan di chip.
+ * (username app untuk push, username Telegram untuk telegram — lihat
+ * searchUsernamesForChannel), dipakai saat admin menekan Enter tanpa memilih
+ * dari daftar saran.
  */
-export async function resolveUsernameForChannel(channel: string, raw: string): Promise<{ username: string; label: string } | null> {
+export async function resolveUsernameForChannel(channel: string, raw: string): Promise<{ value: string; label: string } | null> {
   const clean = raw.trim().replace(/^@/, '')
   if (!clean) return null
 
   if (channel === 'telegram') {
-    const [row] = await db.select({ username: users.username, tgUsername: telegramUsers.username })
+    const [row] = await db.select({ tgUsername: telegramUsers.username })
       .from(telegramUsers)
-      .innerJoin(users, eq(users.id, telegramUsers.userId))
-      .where(and(ilike(telegramUsers.username, clean), eq(users.isActive, true)))
+      .where(ilike(telegramUsers.username, clean))
       .limit(1)
     if (!row || !row.tgUsername) return null
-    return { username: row.username, label: `@${row.tgUsername}` }
+    return { value: row.tgUsername, label: `@${row.tgUsername}` }
   }
 
   const [row] = await db.select({ username: users.username }).from(users)
     .where(and(eq(users.username, clean.toLowerCase()), eq(users.isActive, true))).limit(1)
   if (!row) return null
-  return { username: row.username, label: `@${row.username}` }
+  return { value: row.username, label: `@${row.username}` }
 }
 
 /** Estimasi jumlah penerima + berapa yang bisa dijangkau lewat channel terpilih, dipakai saat compose. */

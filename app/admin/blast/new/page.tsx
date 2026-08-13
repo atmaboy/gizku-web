@@ -279,7 +279,7 @@ export default function BlastComposePage() {
                       onChange={e => setUsernameInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addByRawInput(usernameInput) } }}
                       disabled={usernames.length >= MAX_TARGETS || resolving}
-                      placeholder={channel === 'telegram' ? 'ketik username app atau username Telegram lalu Enter' : 'ketik username lalu tekan Enter'}
+                      placeholder={channel === 'telegram' ? 'ketik username Telegram lalu Enter' : 'ketik username lalu tekan Enter'}
                       className="flex-1 border-none outline-none text-sm text-[#111827] bg-transparent disabled:bg-transparent"
                     />
                     <span className={`text-xs font-semibold whitespace-nowrap ${usernames.length >= MAX_TARGETS ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
@@ -298,7 +298,7 @@ export default function BlastComposePage() {
                   )}
                 </div>
                 {channel === 'telegram' && (
-                  <p className="text-xs text-[#9CA3AF] mt-1.5">Dicari berdasarkan username Telegram — akun harus sudah pernah menghubungkan Telegram.</p>
+                  <p className="text-xs text-[#9CA3AF] mt-1.5">Dicari berdasarkan username Telegram — baik yang sudah maupun belum menghubungkan akun Gizku.</p>
                 )}
                 {usernames.length >= MAX_TARGETS && (
                   <p className="text-xs text-amber-600 mt-1.5">Maksimum 10 username per batch tercapai.</p>

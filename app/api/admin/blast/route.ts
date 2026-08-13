@@ -6,7 +6,7 @@
  * GET  ?action=recipients&id=&page=&per_page= — log mentah per-penerima (username, status, error, raw response)
  * GET  ?action=estimate&channel=&target_type=&usernames=a,b,c — estimasi penerima saat compose
  * GET  ?action=lookup_username&channel=&q= — cari username/telegram handle (untuk chip target spesifik)
- * GET  ?action=resolve_username&channel=&value= — cocokkan 1 input admin ke username app secara persis
+ * GET  ?action=resolve_username&channel=&value= — cocokkan 1 input admin ke identitas channel (username app / Telegram) secara persis
  * POST ?action=create                     — buat + kirim/jadwalkan batch baru
  * POST ?action=cancel                     — batalkan batch yang masih 'scheduled'
  * POST ?action=check_receipts             — cek status delivery asli (Expo push receipts) untuk 1 batch
@@ -128,7 +128,9 @@ async function handleGet(req: NextRequest) {
     const channel = req.nextUrl.searchParams.get('channel') === 'telegram' ? 'telegram' : 'push'
     const targetType = req.nextUrl.searchParams.get('target_type') || 'all'
     const usernamesParam = req.nextUrl.searchParams.get('usernames') || ''
-    const usernames = usernamesParam.split(',').map(u => u.trim().toLowerCase()).filter(Boolean)
+    // Telegram usernames keep their original casing (matched exactly against
+    // telegram_users) — only app usernames (push channel) are lowercased.
+    const usernames = usernamesParam.split(',').map(u => u.trim()).filter(Boolean).map(u => channel === 'telegram' ? u : u.toLowerCase())
     const estimate = await estimateRecipients(channel, targetType, targetType === 'specific' ? usernames : null)
     return ok(estimate)
   }
@@ -147,7 +149,7 @@ async function handleGet(req: NextRequest) {
     const resolved = await resolveUsernameForChannel(channel, value)
     if (!resolved) {
       return err(channel === 'telegram'
-        ? `Username Telegram tidak ditemukan atau akunnya belum terhubung: ${value}`
+        ? `Username Telegram tidak ditemukan: ${value}`
         : `Username tidak ditemukan: ${value}`, 404)
     }
     return ok(resolved)
@@ -189,20 +191,32 @@ async function handlePost(req: NextRequest) {
 
     let targetUsernames: string[] | null = null
     if (targetType === 'specific') {
-      // Chip di form compose selalu sudah di-resolve ke username app di sisi
-      // client (lookup_username/resolve_username menerjemahkan username
-      // Telegram → username app untuk channel telegram) — jadi di sini cukup
-      // pastikan setiap entri memang username app yang valid & aktif.
+      // Chip di form compose sudah di-resolve ke identitas channel yang
+      // dipilih di sisi client (lookup_username/resolve_username — username
+      // app untuk push, username Telegram apa adanya untuk telegram, lihat
+      // searchUsernamesForChannel/resolveUsernameForChannel di lib/blast.ts).
+      // Username app selalu lowercase; username Telegram dibiarkan sesuai
+      // casing aslinya di telegram_users supaya match persis saat dispatch.
       const raw: unknown[] = Array.isArray(body.targetUsernames) ? body.targetUsernames : []
-      const cleaned = Array.from(new Set(raw.map(u => String(u).trim().toLowerCase()).filter(Boolean)))
+      const cleaned = Array.from(new Set(
+        raw.map(u => String(u).trim()).filter(Boolean).map(u => channel === 'telegram' ? u : u.toLowerCase()),
+      ))
       if (cleaned.length === 0) return err('Minimal 1 username target diperlukan')
       if (cleaned.length > MAX_SPECIFIC_TARGETS) return err(`Maksimum ${MAX_SPECIFIC_TARGETS} username per batch`)
 
-      const found = await db.select({ username: users.username }).from(users)
-        .where(and(inArray(users.username, cleaned), eq(users.isActive, true)))
-      const foundSet = new Set(found.map(f => f.username))
-      const missing = cleaned.filter(u => !foundSet.has(u))
-      if (missing.length > 0) return err(`Username tidak ditemukan: ${missing.join(', ')}`)
+      if (channel === 'telegram') {
+        const found = await db.select({ username: telegramUsers.username }).from(telegramUsers)
+          .where(inArray(telegramUsers.username, cleaned))
+        const foundSet = new Set(found.map(f => f.username))
+        const missing = cleaned.filter(u => !foundSet.has(u))
+        if (missing.length > 0) return err(`Username Telegram tidak ditemukan: ${missing.join(', ')}`)
+      } else {
+        const found = await db.select({ username: users.username }).from(users)
+          .where(and(inArray(users.username, cleaned), eq(users.isActive, true)))
+        const foundSet = new Set(found.map(f => f.username))
+        const missing = cleaned.filter(u => !foundSet.has(u))
+        if (missing.length > 0) return err(`Username tidak ditemukan: ${missing.join(', ')}`)
+      }
 
       targetUsernames = cleaned
     }
