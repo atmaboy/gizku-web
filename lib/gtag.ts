@@ -17,10 +17,11 @@ export function pageview(url: string) {
     page_path: url,
     page_location: window.location.href,
     page_title: document.title,
+    platform: 'web',
   })
 }
 
 export function event(name: string, params?: Record<string, unknown>) {
   if (!GA_MEASUREMENT_ID || typeof window === 'undefined' || typeof window.gtag !== 'function') return
-  window.gtag('event', name, params)
+  window.gtag('event', name, { platform: 'web', ...params })
 }
