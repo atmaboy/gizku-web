@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import GoogleAnalytics from '@/components/GoogleAnalytics'
 import StagingBanner from '@/components/StagingBanner'
 import TopLoader from '@/components/ui/TopLoader'
 import { LanguageProvider } from '@/lib/i18n/LanguageContext'
@@ -100,6 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </LanguageProvider>
         <Analytics />
         <SpeedInsights />
+        <GoogleAnalytics />
       </body>
     </html>
   )

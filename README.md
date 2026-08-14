@@ -207,6 +207,7 @@ cp .env.example .env.local
 | `EXPO_ACCESS_TOKEN` | Opsional — hanya diperlukan jika project Expo mengaktifkan "Enhanced Security" untuk push notification |
 | `CRON_SECRET` | Melindungi endpoint `/api/cron/*` dari akses publik; diset sebagai `Authorization: Bearer <CRON_SECRET>` di job cron-job.org (lihat [Cara Deploy](#cara-deploy-ke-vercel)) |
 | `NEXT_PUBLIC_APP_ENV` | Set ke `staging` atau `preview` di environment non-production agar `StagingBanner` tampil |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Measurement ID Google Analytics 4 (GA4 property > Admin > Data Streams > Web stream). Kosongkan untuk mematikan GA. |
 
 ---
 
