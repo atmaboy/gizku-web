@@ -17,11 +17,12 @@ type BetaOptinContent = {
  * (/api/beta-optin) — hidden entirely when the admin has the feature off, so
  * the parent form never needs to know why.
  *
- * Turning the switch ON opens the explainer popup in confirm mode; `checked`
- * only flips true once the user taps "Setuju & Ikut Program" inside it.
- * Turning it OFF (from ON) flips immediately, no popup. "Lihat detail
- * program" reopens the same popup in read-only view mode without touching
- * `checked`.
+ * "Lihat detail program" and turning the switch ON open the same explainer
+ * popup — either way, `checked` only flips true once the user taps "Setuju
+ * & Ikut Program" inside it, so reading the details is itself the opt-in
+ * path. Once already opted in, reopening the popup just offers "Tutup"
+ * since there's nothing left to confirm. Turning the switch OFF (from ON)
+ * flips immediately, no popup.
  */
 export default function BetaOptinToggle({
   checked,
@@ -32,7 +33,7 @@ export default function BetaOptinToggle({
 }) {
   const { language, t } = useTranslation()
   const [content, setContent] = useState<BetaOptinContent | null>(null)
-  const [popupMode, setPopupMode] = useState<'confirm' | 'view' | null>(null)
+  const [popupOpen, setPopupOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -50,7 +51,7 @@ export default function BetaOptinToggle({
 
   function handleToggle() {
     if (checked) { onChange(false); return }
-    setPopupMode('confirm')
+    setPopupOpen(true)
   }
 
   return (
@@ -65,7 +66,7 @@ export default function BetaOptinToggle({
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-[13.5px] font-semibold text-primary mb-0.5 truncate">{c.title}</div>
-        <span onClick={() => setPopupMode('view')} className="inline-block text-xs font-semibold text-link cursor-pointer">
+        <span onClick={() => setPopupOpen(true)} className="inline-block text-xs font-semibold text-link cursor-pointer">
           {t('betaOptin.viewDetails')}
         </span>
       </div>
@@ -82,15 +83,15 @@ export default function BetaOptinToggle({
       </button>
 
       <Dialog
-        open={popupMode !== null}
-        onClose={() => setPopupMode(null)}
+        open={popupOpen}
+        onClose={() => setPopupOpen(false)}
         title={c.title}
         description={t('betaOptin.popupIntro')}
         dismissOnBackdrop
         actions={
-          popupMode === 'confirm'
-            ? [{ label: t('betaOptin.popupConfirm'), onClick: () => { onChange(true); setPopupMode(null) } }]
-            : [{ label: t('betaOptin.popupClose'), onClick: () => setPopupMode(null), variant: 'outline' }]
+          checked
+            ? [{ label: t('betaOptin.popupClose'), onClick: () => setPopupOpen(false), variant: 'outline' }]
+            : [{ label: t('betaOptin.popupConfirm'), onClick: () => { onChange(true); setPopupOpen(false) } }]
         }
       >
         <div className="flex flex-col gap-3 mb-4">
