@@ -21,6 +21,7 @@ export default async function UsersPage() {
     id: users.id,
     username: users.username,
     email: users.email,
+    emailVerifiedAt: users.emailVerifiedAt,
     isActive: users.isActive,
     dailyLimit: users.dailyLimit,
     createdAt: users.createdAt,
@@ -89,10 +90,21 @@ export default async function UsersPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-[#6B7280]">
-                  {u.email
-                    ? <span className="text-[#111827]">{u.email}</span>
-                    : <span className="italic text-xs text-[#9CA3AF]">—</span>
-                  }
+                  {u.email ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[#111827]">{u.email}</span>
+                      <span
+                        title={u.emailVerifiedAt ? `Terverifikasi ${fmtDateTime(u.emailVerifiedAt)}` : 'Belum verifikasi email'}
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                          u.emailVerifiedAt ? 'bg-[#D4F5E4] text-[#1F9D57]' : 'bg-amber-50 text-amber-600'
+                        }`}
+                      >
+                        {u.emailVerifiedAt ? '✓ Terverifikasi' : 'Belum Verifikasi'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="italic text-xs text-[#9CA3AF]">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -190,7 +202,14 @@ export default async function UsersPage() {
                     )}
                   </div>
                   {u.email && (
-                    <p className="text-xs text-[#6B7280] truncate max-w-[200px]">{u.email}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-xs text-[#6B7280] truncate max-w-[160px]">{u.email}</p>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                        u.emailVerifiedAt ? 'bg-[#D4F5E4] text-[#1F9D57]' : 'bg-amber-50 text-amber-600'
+                      }`}>
+                        {u.emailVerifiedAt ? '✓ Verified' : 'Belum verifikasi'}
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>

@@ -16,7 +16,7 @@ export function buildBlastEmailHtml(opts: {
   const { subject, bodyText, sender } = opts
   const { displayName, address } = SENDER_META[sender]
   const logoUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://gizku.com'}/gizku-logo-email.jpg?v=2`
-  const bodyHtml = escapeHtml(bodyText).split('\n').map(line => `<p style="margin:0 0 12px 0;">${line || '&nbsp;'}</p>`).join('')
+  const bodyHtml = renderBodyHtml(bodyText)
 
   return `<!DOCTYPE html>
 <html lang="id" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -128,4 +128,21 @@ export function buildBlastEmailHtml(opts: {
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+}
+
+// Compose page (app/admin/blast/new) lets admins insert an uploaded image as
+// a `![](https://...)` line via a toolbar button — not full markdown, just
+// this one pattern. Any such line renders as an <img>; everything else is an
+// escaped paragraph, same as before. Restricted to http(s) so a manually
+// typed line can't turn into a javascript:/data: URI in the sent HTML.
+const IMAGE_LINE_RE = /^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/
+
+function renderBodyHtml(bodyText: string): string {
+  return bodyText.split('\n').map(line => {
+    const match = line.match(IMAGE_LINE_RE)
+    if (match) {
+      return `<img src="${escapeHtml(match[1])}" alt="" style="max-width:100%; height:auto; border-radius:8px; display:block; margin:0 0 12px 0;">`
+    }
+    return `<p style="margin:0 0 12px 0;">${escapeHtml(line) || '&nbsp;'}</p>`
+  }).join('')
 }

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -9,6 +9,26 @@ const MAX_EMAIL_TARGETS = 100
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const EMAIL_BODY_MAX = 5000
+const IMAGE_LINE_RE = /^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+const MAX_IMAGE_MB = 5
+
+/** Baris `![](url)` yang disisipkan tombol "Sisipkan Gambar" dirender sebagai <img>, mengikuti lib/emailTemplates/blast.ts. */
+function EmailBodyPreview({ text }: { text: string }) {
+  if (!text) return <>Isi email akan tampil di sini seperti yang dilihat penerima.</>
+  return (
+    <>
+      {text.split('\n').map((line, i) => {
+        const match = line.match(IMAGE_LINE_RE)
+        if (match) {
+          // eslint-disable-next-line @next/next/no-img-element
+          return <img key={i} src={match[1]} alt="" className="max-w-full rounded-lg my-2" />
+        }
+        return <p key={i} className="whitespace-pre-wrap m-0">{line || ' '}</p>
+      })}
+    </>
+  )
+}
 
 type Estimate = { targeted: number; reachable: number; platforms: { ios: number; android: number } }
 type Channel = 'push' | 'telegram' | 'email'
@@ -51,6 +71,9 @@ export default function BlastComposePage() {
   const [estimate, setEstimate] = useState<Estimate | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   const isEmail = channel === 'email'
   const maxTargets = isEmail ? MAX_EMAIL_TARGETS : MAX_TARGETS
@@ -136,6 +159,44 @@ export default function BlastComposePage() {
 
   function removeUsername(value: string) {
     setUsernames(prev => prev.filter(x => x.value !== value))
+  }
+
+  function insertAtCursor(text: string) {
+    const el = bodyRef.current
+    const start = el?.selectionStart ?? body.length
+    const end = el?.selectionEnd ?? body.length
+    const next = (body.slice(0, start) + text + body.slice(end)).slice(0, bodyMax)
+    setBody(next)
+    requestAnimationFrame(() => {
+      if (!el) return
+      const pos = Math.min(start + text.length, bodyMax)
+      el.focus()
+      el.setSelectionRange(pos, pos)
+    })
+  }
+
+  async function handleImageFile(file: File) {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      toast.error(`Format tidak didukung: ${file.type}. Gunakan JPEG, PNG, WebP, atau GIF.`)
+      return
+    }
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+      toast.error(`Ukuran gambar terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal ${MAX_IMAGE_MB} MB.`)
+      return
+    }
+    setUploadingImage(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/blast/upload-image', { method: 'POST', body: fd })
+      const d = await res.json()
+      if (!res.ok) { toast.error(d.error ?? 'Upload gambar gagal'); return }
+      insertAtCursor(`\n![](${d.url})\n`)
+    } catch {
+      toast.error('Gagal upload gambar, coba lagi')
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   function resetForm() {
@@ -303,12 +364,33 @@ export default function BlastComposePage() {
                 </label>
                 <span className="text-xs text-[#9CA3AF]">{body.length}/{bodyMax}</span>
               </div>
+              {isEmail && (
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[#374151] hover:bg-[#F9FAFB] transition disabled:opacity-50"
+                  >
+                    {uploadingImage ? 'Mengupload…' : '🖼 Sisipkan Gambar'}
+                  </button>
+                  <span className="text-[11px] text-[#9CA3AF]">JPEG/PNG/WebP/GIF, maks {MAX_IMAGE_MB}MB</span>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = '' }}
+                  />
+                </div>
+              )}
               <textarea
+                ref={bodyRef}
                 value={body} onChange={e => setBody(e.target.value.slice(0, bodyMax))} rows={isEmail ? 10 : 4}
                 placeholder={
                   channel === 'push' ? 'Tuliskan isi notifikasi di sini...'
                   : channel === 'telegram' ? 'Tuliskan isi pesan chat Telegram di sini...'
-                  : 'Tuliskan isi email di sini. Setiap baris baru akan menjadi paragraf terpisah.'
+                  : 'Tuliskan isi email di sini. Setiap baris baru akan menjadi paragraf terpisah. Gunakan tombol "Sisipkan Gambar" untuk menambahkan gambar.'
                 }
                 className="w-full border border-[#E5E7EB] rounded-xl px-3.5 py-3 text-base bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition resize-y"
               />
@@ -482,8 +564,8 @@ export default function BlastComposePage() {
                 <div className="text-sm font-semibold text-[#111827] truncate">{title || 'Subjek email'}</div>
               </div>
               <div className="px-4 py-4 h-[340px] overflow-y-auto">
-                <div className="text-[13px] text-[#374151] leading-relaxed whitespace-pre-wrap">
-                  {body || 'Isi email akan tampil di sini seperti yang dilihat penerima.'}
+                <div className="text-[13px] text-[#374151] leading-relaxed">
+                  <EmailBodyPreview text={body} />
                 </div>
               </div>
             </div>
