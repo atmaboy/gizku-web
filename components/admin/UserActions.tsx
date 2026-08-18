@@ -13,6 +13,8 @@ type U = {
   passwordChangedBy?: string | null
   mustChangePassword?: boolean | null
   adminResetBy?: string | null
+  betaOptinAndroid?: boolean | null
+  betaOptinAndroidAt?: Date | string | null
 }
 
 export default function UserActions({
@@ -246,6 +248,29 @@ export default function UserActions({
                   }`}>
                     {user.isActive ? 'Aktif' : 'Nonaktif'}
                   </span>
+                </div>
+
+                <div className="bg-[#F9FAFB] rounded-xl p-3.5 space-y-2">
+                  <p className="text-sm font-semibold text-[#111827]">Closed Beta Tester Android</p>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-[#6B7280]">Status opt-in</span>
+                    <span className={`px-2 py-0.5 rounded-full font-medium ${
+                      user.betaOptinAndroid
+                        ? 'bg-[#D4F5E4] text-[#1F9D57]'
+                        : 'bg-[#F3F4F6] text-[#9CA3AF]'
+                    }`}>
+                      {user.betaOptinAndroid ? 'Ikut' : 'Tidak'}
+                    </span>
+                  </div>
+                  {user.betaOptinAndroid && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-[#6B7280]">Opt-in pada</span>
+                      <span className="text-[#111827]">{fmtAudit(user.betaOptinAndroidAt) ?? '—'}</span>
+                    </div>
+                  )}
+                  <p className="text-[11.5px] text-[#9CA3AF] leading-relaxed pt-0.5">
+                    Data ini diambil dari persetujuan user saat registrasi, digunakan untuk mendaftarkan email ke Google Play Console.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">

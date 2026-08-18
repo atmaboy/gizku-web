@@ -5,6 +5,7 @@ import { hashPassword, signUserToken, verifyToken, extractToken } from '@/lib/au
 import { ok, err, setCors } from '@/lib/utils'
 import { checkMaintenance, maintenanceResponse } from '@/lib/maintenance'
 import { sendVerificationEmailInBackground } from '@/lib/emailVerification'
+import { getBetaOptinConfig } from '@/lib/betaOptinConfig'
 import { eq } from 'drizzle-orm'
 
 function isValidEmail(email: string) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   // REGISTER
   if (action === 'register') {
-    const { username, password, email } = await req.json()
+    const { username, password, email, betaOptin } = await req.json()
     if (!username || !password) return err('Username dan password diperlukan')
     if (username.length < 3) return err('Username minimal 3 karakter')
     if (password.length < 6) return err('Password minimal 6 karakter')
@@ -38,10 +39,22 @@ export async function POST(req: NextRequest) {
       .from(users).where(eq(users.email, trimmedEmail)).limit(1)
     if (existingEmail) return err('Email sudah digunakan', 409)
 
+    // Hanya persist opt-in kalau fitur memang aktif di Backoffice —
+    // mencegah request yang dimanipulasi menandai user sebagai tester
+    // padahal opsinya sedang disembunyikan/nonaktif.
+    const betaOptinConfig = await getBetaOptinConfig()
+    const optInBeta = betaOptinConfig.enabled && betaOptin === true
+
     const hash = await hashPassword(password)
     try {
       const [user] = await db.insert(users)
-        .values({ username: username.toLowerCase().trim(), passwordHash: hash, email: trimmedEmail })
+        .values({
+          username: username.toLowerCase().trim(),
+          passwordHash: hash,
+          email: trimmedEmail,
+          betaOptinAndroid: optInBeta,
+          betaOptinAndroidAt: optInBeta ? new Date() : null,
+        })
         .returning({ id: users.id, username: users.username })
       const token = await signUserToken({ userId: user.id, username: user.username })
 

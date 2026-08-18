@@ -28,6 +28,9 @@ export const users = pgTable('users', {
   adminResetBy:       text('admin_reset_by'),
 
   emailVerifiedAt:    timestamp('email_verified_at', { withTimezone: true }),
+
+  betaOptinAndroid:   boolean('beta_optin_android').default(false).notNull(),
+  betaOptinAndroidAt: timestamp('beta_optin_android_at', { withTimezone: true }),
 }, t => ({ usernameIdx: index('idx_users_username').on(t.username) }))
 
 export const meals = pgTable('meals', {
@@ -351,6 +354,21 @@ export const aboutContent = pgTable('about_content', {
   updatedAt:     timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
+// Singleton — Closed Beta Tester Android opt-in feature flag + bilingual
+// explainer popup content (title, numbered terms, callout) shown to users
+// on the registration page before they opt in.
+export const betaOptinConfig = pgTable('beta_optin_config', {
+  id:        serial('id').primaryKey(),
+  enabled:   boolean('enabled').notNull().default(false),
+  titleId:   text('title_id').notNull().default(''),
+  pointsId:  text('points_id').array().notNull().default([]),
+  calloutId: text('callout_id').notNull().default(''),
+  titleEn:   text('title_en').notNull().default(''),
+  pointsEn:  text('points_en').array().notNull().default([]),
+  calloutEn: text('callout_en').notNull().default(''),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 // ── Relations ─────────────────────────────────────────────────────────────────
 export const usersRelations = relations(users, ({ many }) => ({
   meals:                  many(meals),
@@ -438,5 +456,6 @@ export type NewLegalDocumentType       = typeof legalDocumentTypes.$inferInsert
 export type LegalDocument              = typeof legalDocuments.$inferSelect
 export type NewLegalDocument           = typeof legalDocuments.$inferInsert
 export type AboutContent               = typeof aboutContent.$inferSelect
+export type BetaOptinConfig            = typeof betaOptinConfig.$inferSelect
 export type EmailVerificationToken     = typeof emailVerificationTokens.$inferSelect
 export type NewEmailVerificationToken  = typeof emailVerificationTokens.$inferInsert

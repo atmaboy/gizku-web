@@ -29,6 +29,8 @@ export default async function UsersPage() {
     passwordChangedBy: users.passwordChangedBy,
     mustChangePassword: users.mustChangePassword,
     adminResetBy: users.adminResetBy,
+    betaOptinAndroid: users.betaOptinAndroid,
+    betaOptinAndroidAt: users.betaOptinAndroidAt,
   }).from(users).orderBy(desc(users.createdAt))
 
   const usersWithStats = await Promise.all(allUsers.map(async u => {
@@ -62,6 +64,7 @@ export default async function UsersPage() {
               <th className="text-left px-4 py-3">Username</th>
               <th className="text-left px-4 py-3">Email</th>
               <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3">Beta Android</th>
               <th className="text-left px-4 py-3">Limit/Hari</th>
               <th className="text-left px-4 py-3">Total Meal</th>
               <th className="text-left px-4 py-3">Hari Ini</th>
@@ -99,6 +102,18 @@ export default async function UsersPage() {
                   }`}>
                     {u.isActive ? 'Aktif' : 'Nonaktif'}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    u.betaOptinAndroid
+                      ? 'bg-[#D4F5E4] text-[#1F9D57]'
+                      : 'bg-[#F3F4F6] text-[#9CA3AF]'
+                  }`}>
+                    {u.betaOptinAndroid ? 'Ikut' : 'Tidak'}
+                  </span>
+                  {u.betaOptinAndroid && (
+                    <div className="text-[11px] text-[#9CA3AF] mt-0.5">{fmtDate(u.betaOptinAndroidAt)}</div>
+                  )}
                 </td>
                 <td className="px-4 py-3 tabular-nums text-[#6B7280]">
                   {u.dailyLimit ?? <span className="italic text-xs text-[#9CA3AF]">{globalLimit} (global)</span>}
@@ -202,6 +217,16 @@ export default async function UsersPage() {
 
             {/* Card Detail — info sekunder */}
             <div className="px-4 py-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#9CA3AF]">Beta Android</span>
+                <span className={`px-2 py-0.5 rounded-full font-medium ${
+                  u.betaOptinAndroid
+                    ? 'bg-[#D4F5E4] text-[#1F9D57]'
+                    : 'bg-[#F3F4F6] text-[#9CA3AF]'
+                }`}>
+                  {u.betaOptinAndroid ? 'Ikut' : 'Tidak'}
+                </span>
+              </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[#9CA3AF]">Limit/Hari</span>
                 <span className="text-[#111827] font-medium tabular-nums">

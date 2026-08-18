@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 
+type BetaOptinLang = { title: string; points: string[]; callout: string }
+type BetaOptinContent = { enabled: boolean; id: BetaOptinLang; en: BetaOptinLang; updatedAt: string | null }
+
 export default function ConfigPage() {
   const [token, setToken]       = useState('')
   const [limit, setLimit]       = useState('')
@@ -13,6 +16,7 @@ export default function ConfigPage() {
   const [mDesc, setMDesc]       = useState('')
   const [verifyHours, setVerifyHours] = useState('72')
   const [loading, setLoading]   = useState<string | null>(null)
+  const [betaOptin, setBetaOptin] = useState<BetaOptinContent | null>(null)
 
   useEffect(() => {
     const t = document.cookie.split(';').find(c => c.includes('nl_admin_token'))?.split('=')[1]?.trim() ?? ''
@@ -33,6 +37,10 @@ export default function ConfigPage() {
         if (d.anthropicModel) setAiModel(d.anthropicModel)
         if (d.emailVerificationExpiryHours !== undefined) setVerifyHours(String(d.emailVerificationExpiryHours))
       })
+      .catch(() => {})
+    fetch('/api/admin/beta-optin', { headers: { Authorization: `Bearer ${t}` } })
+      .then(r => r.json())
+      .then(d => setBetaOptin(d))
       .catch(() => {})
   }, [])
 
@@ -207,6 +215,228 @@ export default function ConfigPage() {
           </BtnPrimary>
         </div>
       </Section>
+
+      {/* Closed Beta Tester Android */}
+      {betaOptin && (
+        <BetaOptinSection
+          token={token}
+          content={betaOptin}
+          onChange={setBetaOptin}
+        />
+      )}
+    </div>
+  )
+}
+
+function BetaOptinSection({
+  token, content, onChange,
+}: {
+  token: string
+  content: BetaOptinContent
+  onChange: (c: BetaOptinContent) => void
+}) {
+  const [previewLang, setPreviewLang] = useState<'id' | 'en'>('id')
+  const [editLang, setEditLang]       = useState<'id' | 'en'>('id')
+  const [modalOpen, setModalOpen]     = useState(false)
+  const [draft, setDraft]             = useState<{ id: BetaOptinLang; en: BetaOptinLang } | null>(null)
+  const [saving, setSaving]           = useState(false)
+  const [togglingEnabled, setTogglingEnabled] = useState(false)
+
+  async function toggleEnabled() {
+    const next = !content.enabled
+    setTogglingEnabled(true)
+    try {
+      const r = await fetch('/api/admin/beta-optin?action=update_enabled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ enabled: next }),
+      })
+      const d = await r.json()
+      if (r.ok) {
+        onChange({ ...content, enabled: next })
+        toast.success(`Opsi opt-in ${next ? 'diaktifkan' : 'dinonaktifkan'}`)
+      } else {
+        toast.error(d.error ?? 'Terjadi kesalahan')
+      }
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setTogglingEnabled(false)
+    }
+  }
+
+  function openModal() {
+    setEditLang('id')
+    setDraft({ id: { ...content.id, points: [...content.id.points] }, en: { ...content.en, points: [...content.en.points] } })
+    setModalOpen(true)
+  }
+  function closeModal() {
+    setModalOpen(false)
+    setDraft(null)
+  }
+
+  function setDraftField(lang: 'id' | 'en', field: 'title' | 'callout', value: string) {
+    setDraft(d => d && { ...d, [lang]: { ...d[lang], [field]: value } })
+  }
+  function setDraftPoint(lang: 'id' | 'en', i: number, value: string) {
+    setDraft(d => {
+      if (!d) return d
+      const points = d[lang].points.slice()
+      points[i] = value
+      return { ...d, [lang]: { ...d[lang], points } }
+    })
+  }
+  function addPoint(lang: 'id' | 'en') {
+    setDraft(d => d && { ...d, [lang]: { ...d[lang], points: [...d[lang].points, ''] } })
+  }
+  function removePoint(lang: 'id' | 'en', i: number) {
+    setDraft(d => d && { ...d, [lang]: { ...d[lang], points: d[lang].points.filter((_, idx) => idx !== i) } })
+  }
+
+  async function saveModal() {
+    if (!draft) return
+    setSaving(true)
+    try {
+      const r = await fetch('/api/admin/beta-optin?action=update_content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(draft),
+      })
+      const d = await r.json()
+      if (r.ok) {
+        onChange({ ...content, id: draft.id, en: draft.en, updatedAt: new Date().toISOString() })
+        toast.success('Konten popup tersimpan')
+        closeModal()
+      } else {
+        toast.error(d.error ?? 'Terjadi kesalahan')
+      }
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputCls = "w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
+  const preview = content[previewLang]
+  const updatedAtLabel = content.updatedAt
+    ? new Date(content.updatedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—'
+
+  return (
+    <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-5 shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
+      <div className="flex justify-between items-start gap-4">
+        <div>
+          <h2 className="font-semibold text-xs uppercase tracking-wide text-[#374151] mb-1.5">Closed Beta Tester Android</h2>
+          <p className="text-sm text-[#374151] leading-relaxed max-w-md">Tampilkan opsi opt-in program closed tester Android pada halaman registrasi user.</p>
+        </div>
+        <button
+          type="button" onClick={toggleEnabled} disabled={togglingEnabled}
+          role="switch" aria-checked={content.enabled} aria-label="Aktifkan opsi opt-in"
+          className="flex-shrink-0 disabled:opacity-50"
+        >
+          <div className={`w-10 h-6 rounded-full transition-colors relative ${content.enabled ? 'bg-[#2ECC71]' : 'bg-[#E5E7EB]'}`}>
+            <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${content.enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+          </div>
+        </button>
+      </div>
+
+      <div className={`mt-3.5 px-3 py-2.5 rounded-lg text-xs leading-relaxed ${content.enabled ? 'bg-[#F0FDF4] border border-[#BBF7D0] text-[#15803D]' : 'bg-[#F9FAFB] border border-[#E5E7EB] text-[#6B7280]'}`}>
+        {content.enabled ? 'Aktif — opsi ini muncul di halaman registrasi.' : 'Nonaktif — opsi ini disembunyikan sepenuhnya dari halaman registrasi.'}
+      </div>
+
+      <div className="h-px bg-[#F3F4F6] my-5" />
+
+      <div className="flex justify-between items-start gap-4 mb-2.5">
+        <h3 className="font-semibold text-xs uppercase tracking-wide text-[#374151]">Konten Popup Penjelasan</h3>
+        <div className="flex gap-1.5 flex-shrink-0">
+          {(['id', 'en'] as const).map(l => (
+            <button
+              key={l} type="button" onClick={() => setPreviewLang(l)}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition ${previewLang === l ? 'bg-[#2ECC71] text-white border-[#2ECC71]' : 'bg-white text-[#374151] border-[#E5E7EB]'}`}
+            >
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-between items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="font-bold text-sm text-[#111827] mb-1.5">{preview.title || <span className="italic text-[#9CA3AF] font-normal">Belum diisi</span>}</div>
+          {preview.points.length > 0 ? (
+            <ul className="list-disc pl-[18px] text-xs text-[#6B7280] leading-relaxed space-y-0.5">
+              {preview.points.map((p, i) => <li key={i}>{p}</li>)}
+            </ul>
+          ) : (
+            <p className="text-xs italic text-[#9CA3AF]">Belum ada poin syarat & ketentuan</p>
+          )}
+          <p className="text-xs text-[#9CA3AF] mt-2.5">Terakhir diubah: {updatedAtLabel}</p>
+        </div>
+        <button
+          type="button" onClick={openModal}
+          className="flex-shrink-0 bg-white text-[#374151] border-[1.5px] border-[#E5E7EB] rounded-lg px-4 py-2 text-xs font-bold whitespace-nowrap hover:bg-[#F9FAFB] transition"
+        >
+          Edit Konten
+        </button>
+      </div>
+
+      {modalOpen && draft && (
+        <div onClick={closeModal} className="fixed inset-0 bg-[#111827]/45 flex items-center justify-center z-50 p-5">
+          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-[560px] max-w-full max-h-[85vh] flex flex-col p-5.5 box-border">
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
+              <h3 className="text-base font-extrabold text-[#111827]">Edit Konten Popup</h3>
+              <button onClick={closeModal} className="text-xl text-[#6B7280] leading-none">&times;</button>
+            </div>
+
+            <div className="flex border-b border-[#E5E7EB] mb-4 flex-shrink-0">
+              {(['id', 'en'] as const).map(l => (
+                <div
+                  key={l} onClick={() => setEditLang(l)}
+                  className={`flex-1 text-center py-2.5 cursor-pointer text-[13.5px] font-bold border-b-2 transition ${editLang === l ? 'border-[#2ECC71] text-[#15803D]' : 'border-transparent text-[#6B7280]'}`}
+                >
+                  {l === 'id' ? 'Bahasa Indonesia' : 'English'}
+                </div>
+              ))}
+            </div>
+
+            <div className="overflow-y-auto flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-bold text-[#374151] uppercase tracking-wide mb-1.5">Judul Popup</label>
+                <input value={draft[editLang].title} onChange={e => setDraftField(editLang, 'title', e.target.value)} className={inputCls} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#374151] uppercase tracking-wide mb-1.5">Syarat &amp; Ketentuan (poin bernomor)</label>
+                <div className="flex flex-col gap-2">
+                  {draft[editLang].points.map((p, i) => (
+                    <div key={i} className="flex gap-2 items-center">
+                      <input value={p} onChange={e => setDraftPoint(editLang, i, e.target.value)} className={`${inputCls} flex-1`} />
+                      <button
+                        type="button" onClick={() => removePoint(editLang, i)}
+                        className="flex-shrink-0 w-8 h-8 rounded-lg border border-[#E5E7EB] bg-white text-red-500 text-sm"
+                      >&times;</button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => addPoint(editLang)} className="mt-2 text-[#15803D] text-xs font-semibold">+ Tambah poin</button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#374151] uppercase tracking-wide mb-1.5">Catatan Penekanan (kotak hijau)</label>
+                <textarea value={draft[editLang].callout} onChange={e => setDraftField(editLang, 'callout', e.target.value)} rows={3} className={`${inputCls} resize-y`} />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-4.5 flex-shrink-0">
+              <button onClick={closeModal} className="px-4.5 py-2.5 rounded-lg border-[1.5px] border-[#E5E7EB] bg-white text-[#374151] text-sm font-semibold">Batal</button>
+              <button onClick={saveModal} disabled={saving} className="px-5 py-2.5 rounded-lg border-none bg-[#111827] text-white text-sm font-bold disabled:opacity-50">
+                {saving ? 'Menyimpan…' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

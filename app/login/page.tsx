@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import BrandAnnouncement from '@/components/BrandAnnouncement'
 import GizkuLogo from '@/components/GizkuLogo'
 import LegalConsentCheckbox from '@/components/LegalConsentCheckbox'
+import BetaOptinToggle from '@/components/BetaOptinToggle'
 import Button from '@/components/ui/Button'
 import TextField from '@/components/ui/TextField'
 import { IconArrowLeft, IconLock, IconPerson, IconMail } from '@/components/ui/icons'
@@ -28,6 +29,7 @@ export default function LoginPage() {
   const [maintenance, setMaintenance] = useState<MaintenanceInfo>(null)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [consentRequired, setConsentRequired] = useState(false)
+  const [betaOptin, setBetaOptin] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('nl_token')
@@ -52,6 +54,7 @@ export default function LoginPage() {
     setNewPassword('')
     setConfirmPassword('')
     setAgreedToTerms(false)
+    setBetaOptin(false)
   }
 
   // ── Handler: Login & Register ───────────────────────────────────────────
@@ -71,8 +74,11 @@ export default function LoginPage() {
       }
 
       const endpoint = tab === 'login' ? '/api/auth?action=login' : '/api/auth?action=register'
-      const body: Record<string, string> = { username: username.trim().toLowerCase(), password }
-      if (tab === 'register') body.email = email.trim().toLowerCase()
+      const body: Record<string, string | boolean> = { username: username.trim().toLowerCase(), password }
+      if (tab === 'register') {
+        body.email = email.trim().toLowerCase()
+        body.betaOptin = betaOptin
+      }
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -340,6 +346,7 @@ export default function LoginPage() {
                   onChange={setAgreedToTerms}
                   onAvailabilityChange={setConsentRequired}
                 />
+                <BetaOptinToggle checked={betaOptin} onChange={setBetaOptin} />
               </>
             )}
 

@@ -116,6 +116,12 @@ const id: Dict = {
     privacyOnly: 'Dengan ini saya setuju terhadap {{privacy}} aplikasi',
     mustAgree: 'Kamu perlu menyetujui ketentuan di atas terlebih dahulu',
   },
+  betaOptin: {
+    viewDetails: 'Lihat detail program',
+    popupIntro: 'Sebelum lanjut, pastikan kamu memahami dan menyetujui hal berikut:',
+    popupConfirm: 'Setuju & Ikut Program',
+    popupClose: 'Tutup',
+  },
   changeEmail: {
     title: 'Ubah Email',
     currentEmailLabel: 'Email Saat Ini',
@@ -552,6 +558,12 @@ const en: Dict = {
     termsOnly: "By continuing, I agree to the app's {{terms}}",
     privacyOnly: "By continuing, I agree to the app's {{privacy}}",
     mustAgree: 'Please agree to the terms above first',
+  },
+  betaOptin: {
+    viewDetails: 'View program details',
+    popupIntro: 'Before continuing, make sure you understand and agree to the following:',
+    popupConfirm: 'Agree & Join Program',
+    popupClose: 'Close',
   },
   changeEmail: {
     title: 'Change Email',

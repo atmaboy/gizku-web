@@ -391,6 +391,8 @@ export async function GET(req: NextRequest) {
         mustChangePassword: users.mustChangePassword,
         adminResetBy:       users.adminResetBy,
         emailVerifiedAt:    users.emailVerifiedAt,
+        betaOptinAndroid:   users.betaOptinAndroid,
+        betaOptinAndroidAt: users.betaOptinAndroidAt,
       }).from(users).orderBy(desc(users.createdAt))
       return ok({ users: allUsers.map(u => ({ ...u, emailVerified: u.emailVerifiedAt !== null })) })
     }
