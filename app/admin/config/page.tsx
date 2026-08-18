@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import { toast } from 'sonner'
 
 type BetaOptinLang = { title: string; points: string[]; callout: string }
@@ -317,7 +317,6 @@ function BetaOptinSection({
     }
   }
 
-  const inputCls = "w-full border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
   const preview = content[previewLang]
   const updatedAtLabel = content.updatedAt
     ? new Date(content.updatedAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -382,55 +381,59 @@ function BetaOptinSection({
       </div>
 
       {modalOpen && draft && (
-        <div onClick={closeModal} className="fixed inset-0 bg-[#111827]/45 flex items-center justify-center z-50 p-5">
-          <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl w-[560px] max-w-full max-h-[85vh] flex flex-col p-5.5 box-border">
-            <div className="flex justify-between items-center mb-4 flex-shrink-0">
-              <h3 className="text-base font-extrabold text-[#111827]">Edit Konten Popup</h3>
-              <button onClick={closeModal} className="text-xl text-[#6B7280] leading-none">&times;</button>
+        <div onClick={closeModal} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: 560, maxWidth: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 22, boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827' }}>Edit Konten Popup</h3>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6B7280' }}>&times;</button>
             </div>
 
-            <div className="flex border-b border-[#E5E7EB] mb-4 flex-shrink-0">
+            <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', marginBottom: 16, flexShrink: 0 }}>
               {(['id', 'en'] as const).map(l => (
                 <div
                   key={l} onClick={() => setEditLang(l)}
-                  className={`flex-1 text-center py-2.5 cursor-pointer text-[13.5px] font-bold border-b-2 transition ${editLang === l ? 'border-[#2ECC71] text-[#15803D]' : 'border-transparent text-[#6B7280]'}`}
+                  style={{
+                    flex: 1, textAlign: 'center', padding: '10px 0', cursor: 'pointer', fontSize: 13.5, fontWeight: 700,
+                    borderBottom: editLang === l ? '2px solid #2ECC71' : '2px solid transparent',
+                    color: editLang === l ? '#15803D' : '#6B7280',
+                  }}
                 >
                   {l === 'id' ? 'Bahasa Indonesia' : 'English'}
                 </div>
               ))}
             </div>
 
-            <div className="overflow-y-auto flex flex-col gap-4">
+            <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label className="block text-xs font-bold text-[#374151] uppercase tracking-wide mb-1.5">Judul Popup</label>
-                <input value={draft[editLang].title} onChange={e => setDraftField(editLang, 'title', e.target.value)} className={inputCls} />
+                <label style={modalLabelStyle}>Judul Popup</label>
+                <input value={draft[editLang].title} onChange={e => setDraftField(editLang, 'title', e.target.value)} style={modalInputStyle} />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#374151] uppercase tracking-wide mb-1.5">Syarat &amp; Ketentuan (poin bernomor)</label>
-                <div className="flex flex-col gap-2">
+                <label style={modalLabelStyle}>Syarat &amp; Ketentuan (poin bernomor)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {draft[editLang].points.map((p, i) => (
-                    <div key={i} className="flex gap-2 items-center">
-                      <input value={p} onChange={e => setDraftPoint(editLang, i, e.target.value)} className={`${inputCls} flex-1`} />
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input value={p} onChange={e => setDraftPoint(editLang, i, e.target.value)} style={{ ...modalInputStyle, flex: 1 }} />
                       <button
                         type="button" onClick={() => removePoint(editLang, i)}
-                        className="flex-shrink-0 w-8 h-8 rounded-lg border border-[#E5E7EB] bg-white text-red-500 text-sm"
+                        style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}
                       >&times;</button>
                     </div>
                   ))}
                 </div>
-                <button type="button" onClick={() => addPoint(editLang)} className="mt-2 text-[#15803D] text-xs font-semibold">+ Tambah poin</button>
+                <button type="button" onClick={() => addPoint(editLang)} style={{ marginTop: 8, background: 'none', border: 'none', color: '#15803D', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>+ Tambah poin</button>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#374151] uppercase tracking-wide mb-1.5">Catatan Penekanan (kotak hijau)</label>
-                <textarea value={draft[editLang].callout} onChange={e => setDraftField(editLang, 'callout', e.target.value)} rows={3} className={`${inputCls} resize-y`} />
+                <label style={modalLabelStyle}>Catatan Penekanan (kotak hijau)</label>
+                <textarea value={draft[editLang].callout} onChange={e => setDraftField(editLang, 'callout', e.target.value)} rows={3} style={{ ...modalInputStyle, resize: 'vertical' }} />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2.5 mt-4.5 flex-shrink-0">
-              <button onClick={closeModal} className="px-4.5 py-2.5 rounded-lg border-[1.5px] border-[#E5E7EB] bg-white text-[#374151] text-sm font-semibold">Batal</button>
-              <button onClick={saveModal} disabled={saving} className="px-5 py-2.5 rounded-lg border-none bg-[#111827] text-white text-sm font-bold disabled:opacity-50">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18, flexShrink: 0 }}>
+              <button onClick={closeModal} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
+              <button onClick={saveModal} disabled={saving} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: saving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
                 {saving ? 'Menyimpan…' : 'Simpan'}
               </button>
             </div>
@@ -440,3 +443,6 @@ function BetaOptinSection({
     </div>
   )
 }
+
+const modalLabelStyle: CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }
+const modalInputStyle: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #E5E7EB', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#111827', background: '#fff' }

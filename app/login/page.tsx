@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import BrandAnnouncement from '@/components/BrandAnnouncement'
 import GizkuLogo from '@/components/GizkuLogo'
 import LegalConsentCheckbox from '@/components/LegalConsentCheckbox'
@@ -15,7 +15,16 @@ type MaintenanceInfo = { title: string; description: string } | null
 type PageTab = 'login' | 'register' | 'reset'
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { language, setLanguage, t } = useTranslation()
   const [tab, setTab] = useState<PageTab>('login')
   const [username, setUsername] = useState('')
@@ -41,7 +50,12 @@ export default function LoginPage() {
       try { setMaintenance(JSON.parse(raw)) } catch {}
       localStorage.removeItem('nl_maintenance')
     }
-  }, [router])
+
+    // Shareable link support — e.g. /login?tab=register opens straight
+    // into the register form instead of the default login view.
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'register' || tabParam === 'reset') setTab(tabParam)
+  }, [router, searchParams])
 
   function switchTab(t: PageTab) {
     setTab(t)
