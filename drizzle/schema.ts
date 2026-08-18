@@ -206,15 +206,18 @@ export const pushTokens = pgTable('push_tokens', {
 
 // ── Notification Blasts ──────────────────────────────────────────────────────
 // A blast notification batch composed and sent from the admin backoffice,
-// over one of two channels: push notification or Telegram (Bot Gizku).
+// over one of three channels: push notification, Telegram (Bot Gizku), or email (Resend).
 export const notificationBlasts = pgTable('notification_blasts', {
   id:              uuid('id').primaryKey().defaultRandom(),
   batchName:       text('batch_name').notNull(),
-  channel:         text('channel').notNull().default('push'), // 'push' | 'telegram'
-  title:           text('title').notNull().default(''), // push only; empty string for telegram
+  channel:         text('channel').notNull().default('push'), // 'push' | 'telegram' | 'email'
+  title:           text('title').notNull().default(''), // push: notification title; email: subject; empty string for telegram
   body:            text('body').notNull(),
   targetType:      text('target_type').notNull(), // 'all' | 'specific'
-  targetUsernames: text('target_usernames').array(), // up to 10, null when targetType = 'all'
+  // push/telegram: up to 10 usernames. email: up to 100 raw email addresses. null when targetType = 'all'.
+  targetUsernames: text('target_usernames').array(),
+  // Sender identity for the 'email' channel only — 'support' | 'marketing' (see lib/email.ts BLAST_SENDERS). Null for push/telegram.
+  fromAddress:     text('from_address'),
   status:          text('status').notNull().default('scheduled'), // scheduled|sending|completed|cancelled|failed
   scheduledAt:     timestamp('scheduled_at', { withTimezone: true }),
   sentAt:          timestamp('sent_at', { withTimezone: true }),
@@ -237,12 +240,15 @@ export const notificationBlasts = pgTable('notification_blasts', {
 export const notificationBlastRecipients = pgTable('notification_blast_recipients', {
   id:          uuid('id').primaryKey().defaultRandom(),
   blastId:     uuid('blast_id').notNull().references(() => notificationBlasts.id, { onDelete: 'cascade' }),
-  // Nullable: a Telegram recipient may never have linked a Gizku account.
+  // Nullable: a Telegram recipient may never have linked a Gizku account, and an
+  // email recipient may be an arbitrary address not tied to any Gizku account.
   userId:      uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   // Set for telegram-channel recipients (linked or not) — null for push, which is always app-account-based.
   telegramUserId: bigint('telegram_user_id', { mode: 'bigint' }).references(() => telegramUsers.telegramId, { onDelete: 'set null' }),
+  // Set for email-channel recipients — the literal address targeted (may not match any users.email).
+  email:       text('email'),
   pushTokenId: uuid('push_token_id').references(() => pushTokens.id, { onDelete: 'set null' }),
-  provider:    text('provider'), // 'fcm' | 'apns' | 'telegram' — set once dispatch resolves a delivery path
+  provider:    text('provider'), // 'fcm' | 'apns' | 'telegram' | 'resend' — set once dispatch resolves a delivery path
   status:      text('status').notNull().default('pending'), // pending|sent|failed|clicked|read
   errorMessage: text('error_message'),
   // Ticket/message id from the provider (Expo push ticket id for push,

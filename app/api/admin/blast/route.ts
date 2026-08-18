@@ -1,11 +1,11 @@
 /**
- * Admin backoffice — Blast Notifikasi (push notification atau Telegram).
+ * Admin backoffice — Blast Notifikasi (push notification, Telegram, atau Email).
  *
  * GET  ?action=list&page=&per_page=       — riwayat batch, terbaru dulu
  * GET  ?action=detail&id=                 — detail satu batch + provider breakdown + rincian kegagalan
- * GET  ?action=recipients&id=&page=&per_page= — log mentah per-penerima (username, status, error, raw response)
+ * GET  ?action=recipients&id=&page=&per_page= — log mentah per-penerima (username/email, status, error, raw response)
  * GET  ?action=estimate&channel=&target_type=&usernames=a,b,c — estimasi penerima saat compose
- * GET  ?action=lookup_username&channel=&q= — cari username/telegram handle (untuk chip target spesifik)
+ * GET  ?action=lookup_username&channel=&q= — cari username/telegram handle (untuk chip target spesifik; push/telegram saja)
  * GET  ?action=resolve_username&channel=&value= — cocokkan 1 input admin ke identitas channel (username app / Telegram) secara persis
  * POST ?action=create                     — buat + kirim/jadwalkan batch baru
  * POST ?action=cancel                     — batalkan batch yang masih 'scheduled'
@@ -20,14 +20,24 @@ import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsername
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
 
 const MAX_SPECIFIC_TARGETS = 10
+const MAX_SPECIFIC_EMAIL_TARGETS = 100
 const MAX_BODY_LENGTH = 300
+const MAX_EMAIL_BODY_LENGTH = 5000
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function jsonErr(msg: string, status = 500) {
   const h = new Headers()
   setCors(h)
   return Response.json({ error: msg }, { status, headers: h })
+}
+
+function resolveChannel(raw: string | null): 'push' | 'telegram' | 'email' {
+  if (raw === 'telegram') return 'telegram'
+  if (raw === 'email') return 'email'
+  return 'push'
 }
 
 export async function OPTIONS() {
@@ -43,7 +53,7 @@ export async function GET(req: NextRequest) {
     return await handleGet(req)
   } catch (e) {
     console.error('[admin/blast GET]', e)
-    return jsonErr('Gagal memuat data blast notifikasi. Pastikan migration sql/004_create_push_notifications.sql sudah dijalankan di database ini.')
+    return jsonErr('Gagal memuat data blast notifikasi. Pastikan migration sql/004_create_push_notifications.sql dan sql/016_email_blast.sql sudah dijalankan di database ini.')
   }
 }
 
@@ -101,6 +111,7 @@ async function handleGet(req: NextRequest) {
       username: users.username,
       telegramUsername: telegramUsers.username,
       telegramFirstName: telegramUsers.firstName,
+      email: notificationBlastRecipients.email,
       provider: notificationBlastRecipients.provider,
       status: notificationBlastRecipients.status,
       errorMessage: notificationBlastRecipients.errorMessage,
@@ -125,11 +136,11 @@ async function handleGet(req: NextRequest) {
   }
 
   if (action === 'estimate') {
-    const channel = req.nextUrl.searchParams.get('channel') === 'telegram' ? 'telegram' : 'push'
+    const channel = resolveChannel(req.nextUrl.searchParams.get('channel'))
     const targetType = req.nextUrl.searchParams.get('target_type') || 'all'
     const usernamesParam = req.nextUrl.searchParams.get('usernames') || ''
     // Telegram usernames keep their original casing (matched exactly against
-    // telegram_users) — only app usernames (push channel) are lowercased.
+    // telegram_users) — app usernames (push) and email addresses are lowercased.
     const usernames = usernamesParam.split(',').map(u => u.trim()).filter(Boolean).map(u => channel === 'telegram' ? u : u.toLowerCase())
     const estimate = await estimateRecipients(channel, targetType, targetType === 'specific' ? usernames : null)
     return ok(estimate)
@@ -166,7 +177,7 @@ export async function POST(req: NextRequest) {
     return await handlePost(req)
   } catch (e) {
     console.error('[admin/blast POST]', e)
-    return jsonErr('Gagal memproses permintaan blast notifikasi. Pastikan migration sql/004_create_push_notifications.sql sudah dijalankan di database ini.')
+    return jsonErr('Gagal memproses permintaan blast notifikasi. Pastikan migration sql/004_create_push_notifications.sql dan sql/016_email_blast.sql sudah dijalankan di database ini.')
   }
 }
 
@@ -175,50 +186,69 @@ async function handlePost(req: NextRequest) {
 
   if (action === 'create') {
     const body = await req.json()
-    const channel = body.channel === 'telegram' ? 'telegram' : 'push'
+    const channel = resolveChannel(body.channel)
     const batchName = String(body.batchName ?? '').trim()
-    const title = channel === 'push' ? String(body.title ?? '').trim() : ''
+    const title = channel === 'telegram' ? '' : String(body.title ?? '').trim()
     const messageBody = String(body.body ?? '').trim()
     const targetType = body.targetType === 'specific' ? 'specific' : 'all'
     const scheduledAtRaw = body.scheduledAt ? new Date(body.scheduledAt) : null
+    const maxBodyLength = channel === 'email' ? MAX_EMAIL_BODY_LENGTH : MAX_BODY_LENGTH
+
+    const fromAddress = channel === 'email' ? (body.fromAddress === 'marketing' ? 'marketing' : 'support') : null
 
     if (!batchName) return err('Nama batch diperlukan')
     if (channel === 'push' && !title) return err('Judul notifikasi diperlukan')
-    if (!messageBody) return err(channel === 'push' ? 'Isi pesan diperlukan' : 'Isi chat Telegram diperlukan')
-    if (messageBody.length > MAX_BODY_LENGTH) return err(`Isi pesan maksimum ${MAX_BODY_LENGTH} karakter`)
+    if (channel === 'email' && !title) return err('Subjek email diperlukan')
+    if (!messageBody) return err(channel === 'telegram' ? 'Isi chat Telegram diperlukan' : channel === 'email' ? 'Isi email diperlukan' : 'Isi pesan diperlukan')
+    if (messageBody.length > maxBodyLength) return err(`Isi pesan maksimum ${maxBodyLength} karakter`)
     if (scheduledAtRaw && isNaN(scheduledAtRaw.getTime())) return err('Waktu pengiriman tidak valid')
     if (scheduledAtRaw && scheduledAtRaw.getTime() < Date.now() - 60_000) return err('Waktu pengiriman tidak boleh di masa lalu')
 
     let targetUsernames: string[] | null = null
     if (targetType === 'specific') {
-      // Chip di form compose sudah di-resolve ke identitas channel yang
-      // dipilih di sisi client (lookup_username/resolve_username — username
-      // app untuk push, username Telegram apa adanya untuk telegram, lihat
-      // searchUsernamesForChannel/resolveUsernameForChannel di lib/blast.ts).
-      // Username app selalu lowercase; username Telegram dibiarkan sesuai
-      // casing aslinya di telegram_users supaya match persis saat dispatch.
-      const raw: unknown[] = Array.isArray(body.targetUsernames) ? body.targetUsernames : []
-      const cleaned = Array.from(new Set(
-        raw.map(u => String(u).trim()).filter(Boolean).map(u => channel === 'telegram' ? u : u.toLowerCase()),
-      ))
-      if (cleaned.length === 0) return err('Minimal 1 username target diperlukan')
-      if (cleaned.length > MAX_SPECIFIC_TARGETS) return err(`Maksimum ${MAX_SPECIFIC_TARGETS} username per batch`)
-
-      if (channel === 'telegram') {
-        const found = await db.select({ username: telegramUsers.username }).from(telegramUsers)
-          .where(inArray(telegramUsers.username, cleaned))
-        const foundSet = new Set(found.map(f => f.username))
-        const missing = cleaned.filter(u => !foundSet.has(u))
-        if (missing.length > 0) return err(`Username Telegram tidak ditemukan: ${missing.join(', ')}`)
+      if (channel === 'email') {
+        // Target email blast spesifik pakai alamat email langsung (bukan
+        // username) — boleh menjangkau alamat yang tidak terhubung ke akun
+        // Gizku manapun (dipakai untuk reachout support/marketing ke satu
+        // atau beberapa alamat tertentu), jadi tidak dicek eksistensinya di
+        // tabel users di sini (lihat resolveEmailTargets di lib/blast.ts).
+        const raw: unknown[] = Array.isArray(body.targetUsernames) ? body.targetUsernames : []
+        const cleaned = Array.from(new Set(raw.map(u => String(u).trim().toLowerCase()).filter(Boolean)))
+        if (cleaned.length === 0) return err('Minimal 1 alamat email target diperlukan')
+        if (cleaned.length > MAX_SPECIFIC_EMAIL_TARGETS) return err(`Maksimum ${MAX_SPECIFIC_EMAIL_TARGETS} alamat email per batch`)
+        const invalid = cleaned.filter(e => !EMAIL_RE.test(e))
+        if (invalid.length > 0) return err(`Alamat email tidak valid: ${invalid.join(', ')}`)
+        targetUsernames = cleaned
       } else {
-        const found = await db.select({ username: users.username }).from(users)
-          .where(and(inArray(users.username, cleaned), eq(users.isActive, true)))
-        const foundSet = new Set(found.map(f => f.username))
-        const missing = cleaned.filter(u => !foundSet.has(u))
-        if (missing.length > 0) return err(`Username tidak ditemukan: ${missing.join(', ')}`)
-      }
+        // Chip di form compose sudah di-resolve ke identitas channel yang
+        // dipilih di sisi client (lookup_username/resolve_username — username
+        // app untuk push, username Telegram apa adanya untuk telegram, lihat
+        // searchUsernamesForChannel/resolveUsernameForChannel di lib/blast.ts).
+        // Username app selalu lowercase; username Telegram dibiarkan sesuai
+        // casing aslinya di telegram_users supaya match persis saat dispatch.
+        const raw: unknown[] = Array.isArray(body.targetUsernames) ? body.targetUsernames : []
+        const cleaned = Array.from(new Set(
+          raw.map(u => String(u).trim()).filter(Boolean).map(u => channel === 'telegram' ? u : u.toLowerCase()),
+        ))
+        if (cleaned.length === 0) return err('Minimal 1 username target diperlukan')
+        if (cleaned.length > MAX_SPECIFIC_TARGETS) return err(`Maksimum ${MAX_SPECIFIC_TARGETS} username per batch`)
 
-      targetUsernames = cleaned
+        if (channel === 'telegram') {
+          const found = await db.select({ username: telegramUsers.username }).from(telegramUsers)
+            .where(inArray(telegramUsers.username, cleaned))
+          const foundSet = new Set(found.map(f => f.username))
+          const missing = cleaned.filter(u => !foundSet.has(u))
+          if (missing.length > 0) return err(`Username Telegram tidak ditemukan: ${missing.join(', ')}`)
+        } else {
+          const found = await db.select({ username: users.username }).from(users)
+            .where(and(inArray(users.username, cleaned), eq(users.isActive, true)))
+          const foundSet = new Set(found.map(f => f.username))
+          const missing = cleaned.filter(u => !foundSet.has(u))
+          if (missing.length > 0) return err(`Username tidak ditemukan: ${missing.join(', ')}`)
+        }
+
+        targetUsernames = cleaned
+      }
     }
 
     const [blast] = await db.insert(notificationBlasts).values({
@@ -228,6 +258,7 @@ async function handlePost(req: NextRequest) {
       body: messageBody,
       targetType,
       targetUsernames,
+      fromAddress,
       status: 'scheduled',
       scheduledAt: scheduledAtRaw,
       createdBy: 'admin',

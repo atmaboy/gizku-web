@@ -8,7 +8,7 @@ import { fmtDateTime } from '@/lib/utils'
 type Blast = {
   id: string
   batchName: string
-  channel: 'push' | 'telegram'
+  channel: 'push' | 'telegram' | 'email'
   title: string
   targetType: string
   targetUsernames: string[] | null
@@ -37,14 +37,18 @@ const STATUS_STYLE: Record<Blast['status'], string> = {
 const CHANNEL_LABEL: Record<Blast['channel'], string> = {
   push: 'Push Notifikasi',
   telegram: 'Telegram',
+  email: 'Email',
 }
 const CHANNEL_STYLE: Record<Blast['channel'], string> = {
   push: 'bg-[#D4F5E4] text-[#1F9D57]',
   telegram: 'bg-[#EAF4FC] text-[#2B7FC1]',
+  email: 'bg-[#FEF3C7] text-[#92400E]',
 }
 
 function targetLabel(b: Blast) {
-  return b.targetType === 'all' ? 'Seluruh User' : `${(b.targetUsernames ?? []).length} username`
+  if (b.targetType === 'all') return 'Seluruh User'
+  const n = (b.targetUsernames ?? []).length
+  return b.channel === 'email' ? `${n} email` : `${n} username`
 }
 
 export default function BlastHistoryPage() {

@@ -5,10 +5,19 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
 const MAX_TARGETS = 10
+const MAX_EMAIL_TARGETS = 100
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const EMAIL_BODY_MAX = 5000
 
 type Estimate = { targeted: number; reachable: number; platforms: { ios: number; android: number } }
-type Channel = 'push' | 'telegram'
+type Channel = 'push' | 'telegram' | 'email'
+type FromAddress = 'support' | 'marketing'
+
+const SENDER_OPTIONS: { value: FromAddress; label: string; address: string; hint: string }[] = [
+  { value: 'support', label: 'Gizku Support', address: 'support@gizku.com', hint: 'Reachout informasi penting ke user (mis. pengumuman, insiden, verifikasi).' },
+  { value: 'marketing', label: 'Gizku Marketing', address: 'marketing@gizku.com', hint: 'Keperluan promosional (mis. fitur baru, promo, campaign).' },
+]
 
 function Chip({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   return (
@@ -30,6 +39,7 @@ export default function BlastComposePage() {
   const [batchName, setBatchName] = useState('')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [fromAddress, setFromAddress] = useState<FromAddress>('support')
   const [targetType, setTargetType] = useState<'all' | 'specific'>('all')
   const [usernames, setUsernames] = useState<{ value: string; label: string }[]>([])
   const [usernameInput, setUsernameInput] = useState('')
@@ -42,7 +52,12 @@ export default function BlastComposePage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  const isEmail = channel === 'email'
+  const maxTargets = isEmail ? MAX_EMAIL_TARGETS : MAX_TARGETS
+  const bodyMax = isEmail ? EMAIL_BODY_MAX : 300
+
   useEffect(() => {
+    if (isEmail) return // email channel: input alamat langsung, tidak ada lookup server
     const q = usernameInput.trim()
     if (q.length < 2) { setSuggestions([]); return }
     const t = setTimeout(async () => {
@@ -56,7 +71,7 @@ export default function BlastComposePage() {
       }
     }, 250)
     return () => clearTimeout(t)
-  }, [usernameInput, usernames, channel])
+  }, [usernameInput, usernames, channel, isEmail])
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -79,7 +94,7 @@ export default function BlastComposePage() {
 
   function commitUsername(resolved: { value: string; label: string }) {
     if (usernames.some(u => u.value === resolved.value)) { setUsernameInput(''); return }
-    if (usernames.length >= MAX_TARGETS) { toast.error(`Maksimum ${MAX_TARGETS} username per batch`); return }
+    if (usernames.length >= maxTargets) { toast.error(`Maksimum ${maxTargets} ${isEmail ? 'alamat email' : 'username'} per batch`); return }
     setUsernames(prev => [...prev, resolved])
     setUsernameInput('')
     setSuggestions([])
@@ -91,12 +106,21 @@ export default function BlastComposePage() {
   }
 
   /**
-   * Enter tanpa memilih saran — dicocokkan ke identitas channel yang dipilih
-   * (username app untuk push, username Telegram untuk telegram) di server.
+   * Enter tanpa memilih saran. Untuk email: validasi format di client, tanpa
+   * ke server (alamat boleh tidak terhubung ke akun manapun). Untuk push/
+   * telegram: dicocokkan ke identitas channel yang dipilih di server.
    */
   async function addByRawInput(raw: string) {
     const clean = raw.trim().replace(/^@/, '')
     if (!clean) return
+
+    if (isEmail) {
+      const email = clean.toLowerCase()
+      if (!EMAIL_RE.test(email)) { toast.error(`Alamat email tidak valid: ${clean}`); return }
+      commitUsername({ value: email, label: email })
+      return
+    }
+
     setResolving(true)
     try {
       const res = await fetch(`/api/admin/blast?action=resolve_username&channel=${channel}&value=${encodeURIComponent(clean)}`)
@@ -115,7 +139,7 @@ export default function BlastComposePage() {
   }
 
   function resetForm() {
-    setChannel('push'); setBatchName(''); setTitle(''); setBody('')
+    setChannel('push'); setBatchName(''); setTitle(''); setBody(''); setFromAddress('support')
     setTargetType('all'); setUsernames([]); setUsernameInput('')
     setSendMode('now'); setDate(''); setHour('')
   }
@@ -123,8 +147,8 @@ export default function BlastComposePage() {
   function changeChannel(next: Channel) {
     setChannel(next)
     // Chip yang sudah dipilih dicari berdasarkan identitas channel sebelumnya
-    // (username app untuk push, username Telegram untuk telegram) — reset
-    // supaya tidak ada chip dengan label yang jadi tidak relevan.
+    // (username app, username Telegram, atau alamat email) — reset supaya
+    // tidak ada chip dengan label yang jadi tidak relevan.
     setUsernames([])
   }
 
@@ -133,8 +157,10 @@ export default function BlastComposePage() {
     && (targetType === 'all' || usernames.length > 0)
     && (sendMode === 'now' || (date !== '' && hour !== ''))
 
-  const targetCountLabel = targetType === 'all' ? `~${estimate?.targeted ?? 0} user` : `${usernames.length} username`
+  const targetUnitLabel = isEmail ? 'email' : 'username'
+  const targetCountLabel = targetType === 'all' ? `~${estimate?.targeted ?? 0} user` : `${usernames.length} ${targetUnitLabel}`
   const actionVerb = sendMode === 'schedule' ? 'Jadwalkan Pengiriman' : 'Kirim Sekarang'
+  const selectedSender = SENDER_OPTIONS.find(s => s.value === fromAddress)!
 
   const scheduledAtIso = useMemo(() => {
     if (sendMode === 'now' || !date || !hour) return null
@@ -151,8 +177,9 @@ export default function BlastComposePage() {
         body: JSON.stringify({
           channel,
           batchName: batchName.trim(),
-          title: channel === 'push' ? title.trim() : undefined,
+          title: channel === 'telegram' ? undefined : title.trim(),
           body: body.trim(),
+          fromAddress: isEmail ? fromAddress : undefined,
           targetType,
           targetUsernames: targetType === 'specific' ? usernames.map(u => u.value) : undefined,
           scheduledAt: scheduledAtIso,
@@ -160,7 +187,7 @@ export default function BlastComposePage() {
       })
       const d = await res.json()
       if (res.ok) {
-        toast.success(sendMode === 'now' ? 'Notifikasi sedang dikirim' : 'Notifikasi dijadwalkan')
+        toast.success(sendMode === 'now' ? 'Blast sedang dikirim' : 'Blast dijadwalkan')
         setShowConfirm(false)
         router.push('/admin/blast')
         return
@@ -179,7 +206,7 @@ export default function BlastComposePage() {
     <div className="space-y-6 w-full">
       <div>
         <h1 className="text-2xl font-bold text-[#111827]">Blast Notifikasi</h1>
-        <p className="text-sm text-[#6B7280] mt-1">Kirim notifikasi push atau Telegram ke seluruh atau sebagian user Gizku, langsung atau terjadwal.</p>
+        <p className="text-sm text-[#6B7280] mt-1">Kirim notifikasi push, Telegram, atau email ke seluruh atau sebagian user Gizku, langsung atau terjadwal.</p>
         <div className="inline-flex gap-0.5 bg-[#F3F4F6] p-0.5 rounded-xl mt-5">
           <span className="text-sm font-semibold px-4 py-2 rounded-lg bg-white text-[#111827] shadow-[0_1px_4px_rgba(16,24,40,0.06)]">
             Kirim Baru
@@ -197,23 +224,52 @@ export default function BlastComposePage() {
           <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-[0_1px_4px_rgba(16,24,40,0.04)] p-6">
             <h2 className="text-[15px] font-semibold text-[#111827] mb-1">Channel Notifikasi</h2>
             <p className="text-xs text-[#6B7280] mb-4">Pilih saluran pengiriman blast ini.</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Chip label="Push Notifikasi" selected={channel === 'push'} onClick={() => changeChannel('push')} />
               <Chip label="Telegram (Bot Gizku)" selected={channel === 'telegram'} onClick={() => changeChannel('telegram')} />
+              <Chip label="Email" selected={channel === 'email'} onClick={() => changeChannel('email')} />
             </div>
           </div>
 
+          {/* Pengirim (email saja) */}
+          {isEmail && (
+            <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-[0_1px_4px_rgba(16,24,40,0.04)] p-6">
+              <h2 className="text-[15px] font-semibold text-[#111827] mb-1">Alamat Pengirim</h2>
+              <p className="text-xs text-[#6B7280] mb-4">Pilih identitas pengirim sesuai tujuan campaign.</p>
+              <div className="flex flex-col gap-2.5">
+                {SENDER_OPTIONS.map(s => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setFromAddress(s.value)}
+                    className={`text-left rounded-xl border px-4 py-3 transition ${
+                      fromAddress === s.value ? 'bg-[#F0FDF4] border-[#BBF7D0]' : 'border-[#E5E7EB] hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-[#111827]">{s.label} <span className="font-normal text-[#9CA3AF]">&lt;{s.address}&gt;</span></span>
+                      {fromAddress === s.value && <span className="text-[#1F9D57] text-xs font-semibold">Dipilih</span>}
+                    </div>
+                    <p className="text-xs text-[#6B7280] mt-1">{s.hint}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Konten */}
           <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-[0_1px_4px_rgba(16,24,40,0.04)] p-6">
-            <h2 className="text-[15px] font-semibold text-[#111827] mb-1">Konten Notifikasi</h2>
+            <h2 className="text-[15px] font-semibold text-[#111827] mb-1">Konten {isEmail ? 'Email' : 'Notifikasi'}</h2>
             <p className="text-xs text-[#6B7280] mb-4">
-              {channel === 'push'
-                ? 'Nama batch untuk keperluan internal, serta judul dan isi pesan yang tampil di perangkat user.'
-                : 'Nama batch untuk keperluan internal, serta isi chat yang dikirim lewat Bot Gizku di Telegram.'}
+              {channel === 'push' && 'Nama batch untuk keperluan internal, serta judul dan isi pesan yang tampil di perangkat user.'}
+              {channel === 'telegram' && 'Nama batch untuk keperluan internal, serta isi chat yang dikirim lewat Bot Gizku di Telegram.'}
+              {isEmail && 'Nama campaign untuk keperluan internal, serta subjek dan isi email yang dikirim ke penerima.'}
             </p>
 
             <div className="mb-4">
-              <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide block mb-1.5">Nama Batch (internal)</label>
+              <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide block mb-1.5">
+                {isEmail ? 'Judul Campaign (internal)' : 'Nama Batch (internal)'}
+              </label>
               <input
                 value={batchName} onChange={e => setBatchName(e.target.value.slice(0, 80))}
                 placeholder="Contoh: Promo Akhir Bulan - Broadcast Nasional"
@@ -224,15 +280,17 @@ export default function BlastComposePage() {
 
             <div className="h-px bg-[#E5E7EB] mb-4" />
 
-            {channel === 'push' && (
+            {channel !== 'telegram' && (
               <div className="mb-4">
                 <div className="flex justify-between items-baseline mb-1.5">
-                  <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide">Judul Notifikasi</label>
-                  <span className="text-xs text-[#9CA3AF]">{title.length}/65</span>
+                  <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide">
+                    {isEmail ? 'Subjek Email' : 'Judul Notifikasi'}
+                  </label>
+                  <span className="text-xs text-[#9CA3AF]">{title.length}/{isEmail ? 150 : 65}</span>
                 </div>
                 <input
-                  value={title} onChange={e => setTitle(e.target.value.slice(0, 65))}
-                  placeholder="Contoh: Fitur Baru: Analisa Otomatis"
+                  value={title} onChange={e => setTitle(e.target.value.slice(0, isEmail ? 150 : 65))}
+                  placeholder={isEmail ? 'Contoh: Fitur Baru dari Gizku 🎉' : 'Contoh: Fitur Baru: Analisa Otomatis'}
                   className="w-full border border-[#E5E7EB] rounded-xl px-3.5 h-11 text-base bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
                 />
               </div>
@@ -241,13 +299,17 @@ export default function BlastComposePage() {
             <div>
               <div className="flex justify-between items-baseline mb-1.5">
                 <label className="text-[11px] font-semibold text-[#6B7280] uppercase tracking-wide">
-                  {channel === 'push' ? 'Isi Pesan' : 'Isi Chat Telegram'}
+                  {channel === 'push' ? 'Isi Pesan' : channel === 'telegram' ? 'Isi Chat Telegram' : 'Isi Email'}
                 </label>
-                <span className="text-xs text-[#9CA3AF]">{body.length}/300</span>
+                <span className="text-xs text-[#9CA3AF]">{body.length}/{bodyMax}</span>
               </div>
               <textarea
-                value={body} onChange={e => setBody(e.target.value.slice(0, 300))} rows={4}
-                placeholder={channel === 'push' ? 'Tuliskan isi notifikasi di sini...' : 'Tuliskan isi pesan chat Telegram di sini...'}
+                value={body} onChange={e => setBody(e.target.value.slice(0, bodyMax))} rows={isEmail ? 10 : 4}
+                placeholder={
+                  channel === 'push' ? 'Tuliskan isi notifikasi di sini...'
+                  : channel === 'telegram' ? 'Tuliskan isi pesan chat Telegram di sini...'
+                  : 'Tuliskan isi email di sini. Setiap baris baru akan menjadi paragraf terpisah.'
+                }
                 className="w-full border border-[#E5E7EB] rounded-xl px-3.5 py-3 text-base bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition resize-y"
               />
             </div>
@@ -256,34 +318,38 @@ export default function BlastComposePage() {
           {/* Target */}
           <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl shadow-[0_1px_4px_rgba(16,24,40,0.04)] p-6">
             <h2 className="text-[15px] font-semibold text-[#111827] mb-1">Target Penerima</h2>
-            <p className="text-xs text-[#6B7280] mb-4">Pilih siapa yang akan menerima notifikasi ini.</p>
+            <p className="text-xs text-[#6B7280] mb-4">Pilih siapa yang akan menerima {isEmail ? 'email' : 'notifikasi'} ini.</p>
             <div className="flex gap-2 mb-4">
               <Chip label="Semua User" selected={targetType === 'all'} onClick={() => setTargetType('all')} />
-              <Chip label="Username Tertentu" selected={targetType === 'specific'} onClick={() => setTargetType('specific')} />
+              <Chip label={isEmail ? 'Email Tertentu' : 'Username Tertentu'} selected={targetType === 'specific'} onClick={() => setTargetType('specific')} />
             </div>
 
             {targetType === 'all' ? (
               <div className="flex items-center gap-2.5 bg-[#F9FAFB] rounded-xl px-3.5 py-3">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4" /><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /><path d="M21 21v-2a4 4 0 0 0-3-3.87" /></svg>
                 <span className="text-sm text-[#6B7280]">
-                  Akan dikirim ke seluruh <strong className="text-[#111827]">{estimate ? `${estimate.targeted} ${channel === 'telegram' ? 'user Bot Telegram' : 'user terdaftar'}` : '…'}</strong>{channel === 'telegram' ? ', terhubung akun Gizku atau belum' : ''}.
+                  Akan dikirim ke seluruh <strong className="text-[#111827]">{estimate ? `${estimate.targeted} ${channel === 'telegram' ? 'user Bot Telegram' : isEmail ? 'user dengan email terdaftar' : 'user terdaftar'}` : '…'}</strong>{channel === 'telegram' ? ', terhubung akun Gizku atau belum' : ''}.
                 </span>
               </div>
             ) : (
               <div>
                 <div className="relative">
                   <div className="flex items-center gap-2 h-11 rounded-xl px-3 bg-white ring-1 ring-[#E5E7EB]">
-                    <span className="text-[#9CA3AF] text-sm">@</span>
+                    <span className="text-[#9CA3AF] text-sm">{isEmail ? '✉' : '@'}</span>
                     <input
                       value={usernameInput}
                       onChange={e => setUsernameInput(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addByRawInput(usernameInput) } }}
-                      disabled={usernames.length >= MAX_TARGETS || resolving}
-                      placeholder={channel === 'telegram' ? 'ketik username Telegram lalu Enter' : 'ketik username lalu tekan Enter'}
+                      disabled={usernames.length >= maxTargets || resolving}
+                      placeholder={
+                        isEmail ? 'ketik alamat email lalu tekan Enter'
+                        : channel === 'telegram' ? 'ketik username Telegram lalu Enter'
+                        : 'ketik username lalu tekan Enter'
+                      }
                       className="flex-1 border-none outline-none text-sm text-[#111827] bg-transparent disabled:bg-transparent"
                     />
-                    <span className={`text-xs font-semibold whitespace-nowrap ${usernames.length >= MAX_TARGETS ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
-                      {usernames.length}/10
+                    <span className={`text-xs font-semibold whitespace-nowrap ${usernames.length >= maxTargets ? 'text-red-500' : 'text-[#9CA3AF]'}`}>
+                      {usernames.length}/{maxTargets}
                     </span>
                   </div>
                   {suggestions.length > 0 && (
@@ -300,8 +366,11 @@ export default function BlastComposePage() {
                 {channel === 'telegram' && (
                   <p className="text-xs text-[#9CA3AF] mt-1.5">Dicari berdasarkan username Telegram — baik yang sudah maupun belum menghubungkan akun Gizku.</p>
                 )}
-                {usernames.length >= MAX_TARGETS && (
-                  <p className="text-xs text-amber-600 mt-1.5">Maksimum 10 username per batch tercapai.</p>
+                {isEmail && (
+                  <p className="text-xs text-[#9CA3AF] mt-1.5">Alamat email langsung, tidak harus terhubung ke akun Gizku manapun.</p>
+                )}
+                {usernames.length >= maxTargets && (
+                  <p className="text-xs text-amber-600 mt-1.5">Maksimum {maxTargets} {targetUnitLabel} per batch tercapai.</p>
                 )}
                 <div className="flex flex-wrap gap-2 mt-3">
                   {usernames.map(u => (
@@ -312,7 +381,7 @@ export default function BlastComposePage() {
                   ))}
                 </div>
                 {usernames.length === 0 && (
-                  <p className="text-xs text-[#9CA3AF] italic mt-3">Belum ada username ditambahkan.</p>
+                  <p className="text-xs text-[#9CA3AF] italic mt-3">Belum ada {targetUnitLabel} ditambahkan.</p>
                 )}
               </div>
             )}
@@ -368,7 +437,7 @@ export default function BlastComposePage() {
 
         {/* Preview */}
         <div className="flex-none w-[300px] sticky top-6">
-          {channel === 'push' ? (
+          {channel === 'push' && (
             <div className="w-full h-[560px] rounded-[36px] overflow-hidden shadow-2xl" style={{ background: 'linear-gradient(160deg,#3a4a5c,#151d27)' }}>
               <div className="h-full flex flex-col items-center pt-9 px-4">
                 <div className="text-white text-[38px] font-semibold tracking-tight">14:32</div>
@@ -384,7 +453,8 @@ export default function BlastComposePage() {
                 </div>
               </div>
             </div>
-          ) : (
+          )}
+          {channel === 'telegram' && (
             <div className="w-full h-[560px] rounded-[36px] overflow-hidden shadow-2xl flex flex-col" style={{ background: '#0e1621' }}>
               <div className="flex items-center gap-2.5 pt-11 pb-3 px-3.5" style={{ background: '#17212b', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="w-8 h-8 rounded-full bg-[#2ECC71] flex-shrink-0" />
@@ -401,19 +471,36 @@ export default function BlastComposePage() {
               </div>
             </div>
           )}
+          {isEmail && (
+            <div className="w-full rounded-2xl overflow-hidden shadow-2xl bg-white ring-1 ring-[#E5E7EB]">
+              <div className="px-4 py-3 border-b border-[#F3F4F6]">
+                <div className="text-[11px] text-[#9CA3AF]">Dari</div>
+                <div className="text-sm font-semibold text-[#111827]">{selectedSender.label} &lt;{selectedSender.address}&gt;</div>
+              </div>
+              <div className="px-4 py-3 border-b border-[#F3F4F6]">
+                <div className="text-[11px] text-[#9CA3AF]">Subjek</div>
+                <div className="text-sm font-semibold text-[#111827] truncate">{title || 'Subjek email'}</div>
+              </div>
+              <div className="px-4 py-4 h-[340px] overflow-y-auto">
+                <div className="text-[13px] text-[#374151] leading-relaxed whitespace-pre-wrap">
+                  {body || 'Isi email akan tampil di sini seperti yang dilihat penerima.'}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-3.5 bg-white ring-1 ring-[#E5E7EB] rounded-xl p-4 text-xs text-[#6B7280] leading-relaxed">
             <strong className="text-[#111827]">Estimasi penerima:</strong>{' '}
             {estimate
-              ? (targetType === 'all' ? `${estimate.targeted} user terdaftar` : `${usernames.length} username dipilih`)
-              : 'Belum ada username dipilih'}
+              ? (targetType === 'all' ? `${estimate.targeted} user terdaftar` : `${usernames.length} ${targetUnitLabel} dipilih`)
+              : `Belum ada ${targetUnitLabel} dipilih`}
             {estimate && targetType === 'all' && (
               <span className="block mt-0.5 text-[#9CA3AF]">{estimate.reachable} di antaranya bisa dijangkau via channel ini.</span>
             )}
             <br />
-            {channel === 'push'
-              ? <>Dikirim via <strong className="text-[#111827]">FCM</strong> (Android) &amp; <strong className="text-[#111827]">APNs</strong> (iOS).</>
-              : <>Dikirim via <strong className="text-[#111827]">Bot Gizku</strong> di Telegram.</>}
+            {channel === 'push' && <>Dikirim via <strong className="text-[#111827]">FCM</strong> (Android) &amp; <strong className="text-[#111827]">APNs</strong> (iOS).</>}
+            {channel === 'telegram' && <>Dikirim via <strong className="text-[#111827]">Bot Gizku</strong> di Telegram.</>}
+            {isEmail && <>Dikirim via <strong className="text-[#111827]">Resend</strong>, dari <strong className="text-[#111827]">{selectedSender.address}</strong>.</>}
           </div>
         </div>
       </div>
@@ -428,12 +515,12 @@ export default function BlastComposePage() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F9D57" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
             </div>
             <h2 className="text-base font-bold text-[#111827] mb-2">
-              {sendMode === 'schedule' ? 'Jadwalkan Notifikasi?' : 'Kirim Notifikasi Sekarang?'}
+              {sendMode === 'schedule' ? 'Jadwalkan Blast?' : 'Kirim Blast Sekarang?'}
             </h2>
             <p className="text-sm text-[#6B7280] leading-relaxed mb-5">
               {sendMode === 'schedule'
-                ? `Notifikasi akan dijadwalkan pada ${date && hour ? `${date} ${hour}:00 WIB` : '—'} untuk ${targetCountLabel}. Pastikan isi pesan sudah benar.`
-                : `Notifikasi akan segera dikirim ke ${targetCountLabel}. Pastikan isi pesan sudah benar.`}
+                ? `Blast akan dijadwalkan pada ${date && hour ? `${date} ${hour}:00 WIB` : '—'} untuk ${targetCountLabel}. Pastikan isi pesan sudah benar.`
+                : `Blast akan segera dikirim ke ${targetCountLabel}. Pastikan isi pesan sudah benar.`}
             </p>
             <div className="flex flex-col gap-2">
               <button

@@ -1,7 +1,9 @@
 import { db } from '@/lib/db'
 import { users, pushTokens, telegramUsers, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
-import { eq, and, inArray, ilike, sql, count } from 'drizzle-orm'
+import { eq, and, inArray, ilike, sql, count, isNotNull } from 'drizzle-orm'
 import { Api, GrammyError } from 'grammy'
+import { sendEmail, BLAST_SENDERS, BlastSenderKey } from '@/lib/email'
+import { buildBlastEmailHtml } from '@/lib/emailTemplates/blast'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts'
@@ -94,6 +96,29 @@ async function resolveTelegramTargets(targetType: string, targetUsernames: strin
     .where(inArray(telegramUsers.username, targetUsernames))
 }
 
+type EmailTarget = { email: string; userId: string | null }
+
+/**
+ * Resolve blast targets for the email channel. 'all' reaches every active user
+ * with an email on file. 'specific' targets are raw addresses typed in the
+ * compose form (not necessarily tied to any Gizku account, unlike push/telegram
+ * which target by username) — matched back against `users` only to attach a
+ * userId when one exists, purely for display in the recipient log.
+ */
+async function resolveEmailTargets(targetType: string, targetEmails: string[] | null): Promise<EmailTarget[]> {
+  if (targetType === 'all') {
+    const rows = await db.select({ id: users.id, email: users.email })
+      .from(users).where(and(eq(users.isActive, true), isNotNull(users.email)))
+    return rows.map(r => ({ email: r.email!, userId: r.id }))
+  }
+  if (!targetEmails || targetEmails.length === 0) return []
+
+  const matches = await db.select({ id: users.id, email: users.email })
+    .from(users).where(inArray(users.email, targetEmails))
+  const userIdByEmail = new Map(matches.filter(m => m.email).map(m => [m.email!.toLowerCase(), m.id]))
+  return targetEmails.map(email => ({ email, userId: userIdByEmail.get(email.toLowerCase()) ?? null }))
+}
+
 /**
  * Cari identitas untuk chip target penerima. Identitas yang dicari DAN
  * disimpan mengikuti channel yang dipilih: push pakai username app Gizku
@@ -146,6 +171,16 @@ export async function resolveUsernameForChannel(channel: string, raw: string): P
 
 /** Estimasi jumlah penerima + berapa yang bisa dijangkau lewat channel terpilih, dipakai saat compose. */
 export async function estimateRecipients(channel: string, targetType: string, targetUsernames: string[] | null) {
+  if (channel === 'email') {
+    if (targetType === 'all') {
+      const [{ c }] = await db.select({ c: count() }).from(users)
+        .where(and(eq(users.isActive, true), isNotNull(users.email)))
+      return { targeted: c, reachable: c, platforms: { ios: 0, android: 0 } }
+    }
+    const n = (targetUsernames ?? []).length
+    return { targeted: n, reachable: n, platforms: { ios: 0, android: 0 } }
+  }
+
   if (channel === 'telegram') {
     // Every telegram_users row has a chat id to send to — "reachable" here
     // just means "resolved as a target"; whether the bot is blocked is only
@@ -289,6 +324,45 @@ async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSe
   return perTarget
 }
 
+const EMAIL_SEND_CHUNK_SIZE = 10
+
+/**
+ * Kirim blast lewat email (Resend). Beda dari dispatchTelegramChannel: dikirim
+ * berkelompok (bukan satu-satu berurutan) supaya batch besar tidak terlalu lama,
+ * tapi tetap dalam chunk kecil untuk menghindari rate limit Resend.
+ */
+async function dispatchEmailChannel(blast: typeof notificationBlasts.$inferSelect, targets: EmailTarget[]) {
+  const senderKey: BlastSenderKey = blast.fromAddress === 'marketing' ? 'marketing' : 'support'
+  const from = BLAST_SENDERS[senderKey]
+  const html = buildBlastEmailHtml({ subject: blast.title, bodyText: blast.body, sender: senderKey })
+  const perEmail = new Map<string, RecipientResult>()
+
+  for (let i = 0; i < targets.length; i += EMAIL_SEND_CHUNK_SIZE) {
+    const chunk = targets.slice(i, i + EMAIL_SEND_CHUNK_SIZE)
+    await Promise.all(chunk.map(async t => {
+      try {
+        const { id } = await sendEmail({ to: t.email, subject: blast.title, html, from })
+        perEmail.set(t.email, {
+          status: 'sent',
+          pushTokenId: null,
+          provider: 'resend',
+          providerMessageId: id,
+          providerResponse: { id },
+        })
+      } catch (e) {
+        perEmail.set(t.email, {
+          status: 'failed',
+          errorMessage: e instanceof Error ? e.message : 'Gagal mengirim email',
+          pushTokenId: null,
+          provider: 'resend',
+        })
+      }
+    }))
+  }
+
+  return perEmail
+}
+
 /**
  * Kirim satu blast notifikasi. Idempotent secara best-effort: hanya blast dengan
  * status 'scheduled' yang akan diproses, dan status diubah ke 'sending' terlebih
@@ -305,6 +379,30 @@ export async function dispatchBlast(blastId: string): Promise<void> {
   if (!blast) return // already dispatched, cancelled, or not found
 
   try {
+    if (blast.channel === 'email') {
+      const targets = await resolveEmailTargets(blast.targetType, blast.targetUsernames)
+      const perEmail = targets.length > 0 ? await dispatchEmailChannel(blast, targets) : new Map<string, RecipientResult>()
+      const now = new Date()
+      const recipientRows = targets.map(t => {
+        const r = perEmail.get(t.email)!
+        return {
+          blastId: blast.id,
+          userId: t.userId,
+          telegramUserId: null,
+          email: t.email,
+          pushTokenId: r.pushTokenId,
+          provider: r.provider,
+          status: r.status,
+          errorMessage: r.errorMessage ?? null,
+          providerMessageId: r.providerMessageId ?? null,
+          providerResponse: r.providerResponse ?? null,
+          sentAt: r.status === 'sent' ? now : null,
+        }
+      })
+      await finalizeBlast(blast.id, targets.length, recipientRows)
+      return
+    }
+
     if (blast.channel === 'telegram') {
       const targets = await resolveTelegramTargets(blast.targetType, blast.targetUsernames)
       const perTarget = targets.length > 0 ? await dispatchTelegramChannel(blast, targets) : new Map<string, RecipientResult>()

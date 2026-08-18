@@ -8,11 +8,12 @@ import { fmtDateTime } from '@/lib/utils'
 type Blast = {
   id: string
   batchName: string
-  channel: 'push' | 'telegram'
+  channel: 'push' | 'telegram' | 'email'
   title: string
   body: string
   targetType: string
   targetUsernames: string[] | null
+  fromAddress: string | null
   status: 'scheduled' | 'sending' | 'completed' | 'cancelled' | 'failed'
   scheduledAt: string | null
   sentAt: string | null
@@ -30,6 +31,7 @@ type Recipient = {
   username: string | null
   telegramUsername: string | null
   telegramFirstName: string | null
+  email: string | null
   provider: string | null
   status: 'pending' | 'sent' | 'failed'
   errorMessage: string | null
@@ -60,11 +62,16 @@ const STATUS_STYLE: Record<Blast['status'], string> = {
   cancelled: 'bg-[#F3F4F6] text-[#6B7280]',
   failed: 'bg-red-50 text-red-600',
 }
-const CHANNEL_LABEL: Record<Blast['channel'], string> = { push: 'Push Notifikasi', telegram: 'Telegram' }
+const CHANNEL_LABEL: Record<Blast['channel'], string> = { push: 'Push Notifikasi', telegram: 'Telegram', email: 'Email' }
 const PROVIDER_LABEL: Record<string, string> = {
   fcm: 'FCM — Google (Android)',
   apns: 'APNs — Apple (iOS)',
   telegram: 'Telegram Bot API',
+  resend: 'Resend (Email)',
+}
+const SENDER_LABEL: Record<string, string> = {
+  support: 'Gizku Support <support@gizku.com>',
+  marketing: 'Gizku Marketing <marketing@gizku.com>',
 }
 
 function pct(a: number, b: number) {
@@ -169,11 +176,13 @@ export default function BlastDetailPage() {
     )
   }
 
-  const targetLabel = blast.targetType === 'all' ? 'Semua User' : `${(blast.targetUsernames ?? []).length} username`
+  const targetLabel = blast.targetType === 'all' ? 'Semua User' : `${(blast.targetUsernames ?? []).length} ${blast.channel === 'email' ? 'email' : 'username'}`
   const sendTimeLabel = (blast.status === 'scheduled' || blast.status === 'cancelled') ? fmtDateTime(blast.scheduledAt) : fmtDateTime(blast.sentAt)
   const deliveredTimeLabel = (blast.status === 'completed' || blast.status === 'failed') ? fmtDateTime(blast.sentAt) : '—'
   const hasStats = blast.status === 'completed' || blast.status === 'failed'
   const isChannelPush = blast.channel === 'push'
+  const isChannelEmail = blast.channel === 'email'
+  const hasClickTracking = isChannelPush
   const failedWithReason = failures.filter(f => f.count > 0)
   const totalFailedForPct = blast.failedCount
 
@@ -194,6 +203,9 @@ export default function BlastDetailPage() {
         </div>
         <div className="flex gap-4 flex-wrap mt-3 text-xs text-[#9CA3AF]">
           <span>Channel: <strong className="text-[#6B7280]">{CHANNEL_LABEL[blast.channel]}</strong></span>
+          {isChannelEmail && blast.fromAddress && (
+            <span>Pengirim: <strong className="text-[#6B7280]">{SENDER_LABEL[blast.fromAddress] ?? blast.fromAddress}</strong></span>
+          )}
           <span>Target: <strong className="text-[#6B7280]">{targetLabel}</strong></span>
           <span>Dibuat: <strong className="text-[#6B7280]">{fmtDateTime(blast.createdAt)}</strong></span>
           <span>Waktu Pengiriman: <strong className="text-[#6B7280]">{sendTimeLabel}</strong></span>
@@ -202,14 +214,14 @@ export default function BlastDetailPage() {
       </div>
 
       <div className="bg-[#F9FAFB] rounded-xl px-5 py-4">
-        {isChannelPush && (
+        {(isChannelPush || isChannelEmail) && (
           <>
-            <div className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-1">Judul Notifikasi</div>
+            <div className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-1">{isChannelEmail ? 'Subjek Email' : 'Judul Notifikasi'}</div>
             <div className="text-sm font-semibold text-[#111827] mb-3">{blast.title}</div>
           </>
         )}
-        <div className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-1">{isChannelPush ? 'Isi Pesan' : 'Isi Chat Telegram'}</div>
-        <div className="text-sm text-[#6B7280] leading-relaxed">{blast.body}</div>
+        <div className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-1">{isChannelPush ? 'Isi Pesan' : isChannelEmail ? 'Isi Email' : 'Isi Chat Telegram'}</div>
+        <div className="text-sm text-[#6B7280] leading-relaxed whitespace-pre-wrap">{blast.body}</div>
       </div>
 
       {blast.status === 'scheduled' && (
@@ -232,11 +244,11 @@ export default function BlastDetailPage() {
         <StatBox label="Ditargetkan" value={hasStats ? blast.targetedCount : '—'} />
         <StatBox label="Terkirim" value={hasStats ? blast.sentCount : '—'} rate={hasStats ? pct(blast.sentCount, blast.targetedCount) : undefined} color="#1F9D57" />
         <StatBox
-          label={isChannelPush ? 'Diklik' : 'Diklik (n/a)'}
-          value={isChannelPush ? (hasStats ? blast.clickedCount : '—') : 'N/A'}
-          rate={isChannelPush && hasStats ? pct(blast.clickedCount, blast.sentCount) : undefined}
+          label={hasClickTracking ? 'Diklik' : 'Diklik (n/a)'}
+          value={hasClickTracking ? (hasStats ? blast.clickedCount : '—') : 'N/A'}
+          rate={hasClickTracking && hasStats ? pct(blast.clickedCount, blast.sentCount) : undefined}
           color="#3B82F6"
-          dim={!isChannelPush}
+          dim={!hasClickTracking}
         />
         <StatBox label="Dibaca" value={hasStats ? blast.readCount : '—'} rate={hasStats ? pct(blast.readCount, blast.sentCount) : undefined} color="#A855F7" />
         <StatBox label="Gagal" value={hasStats ? blast.failedCount : '—'} rate={hasStats ? pct(blast.failedCount, blast.targetedCount) : undefined} color="#EF4444" />
@@ -312,7 +324,7 @@ export default function BlastDetailPage() {
             <table className="w-full text-sm">
               <thead className="bg-[#F9FAFB] text-[#6B7280] text-xs uppercase tracking-wide">
                 <tr>
-                  <th className="text-left px-4 py-2.5">Username</th>
+                  <th className="text-left px-4 py-2.5">{isChannelEmail ? 'Email' : 'Username'}</th>
                   <th className="text-left px-4 py-2.5">Provider</th>
                   <th className="text-left px-4 py-2.5">Status</th>
                   <th className="text-left px-4 py-2.5">Error</th>
@@ -334,7 +346,7 @@ export default function BlastDetailPage() {
                       onClick={() => setExpandedRecipient(expandedRecipient === r.id ? null : r.id)}
                     >
                       <td className="px-4 py-2.5 font-medium text-[#111827] whitespace-nowrap">
-                        {r.username ? `@${r.username}` : r.telegramUsername ? `@${r.telegramUsername}` : (r.telegramFirstName ?? '—')}
+                        {r.email ?? (r.username ? `@${r.username}` : r.telegramUsername ? `@${r.telegramUsername}` : (r.telegramFirstName ?? '—'))}
                       </td>
                       <td className="px-4 py-2.5 text-[#6B7280] whitespace-nowrap">{r.provider ? (PROVIDER_LABEL[r.provider] ?? r.provider) : '—'}</td>
                       <td className="px-4 py-2.5">
