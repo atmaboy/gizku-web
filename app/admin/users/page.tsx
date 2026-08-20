@@ -3,8 +3,11 @@ import { users, meals, dailyUsage } from '@/drizzle/schema'
 import { getGlobalLimit } from '@/lib/admin'
 import { fmtDateTime, todayISO } from '@/lib/utils'
 import { count, desc, eq, sql } from 'drizzle-orm'
+import Link from 'next/link'
 import UserActions from '@/components/admin/UserActions'
 export const dynamic = 'force-dynamic'
+
+const PER_PAGE = 20
 
 function fmtDate(dt: Date | string | null | undefined) {
   if (!dt) return null
@@ -14,10 +17,21 @@ function fmtDate(dt: Date | string | null | undefined) {
   })
 }
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageParam } = await searchParams
   const today = todayISO()
   const globalLimit = await getGlobalLimit()
-  const allUsers = await db.select({
+
+  const [{ c: totalUsers }] = await db.select({ c: count() }).from(users)
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PER_PAGE))
+  const page = Math.min(Math.max(1, parseInt(pageParam ?? '1', 10) || 1), totalPages)
+  const offset = (page - 1) * PER_PAGE
+
+  const pagedUsers = await db.select({
     id: users.id,
     username: users.username,
     email: users.email,
@@ -32,9 +46,11 @@ export default async function UsersPage() {
     adminResetBy: users.adminResetBy,
     betaOptinAndroid: users.betaOptinAndroid,
     betaOptinAndroidAt: users.betaOptinAndroidAt,
-  }).from(users).orderBy(desc(users.createdAt))
+  }).from(users).orderBy(desc(users.createdAt)).limit(PER_PAGE).offset(offset)
 
-  const usersWithStats = await Promise.all(allUsers.map(async u => {
+  // Stats query is per-user (2 queries each) — now bounded to one page (≤20 users)
+  // instead of the whole table, which is what made this page slow at scale.
+  const usersWithStats = await Promise.all(pagedUsers.map(async u => {
     const [[mr], [td]] = await Promise.all([
       db.select({ cnt: count() }).from(meals).where(eq(meals.userId, u.id)),
       db.select({ cnt: sql<number>`coalesce(sum(${dailyUsage.count}), 0)` })
@@ -51,7 +67,7 @@ export default async function UsersPage() {
         <p className="text-sm text-[#6B7280] mt-1">
           Limit global: <strong className="text-[#111827]">{globalLimit} foto/hari</strong>
           <span className="ml-2 text-[#9CA3AF]">·</span>
-          <span className="ml-2">{usersWithStats.length} user</span>
+          <span className="ml-2">{totalUsers} user</span>
         </p>
       </div>
 
@@ -288,6 +304,39 @@ export default async function UsersPage() {
           </div>
         ))}
       </div>
+
+      {/* ════════════════════════════════════════
+          PAGINATION
+          ════════════════════════════════════════ */}
+      {totalUsers > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-[#6B7280] tabular-nums">Hal. {page} / {totalPages} · {totalUsers} user</span>
+          <div className="flex items-center gap-2">
+            {page > 1 && (
+              <Link
+                href="/admin/users?page=1"
+                className="px-2.5 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition"
+              >Pertama</Link>
+            )}
+            {page > 1 ? (
+              <Link
+                href={`/admin/users?page=${page - 1}`}
+                className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition"
+              >← Sebelumnya</Link>
+            ) : (
+              <span className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#D1D5DB] cursor-not-allowed">← Sebelumnya</span>
+            )}
+            {page < totalPages ? (
+              <Link
+                href={`/admin/users?page=${page + 1}`}
+                className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition"
+              >Berikutnya →</Link>
+            ) : (
+              <span className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#D1D5DB] cursor-not-allowed">Berikutnya →</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
