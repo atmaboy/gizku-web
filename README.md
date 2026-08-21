@@ -294,9 +294,12 @@ Endpoint admin memakai token admin terpisah (cookie `nl_admin_token`, HttpOnly, 
     "healthScore": 6,
     "assessment": "Makanan cukup bergizi namun tinggi kalori."
   },
-  "usage": { "used": 2, "limit": 5, "remaining": 3 }
+  "usage": { "used": 2, "limit": 5, "remaining": 3 },
+  "imageHash": "sha256 hex dari gambar yang dianalisa — teruskan ke POST /api/history agar dedup-nya nyambung"
 }
 ```
+
+Jika `(userId, imageHash)` yang sama sudah dianalisa dalam 60 detik terakhir (mis. capture UI yang tidak sengaja mengirim 2 request untuk 1 foto), request diulang ini **tidak** memanggil Claude lagi — hasil sebelumnya dipakai ulang apa adanya dan kuota harian tidak dipotong kedua kalinya. Ini di-skip kalau `correction` diisi (re-analisa dengan koreksi selalu fresh call).
 
 ---
 
@@ -307,7 +310,7 @@ Endpoint admin memakai token admin terpisah (cookie `nl_admin_token`, HttpOnly, 
 | `GET` | `?action=list&page=&per_page=` | Riwayat meal dengan pagination (default `page=1`, `per_page=10`) |
 | `GET` | `?action=today` | Ringkasan nutrisi hari ini + status kuota |
 | `GET` | `?action=delete&id=` | *(lihat juga `DELETE` di bawah)* |
-| `POST` | — | Simpan hasil analisa sebagai entri riwayat. Body: `{ analysis, imageDataUrl }` |
+| `POST` | — | Simpan hasil analisa sebagai entri riwayat. Body: `{ analysis, imageDataUrl, imageHash? }` — kalau `imageHash` sama dengan entri user ini dalam 60 detik terakhir, entri lama dikembalikan apa adanya alih-alih insert baru (dedup, lihat `/api/analyze`) |
 | `PATCH` | — | Edit entri riwayat (koreksi manual nutrisi/deskripsi). Body: `{ id, ...field yang diubah }` |
 | `DELETE` | `?id=<meal_id>` | Hapus satu entri riwayat milik user login |
 

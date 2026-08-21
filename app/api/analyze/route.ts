@@ -1,13 +1,22 @@
 import { NextRequest } from 'next/server'
+import { createHash } from 'crypto'
 import { db } from '@/lib/db'
-import { dailyUsage } from '@/drizzle/schema'
+import { dailyUsage, meals } from '@/drizzle/schema'
 import { verifyToken, extractToken } from '@/lib/auth'
 import { getCfg, getGlobalLimit } from '@/lib/admin'
 import { computeEffectiveLimit } from '@/lib/limitLedger'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { checkMaintenance, maintenanceResponse } from '@/lib/maintenance'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, gte, desc } from 'drizzle-orm'
 import Anthropic from '@anthropic-ai/sdk'
+
+// A duplicate submission of the exact same (user, image) pair inside this
+// window — e.g. a capture UI firing its file-picker `onChange` twice for one
+// physical photo — reuses the earlier result instead of asking Claude again:
+// same bytes in, same answer out, and the user's daily quota isn't charged
+// twice for what they experienced as a single tap. A deliberate re-photograph
+// of a similar-looking dish never collides here — the encoded bytes differ.
+const DEDUP_WINDOW_MS = 60_000
 
 export async function OPTIONS() {
   const h = new Headers(); setCors(h)
@@ -137,6 +146,31 @@ export async function POST(req: NextRequest) {
   }
 
   if (!imageBase64) return err('Gambar diperlukan')
+
+  const imageHash = createHash('sha256').update(imageBase64).digest('hex')
+
+  // Corrections always need a fresh Claude call — never replay a cached
+  // result for those, the whole point is re-analyzing with new guidance.
+  if (!correction.trim()) {
+    const [recent] = await db.select().from(meals)
+      .where(and(
+        eq(meals.userId, payload.userId),
+        eq(meals.imageHash, imageHash),
+        gte(meals.loggedAt, new Date(Date.now() - DEDUP_WINDOW_MS)),
+      ))
+      .orderBy(desc(meals.loggedAt))
+      .limit(1)
+
+    if (recent) {
+      console.info(`[analyze] Duplicate image from user ${payload.userId}, reusing meal ${recent.id} instead of calling Claude again`)
+      return ok({
+        analysis: recent.rawAnalysis,
+        imageDataUrl: `data:${mimeType};base64,${imageBase64}`,
+        usage: { used: usage?.count ?? 0, limit: userLimit, remaining: Math.max(0, userLimit - (usage?.count ?? 0)) },
+        imageHash,
+      })
+    }
+  }
 
   const apiKey  = await getCfg('anthropic_api_key') || process.env.ANTHROPIC_API_KEY
   if (!apiKey) return err('API key Anthropic belum dikonfigurasi', 503)
@@ -298,5 +332,6 @@ LANGKAH KETIGA — panggil tool report_food_analysis untuk melaporkan hasil. Isi
     analysis,
     imageDataUrl: `data:${mimeType};base64,${imageBase64}`,
     usage: { used: usedAfter, limit: userLimit, remaining: Math.max(0, userLimit - usedAfter) },
+    imageHash,
   })
 }
