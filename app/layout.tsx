@@ -16,9 +16,20 @@ const inter = Inter({
   preload: true,
 })
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gizku.com'
+const IS_PRODUCTION = (process.env.NEXT_PUBLIC_APP_ENV ?? 'production') === 'production'
+
 export const metadata: Metadata = {
-  title: 'Gizku',
-  description: 'Analisa nutrisi makanan dengan AI',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Gizku — Analisa Nutrisi Makanan dengan AI',
+    template: '%s · Gizku',
+  },
+  description: 'Cukup foto makananmu — Gizku langsung kenali isinya dan hitung kalori, protein, lemak, dan karbohidrat secara otomatis. Gratis, tanpa perlu mencatat manual.',
+  keywords: [
+    'Gizku', 'kalkulator kalori', 'hitung kalori makanan', 'analisa nutrisi AI',
+    'aplikasi diet', 'pencatat makanan', 'foto makanan hitung kalori', 'nutrition tracker Indonesia',
+  ],
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -33,6 +44,18 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Gizku',
+  },
+  openGraph: {
+    siteName: 'Gizku',
+    locale: 'id_ID',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+  },
+  robots: {
+    index: IS_PRODUCTION,
+    follow: IS_PRODUCTION,
   },
 }
 

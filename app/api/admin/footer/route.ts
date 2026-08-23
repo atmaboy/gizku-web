@@ -18,6 +18,7 @@ const SECTION = 'footer'
 
 function invalidateFooterCache() {
   revalidateTag('footer-content')   // bust unstable_cache tag di footer-content API
+  revalidateTag('landing-content')  // footer rows juga muncul di grouped landing-content cache
   revalidatePath('/')               // revalidate landing page (SSR/ISR)
 }
 

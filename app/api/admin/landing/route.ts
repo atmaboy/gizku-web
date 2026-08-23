@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
         }).where(eq(landingContent.id, id))
         revalidatePath('/')
         revalidatePath('/api/landing-content')
+        revalidateTag('landing-content')
         revalidateTag('footer-content')
         return ok({ message: 'Konten diperbarui' })
       } else {
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
         }).returning({ id: landingContent.id })
         revalidatePath('/')
         revalidatePath('/api/landing-content')
+        revalidateTag('landing-content')
         revalidateTag('footer-content')
         return ok({ message: 'Konten ditambahkan', id: inserted.id })
       }
@@ -88,6 +90,7 @@ export async function POST(req: NextRequest) {
         .where(eq(landingContent.id, id))
       revalidatePath('/')
       revalidatePath('/api/landing-content')
+      revalidateTag('landing-content')
       revalidateTag('footer-content')
       return ok({ message: `Konten ${isActive ? 'diaktifkan' : 'dinonaktifkan'}` })
     }
@@ -109,6 +112,7 @@ export async function DELETE(req: NextRequest) {
     await db.delete(landingContent).where(eq(landingContent.id, id))
     revalidatePath('/')
     revalidatePath('/api/landing-content')
+    revalidateTag('landing-content')
     revalidateTag('footer-content')
     return ok({ message: 'Konten dihapus' })
   } catch (e) {

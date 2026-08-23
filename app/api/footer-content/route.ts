@@ -4,39 +4,14 @@
  * Mengembalikan semua item footer yang aktif.
  */
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { landingContent } from '@/drizzle/schema'
-import { eq, and, asc } from 'drizzle-orm'
-import { unstable_cache } from 'next/cache'
+import { getFooterContentBySlug } from '@/lib/landingContent'
 
 export const dynamic = 'force-dynamic'
 
-const getFooterRows = unstable_cache(
-  async () => {
-    return await db
-      .select()
-      .from(landingContent)
-      .where(
-        and(
-          eq(landingContent.section, 'footer'),
-          eq(landingContent.isActive, true),
-        )
-      )
-      .orderBy(asc(landingContent.sortOrder))
-  },
-  ['footer-content'],
-  { tags: ['footer-content'], revalidate: false }
-)
-
 export async function GET() {
   try {
-    const rows = await getFooterRows()
-
-    // Kelompokkan per slug agar mudah diakses di frontend
-    const bySlug: Record<string, typeof rows[0]> = {}
-    for (const row of rows) {
-      bySlug[row.slug] = row
-    }
+    const bySlug = await getFooterContentBySlug()
+    const rows = Object.values(bySlug)
 
     return NextResponse.json({ data: rows, bySlug }, {
       headers: {

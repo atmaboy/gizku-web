@@ -4,26 +4,13 @@
  * Mengembalikan semua konten aktif, dikelompokkan per section.
  */
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { landingContent } from '@/drizzle/schema'
-import { eq, asc } from 'drizzle-orm'
+import { getLandingContentGrouped } from '@/lib/landingContent'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const rows = await db
-      .select()
-      .from(landingContent)
-      .where(eq(landingContent.isActive, true))
-      .orderBy(asc(landingContent.sortOrder))
-
-    // Kelompokkan per section
-    const grouped: Record<string, typeof rows> = {}
-    for (const row of rows) {
-      if (!grouped[row.section]) grouped[row.section] = []
-      grouped[row.section].push(row)
-    }
+    const grouped = await getLandingContentGrouped()
 
     return NextResponse.json({ data: grouped }, {
       headers: {
