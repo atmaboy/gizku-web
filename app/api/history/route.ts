@@ -122,14 +122,37 @@ export async function DELETE(req: NextRequest) {
 
 const ALLOWED_CLIENT_SOURCES = new Set(['app-ios', 'app-android'])
 
+// Same window as the dedup check in POST /api/analyze — a defense-in-depth
+// backstop so that even if two analyze calls both slip through for one
+// capture (e.g. frontend guard bypassed), they don't land as two separate
+// history rows. Keyed on the hash of the analyzed image, so a deliberate
+// re-photograph (different bytes) never collides with an earlier entry.
+const HISTORY_DEDUP_WINDOW_MS = 60_000
+
 export async function POST(req: NextRequest) {
   const user = await authUser(req)
   if (!user) return err('Token tidak valid', 401)
 
   const body = await req.json()
-  const { analysis, imageDataUrl, source } = body
+  const { analysis, imageDataUrl, source, imageHash } = body
 
   if (!analysis) return err('Data analisis diperlukan')
+
+  if (imageHash) {
+    const [recent] = await db.select().from(meals)
+      .where(and(
+        eq(meals.userId, user.userId),
+        eq(meals.imageHash, imageHash),
+        gte(meals.loggedAt, new Date(Date.now() - HISTORY_DEDUP_WINDOW_MS)),
+      ))
+      .orderBy(desc(meals.loggedAt))
+      .limit(1)
+
+    if (recent) {
+      console.info(`[history] Duplicate save from user ${user.userId}, returning existing meal ${recent.id}`)
+      return ok({ meal: recent })
+    }
+  }
 
   const values: typeof meals.$inferInsert = {
     userId:        user.userId,
@@ -139,6 +162,7 @@ export async function POST(req: NextRequest) {
     totalCarbs:    String(analysis.total?.carbs ?? 0),
     totalFat:      String(analysis.total?.fat ?? 0),
     imageUrl:      imageDataUrl ?? null,
+    imageHash:     imageHash ?? null,
     rawAnalysis:   analysis,
   }
   if (ALLOWED_CLIENT_SOURCES.has(source)) {

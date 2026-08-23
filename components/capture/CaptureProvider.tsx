@@ -41,6 +41,13 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
   const { t, language } = useTranslation()
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  // Synchronous re-entrancy lock against one capture firing handleFile more
+  // than once (seen on some WebView wrappers, where the file input's
+  // `change` event can fire twice for a single photo) — a ref is checked
+  // and set immediately, unlike `step`, which only updates after the async
+  // FileReader/compress work below, leaving a window for a near-simultaneous
+  // second call to slip through.
+  const busyRef = useRef(false)
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [step, setStep] = useState<Step>('idle')
@@ -72,10 +79,12 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
   }
 
   function compressImage(file: File): Promise<{ base64: string; mime: string }> {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader()
+      reader.onerror = () => reject(new Error('file_read_failed'))
       reader.onload = e => {
         const img = new Image()
+        img.onerror = () => reject(new Error('image_decode_failed'))
         img.onload = () => {
           const maxW = 1280
           const scale = img.width > maxW ? maxW / img.width : 1
@@ -130,6 +139,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
   function closeOverlay() {
     if (savedMealId) window.dispatchEvent(new Event(MEAL_SAVED_EVENT))
     resetState()
+    busyRef.current = false
   }
 
   function openCaptureMenu() {
@@ -151,16 +161,29 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
   }
 
   async function handleFile(file: File) {
+    if (busyRef.current) return
+    busyRef.current = true
     resetState()
     const reader = new FileReader()
+    reader.onerror = () => {
+      busyRef.current = false
+      setError(t('captureModal.errors.analysisFailedDefault'))
+      setStep('error')
+    }
     reader.onload = async e => {
-      const preview = e.target?.result as string
-      setImageDataUrl(preview)
-      const { base64, mime } = await compressImage(file)
-      setImgBase64(base64)
-      setImgMime(mime)
-      setStep('analyzing')
-      await doAnalyze(base64, mime, preview)
+      try {
+        const preview = e.target?.result as string
+        setImageDataUrl(preview)
+        const { base64, mime } = await compressImage(file)
+        setImgBase64(base64)
+        setImgMime(mime)
+        setStep('analyzing')
+        await doAnalyze(base64, mime, preview)
+      } catch {
+        busyRef.current = false
+        setError(t('captureModal.errors.analysisFailedDefault'))
+        setStep('error')
+      }
     }
     reader.readAsDataURL(file)
   }
@@ -174,14 +197,14 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
     }
   }
 
-  async function autoSaveNew(analysis: AnalysisResult, imgDataUrl: string) {
+  async function autoSaveNew(analysis: AnalysisResult, imgDataUrl: string, imageHash?: string) {
     setAutoSaving(true)
     try {
       const thumbnail = imgDataUrl ? await makeThumbnail(imgDataUrl) : null
       const res = await fetch('/api/history', {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analysis, imageDataUrl: thumbnail }),
+        body: JSON.stringify({ analysis, imageDataUrl: thumbnail, imageHash }),
       })
       if (res.status === 401) { handle401(); return }
       if (!res.ok) { toast.error(t('captureModal.errors.saveFailed')); return }
@@ -260,7 +283,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64, mimeType: mime }),
       })
-      const data = await res.json() as { analysis?: AnalysisResult; error?: string }
+      const data = await res.json() as { analysis?: AnalysisResult; imageHash?: string; error?: string }
       if (res.status === 401) { handle401(); return }
       if (res.status === 429) { setError(data.error ?? t('captureModal.errors.limitReachedDefault')); setStep('error'); return }
       if (!res.ok || !data.analysis) { setError(data.error ?? t('captureModal.errors.analysisFailedDefault')); setStep('error'); return }
@@ -268,7 +291,7 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
       const analysis: AnalysisResult = data.analysis
       setResult(analysis)
       setStep('result')
-      await autoSaveNew(analysis, dataUrl)
+      await autoSaveNew(analysis, dataUrl, data.imageHash)
     } catch {
       setError(t('common.connectFailed'))
       setStep('error')
@@ -308,9 +331,9 @@ export default function CaptureProvider({ children }: { children: React.ReactNod
       {children}
 
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
-        onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+        onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) handleFile(f) }} />
       <input ref={galleryRef} type="file" accept="image/*" className="hidden"
-        onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+        onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) handleFile(f) }} />
 
       {menuOpen && (
         <div

@@ -42,6 +42,7 @@ export const meals = pgTable('meals', {
   totalCarbs:    numeric('total_carbs',   { precision: 7, scale: 2 }).notNull().default('0'),
   totalFat:      numeric('total_fat',     { precision: 7, scale: 2 }).notNull().default('0'),
   imageUrl:      text('image_url'),
+  imageHash:     text('image_hash'), // sha256 of the analyzed image, for duplicate-submission dedup
   rawAnalysis:   jsonb('raw_analysis'),
   source:        text('source').notNull().default('web'), // 'web' | 'telegram' | 'app-ios' | 'app-android'
   loggedAt:      timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
@@ -49,6 +50,7 @@ export const meals = pgTable('meals', {
   userIdx:   index('idx_meals_user_id').on(t.userId),
   loggedIdx: index('idx_meals_logged_at').on(t.loggedAt),
   sourceIdx: index('idx_meals_source').on(t.source),
+  hashIdx:   index('idx_meals_user_hash').on(t.userId, t.imageHash),
 }))
 
 export const dailyUsage = pgTable('daily_usage', {
