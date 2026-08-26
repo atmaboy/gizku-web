@@ -554,7 +554,9 @@ export function createBot(token: string): Bot {
       const response = await createAnalysisMessage(client, {
         model: modelId,
         max_tokens: 1024,
-        temperature: 0.2,
+        // See app/api/analyze/route.ts — same single-shot extraction, same
+        // reasoning: 0 minimizes run-to-run variance, a nonzero value doesn't.
+        temperature: 0,
         tools,
         tool_choice: { type: 'any', disable_parallel_tool_use: true },
         messages: [{
