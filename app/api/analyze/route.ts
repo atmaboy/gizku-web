@@ -266,7 +266,13 @@ LANGKAH KETIGA — panggil tool report_food_analysis untuk melaporkan hasil. Isi
     const response = await createAnalysisMessage(client, {
       model: modelId,
       max_tokens: 1024,
-      temperature: 0.2,
+      // 0, not a small positive value — this is a single-shot structured
+      // extraction (one tool call, no ensembling/majority-vote across
+      // samples), so lower temperature strictly means lower run-to-run
+      // variance. A prior revision set this to 0.2 believing it was more
+      // consistent than 0; that compared 0.2 against the *previous* default
+      // of 1.0, not against 0 — going lower keeps helping.
+      temperature: 0,
       tools,
       tool_choice: { type: 'any', disable_parallel_tool_use: true },
       messages: [{
