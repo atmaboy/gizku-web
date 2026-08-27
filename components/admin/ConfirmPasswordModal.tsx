@@ -39,7 +39,11 @@ export default function ConfirmPasswordModal({
 
   function handleConfirm() {
     if (!password || loading) return
-    request!.onConfirm(password)
+    // Clear immediately on submit — regardless of outcome — so a typed
+    // password never lingers in the field for a subsequent action to reuse.
+    const submitted = password
+    setPassword('')
+    request!.onConfirm(submitted)
   }
 
   function handleClose() {

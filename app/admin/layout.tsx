@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import NavProgress from '@/components/admin/NavProgress'
+import GizkuLogo from '@/components/GizkuLogo'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -49,12 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
             {/* Logo mini di topbar mobile */}
             <div className="flex items-center gap-2">
-              <svg width="22" height="22" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <rect x="1.5" y="1.5" width="25" height="25" rx="10" fill="#EAFBF1" stroke="#BBF7D0"/>
-                <path d="M8 12.5C8 16.09 10.91 19 14.5 19H18.5C18.78 19 19 18.78 19 18.5C19 18.22 18.78 18 18.5 18H14.5C11.46 18 9 15.54 9 12.5V11.75C9 11.34 9.34 11 9.75 11H20.25C20.66 11 21 11.34 21 11.75V12.5C21 13.33 20.33 14 19.5 14H18" stroke="#2ECC71" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M11 9C11.6 7.8 12.7 7 14 7C15.1 7 16.1 7.6 16.7 8.5" stroke="#2ECC71" strokeWidth="1.8" strokeLinecap="round"/>
-                <path d="M13 14.2L14.4 15.6L17.4 12.6" stroke="#111827" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <GizkuLogo size={22} />
               <span className="font-semibold text-[15px] text-[#111827]">Gizku</span>
               <span className="text-[11px] bg-[#D4F5E4] text-[#1F9D57] px-2 py-0.5 rounded-full font-medium">Admin</span>
             </div>

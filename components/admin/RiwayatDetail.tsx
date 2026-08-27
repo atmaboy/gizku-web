@@ -4,12 +4,11 @@ import { toast } from 'sonner'
 
 type MenuItem = {
   name?: string
-  description?: string
+  portion?: string
   calories?: number
   protein?: number
   carbs?: number
   fat?: number
-  fiber?: number
   [key: string]: unknown
 }
 
@@ -23,9 +22,10 @@ type Meal = {
   imageUrl: string | null
   source: string
   rawAnalysis: {
-    menuItems?: MenuItem[]
-    description?: string
-    analysis?: { menuItems?: MenuItem[]; description?: string }
+    // Bentuk asli dari /api/analyze (lib/bot.ts & app/api/analyze/route.ts)
+    dishes?: MenuItem[]
+    notes?: string
+    assessment?: string
     [key: string]: unknown
   } | null
   loggedAt: string
@@ -179,14 +179,10 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
   }
 
   function getMenuItems(meal: Meal): MenuItem[] {
-    const raw = meal.rawAnalysis
-    if (!raw) return []
-    return raw.menuItems ?? raw.analysis?.menuItems ?? []
+    return meal.rawAnalysis?.dishes ?? []
   }
   function getDescription(meal: Meal): string {
-    const raw = meal.rawAnalysis
-    if (!raw) return ''
-    return raw.description ?? raw.analysis?.description ?? ''
+    return meal.rawAnalysis?.notes ?? ''
   }
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -444,13 +440,12 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
                       {menuItems.map((item, idx) => (
                         <div key={idx} className="border border-[#E5E7EB] rounded-lg p-3 bg-white space-y-1">
                           <p className="text-sm font-medium text-[#111827]">{item.name ?? `Menu ${idx + 1}`}</p>
-                          {item.description && <p className="text-xs text-[#6B7280] leading-relaxed">{item.description}</p>}
+                          {item.portion && <p className="text-xs text-[#6B7280] leading-relaxed">{item.portion}</p>}
                           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                             {item.calories !== undefined && <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-500"><FlameIcon size={10} /> {item.calories} kkal</span>}
                             {item.protein !== undefined && <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]"><DumbbellIcon size={10} color="#22c55e" /> {item.protein}g protein</span>}
                             {item.carbs !== undefined && <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]"><GrainIcon size={10} color="#3b82f6" /> {item.carbs}g karbo</span>}
                             {item.fat !== undefined && <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]"><DropletIcon size={10} color="#a855f7" /> {item.fat}g lemak</span>}
-                            {item.fiber !== undefined && <span className="text-xs text-[#6B7280]">Serat: {item.fiber}g</span>}
                           </div>
                         </div>
                       ))}
