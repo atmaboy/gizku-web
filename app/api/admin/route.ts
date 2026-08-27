@@ -128,8 +128,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'update_user') {
-      const { userId, isActive, dailyLimit, email } = await req.json()
+      const { userId, isActive, dailyLimit, email, adminPassword } = await req.json()
       if (!userId) return err('userId diperlukan')
+      if (!adminPassword) return err('Password admin diperlukan')
+      if (!(await verifyAdminPwd(adminPassword))) return err('Password admin salah', 401)
       const updateData: Record<string, unknown> = { updatedAt: new Date() }
       if (isActive !== undefined) updateData.isActive = isActive
       if (dailyLimit !== undefined) updateData.dailyLimit = dailyLimit === '' ? null : Number(dailyLimit)
@@ -167,10 +169,12 @@ export async function POST(req: NextRequest) {
     // RESET USER PASSWORD (Entry Point 3 — Backoffice admin)
     // Admin set password sembarang, user WAJIB ganti saat login berikutnya
     if (action === 'reset_user_password') {
-      const { userId, newPassword } = await req.json()
+      const { userId, newPassword, adminPassword } = await req.json()
       if (!userId) return err('userId diperlukan')
       if (!newPassword) return err('Password baru diperlukan')
       if (newPassword.length < 6) return err('Password minimal 6 karakter')
+      if (!adminPassword) return err('Password admin diperlukan')
+      if (!(await verifyAdminPwd(adminPassword))) return err('Password admin salah', 401)
 
       // Ambil username admin dari cookie token untuk audit trail
       const adminCookieToken = req.cookies.get('nl_admin_token')?.value
@@ -204,8 +208,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'delete_user') {
-      const { userId } = await req.json()
+      const { userId, adminPassword } = await req.json()
       if (!userId) return err('userId diperlukan')
+      if (!adminPassword) return err('Password admin diperlukan')
+      if (!(await verifyAdminPwd(adminPassword))) return err('Password admin salah', 401)
       await db.delete(users).where(eq(users.id, userId))
       return ok({ message: 'User dihapus' })
     }
@@ -338,14 +344,20 @@ export async function GET(req: NextRequest) {
       const page      = parseInt(req.nextUrl.searchParams.get('page') || '1')
       const perPage   = parseInt(req.nextUrl.searchParams.get('per_page') || '15')
       const offset    = (page - 1) * perPage
-      const dateParam = req.nextUrl.searchParams.get('date') // YYYY-MM-DD
+      const dateParam = req.nextUrl.searchParams.get('date') // YYYY-MM-DD (single day, legacy)
+      const fromParam = req.nextUrl.searchParams.get('from') // YYYY-MM-DD (range start)
+      const toParam   = req.nextUrl.searchParams.get('to')   // YYYY-MM-DD (range end)
 
       const conditions = [eq(meals.userId, userId)]
       if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-        const dayStart = new Date(`${dateParam}T00:00:00.000Z`)
-        const dayEnd   = new Date(`${dateParam}T23:59:59.999Z`)
-        conditions.push(gte(meals.loggedAt, dayStart))
-        conditions.push(lte(meals.loggedAt, dayEnd))
+        conditions.push(gte(meals.loggedAt, new Date(`${dateParam}T00:00:00.000Z`)))
+        conditions.push(lte(meals.loggedAt, new Date(`${dateParam}T23:59:59.999Z`)))
+      }
+      if (fromParam && /^\d{4}-\d{2}-\d{2}$/.test(fromParam)) {
+        conditions.push(gte(meals.loggedAt, new Date(`${fromParam}T00:00:00.000Z`)))
+      }
+      if (toParam && /^\d{4}-\d{2}-\d{2}$/.test(toParam)) {
+        conditions.push(lte(meals.loggedAt, new Date(`${toParam}T23:59:59.999Z`)))
       }
       const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions)
 
@@ -359,6 +371,7 @@ export async function GET(req: NextRequest) {
         imageUrl:      meals.imageUrl,
         rawAnalysis:   meals.rawAnalysis,
         loggedAt:      meals.loggedAt,
+        source:        meals.source,
       })
         .from(meals)
         .where(whereClause)

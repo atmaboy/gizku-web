@@ -29,6 +29,17 @@ const nav = [
     ),
   },
   {
+    href: '/admin/riwayat',
+    label: 'Riwayat',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 3v5h5"/>
+        <path d="M3.05 13a9 9 0 1 0 2.13-6.36L3 8"/>
+        <path d="M12 7v5l4 2"/>
+      </svg>
+    ),
+  },
+  {
     href: '/admin/reports',
     label: 'Laporan',
     icon: (

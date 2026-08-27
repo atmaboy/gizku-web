@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { db } from '@/lib/db'
 import { users, meals, reports, landingContent } from '@/drizzle/schema'
 import { count, sum, desc, eq, sql } from 'drizzle-orm'
@@ -102,13 +103,13 @@ export default async function AdminDashboard() {
           { href: '/admin/landing', icon: '\ud83d\udcc4', label: 'Konten Landing' },
           { href: '/admin/config',  icon: '\u2699\ufe0f', label: 'Konfigurasi' },
         ].map(l => (
-          <a
+          <Link
             key={l.href} href={l.href}
             className="flex items-center gap-3 bg-white ring-1 ring-[#E5E7EB] rounded-xl p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors shadow-[0_1px_4px_rgba(16,24,40,0.04)] min-h-[56px]"
           >
             <span className="text-xl shrink-0">{l.icon}</span>
             <span className="text-sm font-semibold text-[#374151]">{l.label}</span>
-          </a>
+          </Link>
         ))}
       </div>
 
@@ -120,12 +121,12 @@ export default async function AdminDashboard() {
       <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl overflow-hidden shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB]">
           <h2 className="font-semibold text-[#111827]">User Terbaru</h2>
-          <a
+          <Link
             href="/admin/users"
             className="text-xs text-[#2ECC71] hover:text-[#1F9D57] font-medium transition-colors"
           >
             Lihat semua &rarr;
-          </a>
+          </Link>
         </div>
 
         {/* Desktop: tabel */}
