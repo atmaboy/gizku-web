@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
+import GizkuLogo from '@/components/GizkuLogo'
 
 export default function ForceChangePasswordPage() {
   const router = useRouter()
@@ -133,12 +134,7 @@ export default function ForceChangePasswordPage() {
     }}>
       {/* ── Logo ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="16" cy="16" r="16" fill="#2ECC71"/>
-          <path d="M8 16 Q8 23 16 23 Q24 23 24 16" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none"/>
-          <line x1="8" y1="16" x2="24" y2="16" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          <polyline points="12,11 15,14.5 20.5,9" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        </svg>
+        <GizkuLogo size={32} />
         <div>
           <div style={{ fontFamily: 'var(--font-montserrat), sans-serif', fontWeight: 600, fontSize: 20, color: C.text, lineHeight: 1.2 }}>Gizku</div>
           <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.2 }}>AI Nutrition Companion</div>
