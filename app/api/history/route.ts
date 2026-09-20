@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     const perPage = parseInt(req.nextUrl.searchParams.get('per_page') || '10')
     const offset  = (page - 1) * perPage
     const dateParam = req.nextUrl.searchParams.get('date')
+    const daysParam = req.nextUrl.searchParams.get('days')
 
     const conditions = [eq(meals.userId, user.userId)]
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
@@ -42,6 +43,11 @@ export async function GET(req: NextRequest) {
       const dayEnd   = new Date(`${dateParam}T23:59:59.999Z`)
       conditions.push(gte(meals.loggedAt, dayStart))
       conditions.push(lte(meals.loggedAt, dayEnd))
+    } else if (daysParam && /^\d+$/.test(daysParam) && parseInt(daysParam) > 0) {
+      // Rolling window ending today, e.g. days=10 -> today and the 9 days before it.
+      const windowStart = new Date(`${todayISO()}T00:00:00.000Z`)
+      windowStart.setUTCDate(windowStart.getUTCDate() - (parseInt(daysParam) - 1))
+      conditions.push(gte(meals.loggedAt, windowStart))
     }
 
     const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions)
