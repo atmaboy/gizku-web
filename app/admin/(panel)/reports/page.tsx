@@ -1,150 +1,37 @@
 'use client'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import Button from '@/components/ui/Button'
-import TextField from '@/components/ui/TextField'
-import Chip from '@/components/ui/Chip'
-import Dialog from '@/components/ui/Dialog'
+import { ChevronLeft, ChevronRight, Inbox, Info, RefreshCw, Search, Trash2 } from 'lucide-react'
+import AdminPage from '@/components/admin/shell/AdminPage'
 import {
-  IconSearch, IconMail, IconPhone, IconTrash, IconInfo, IconSend, IconClose,
-  IconGallery, IconVideoCamera, IconPlay,
-} from '@/components/ui/icons'
-import { fmtRelativeID, fmtDateTimePrecise, fmtDateLongID } from '@/lib/utils'
-
-type ReportStatus = 'open' | 'replied' | 'waiting' | 'done'
-type ReportSource = 'app' | 'email'
-
-type ReportRow = {
-  id: string
-  userId: string | null
-  username: string | null
-  message: string
-  status: ReportStatus
-  createdAt: string
-  updatedAt: string
-  source: ReportSource
-  fromEmail: string | null
-  emailMessageId: string | null
-  emailSubject: string | null
-  ticketNumber: number
-}
-
-type Attachment = { id?: string; url: string; kind: 'image' | 'video'; sizeBytes?: number | null }
-type ThreadMessage = { id: string; sender: 'admin' | 'user'; body: string; createdAt: string; attachments: Attachment[] }
-type ThreadUser = {
-  id: string; username: string; email: string | null
-  isActive: boolean; dailyLimit: number; isCustomLimit: boolean; todayUsage: number
-} | null
-type ThreadData = { report: ReportRow; user: ThreadUser; messages: ThreadMessage[] }
+  Alert, Avatar, Button, Card, CardTool, EmptyState, Input, InputGroup, Modal, Pagination, Skeleton, TrackedLink,
+} from '@/components/admin/ui'
+import {
+  FOLDERS, FolderCard, SourcePill, StatusBadge, countByStatus, displayName, type FolderKey, type ReportRow,
+} from '@/components/admin/reports/shared'
+import { fmtRelativeID, cn } from '@/lib/utils'
 
 const PAGE_SIZE = 8
-const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024
 
-const STATUS_LABEL: Record<ReportStatus, string> = { open: 'Open', replied: 'Dibalas', waiting: 'Menunggu user', done: 'Selesai' }
-const STATUS_PILL_STYLE: Record<ReportStatus, string> = {
-  open:    'bg-amber-100 text-amber-700',
-  replied: 'bg-green-100 text-green-700',
-  waiting: 'bg-sand-200 text-clay-600',
-  done:    'bg-sand-100 text-green-700',
-}
-const FILTERS: { key: 'all' | ReportStatus; label: string }[] = [
-  { key: 'all', label: 'Semua' },
-  { key: 'open', label: 'Open' },
-  { key: 'replied', label: 'Dibalas' },
-  { key: 'waiting', label: 'Menunggu user' },
-  { key: 'done', label: 'Selesai' },
-]
-const QUICK_REPLIES = [
-  { value: 'qr1', label: 'Terima kasih laporannya', text: 'Terima kasih laporannya, kami cek dulu ya.' },
-  { value: 'qr2', label: 'Minta detail tambahan', text: 'Boleh minta detail tambahan (screenshot / tipe HP)?' },
-  { value: 'qr3', label: 'Sudah diperbaiki', text: 'Sudah kami perbaiki, silakan dicoba kembali.' },
-  { value: 'qr4', label: 'Mohon maaf', text: 'Mohon maaf atas ketidaknyamanannya.' },
-]
-
-function displayName(r: { username: string | null; fromEmail?: string | null }) {
-  return r.username || r.fromEmail || '?'
+function isFolder(v: string | null): v is FolderKey {
+  return !!v && FOLDERS.some(f => f.key === v)
 }
 
-function Avatar({ label, size = 36 }: { label: string; size?: number }) {
-  return (
-    <div
-      className="rounded-full bg-green-100 text-green-700 flex items-center justify-center font-semibold uppercase shrink-0"
-      style={{ width: size, height: size, fontSize: size >= 34 ? 14 : 13 }}
-    >
-      {label.charAt(0)}
-    </div>
-  )
-}
+function ReportsInbox() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialStatus = searchParams.get('status')
 
-function SourcePill({ source }: { source: ReportSource }) {
-  return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-[3px] rounded-pill text-2xs font-medium bg-muted text-secondary whitespace-nowrap shrink-0">
-      {source === 'app' ? <IconPhone size={10} /> : <IconMail size={11} />}
-      {source === 'app' ? 'App' : 'Email'}
-    </span>
-  )
-}
-
-function StatusPill({ status }: { status: ReportStatus }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-xs font-medium whitespace-nowrap shrink-0 ${STATUS_PILL_STYLE[status]}`}>
-      <span className="w-[6px] h-[6px] rounded-full bg-current shrink-0" />
-      {STATUS_LABEL[status]}
-    </span>
-  )
-}
-
-function AttachmentThumb({ att, size, onRemove }: { att: Attachment; size: number; onRemove?: () => void }) {
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <a href={att.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-        {att.kind === 'image' ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={att.url} alt="Lampiran" className="w-full h-full object-cover rounded-md" />
-        ) : (
-          <div className="flex items-center justify-center w-full h-full rounded-md bg-inverse relative">
-            <IconPlay size={size >= 90 ? 26 : 20} />
-            {size >= 90 && <span className="absolute bottom-1.5 left-1.5 text-2xs text-white font-medium">Video</span>}
-          </div>
-        )}
-      </a>
-      {onRemove && (
-        <button
-          onClick={onRemove}
-          title="Hapus lampiran"
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-[11px] leading-none cursor-pointer"
-        >
-          ✕
-        </button>
-      )}
-    </div>
-  )
-}
-
-export default function ReportsPage() {
   const [reports, setReports] = useState<ReportRow[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | ReportStatus>('all')
+  const [statusFilter, setStatusFilter] = useState<FolderKey>(isFolder(initialStatus) ? initialStatus : 'all')
   const [page, setPage] = useState(1)
-
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [drawerVisible, setDrawerVisible] = useState(false)
-  const [thread, setThread] = useState<ThreadData | null>(null)
-  const [threadLoading, setThreadLoading] = useState(false)
-
-  const [draft, setDraft] = useState('')
-  const [draftAttachments, setDraftAttachments] = useState<Attachment[]>([])
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const [uploadingVideo, setUploadingVideo] = useState(false)
-  const [sending, setSending] = useState(false)
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [reopenAfterCancel, setReopenAfterCancel] = useState<string | null>(null)
-
-  const imageInputRef = useRef<HTMLInputElement>(null)
-  const videoInputRef = useRef<HTMLInputElement>(null)
 
   const loadReports = useCallback(async () => {
     try {
@@ -159,39 +46,13 @@ export default function ReportsPage() {
     }
   }, [])
 
-  const loadThread = useCallback(async (id: string) => {
-    setThreadLoading(true)
-    try {
-      const res = await fetch(`/api/admin?action=report_thread&id=${id}`)
-      const data = await res.json()
-      if (res.ok) setThread(data)
-      else toast.error(data.error ?? 'Gagal memuat detail laporan')
-    } catch {
-      toast.error('Gagal memuat detail laporan')
-    } finally {
-      setThreadLoading(false)
-    }
-  }, [])
-
   useEffect(() => { loadReports() }, [loadReports])
 
-  useEffect(() => {
-    if (selectedId) {
-      const frame = requestAnimationFrame(() => setDrawerVisible(true))
-      return () => cancelAnimationFrame(frame)
-    }
-    setDrawerVisible(false)
-  }, [selectedId])
-
-  function openDrawer(id: string) {
-    setSelectedId(id)
-    setDraft('')
-    setDraftAttachments([])
-    loadThread(id)
-  }
-  function closeDrawer() {
-    setSelectedId(null)
-    setThread(null)
+  async function refresh() {
+    setRefreshing(true)
+    await loadReports()
+    document.dispatchEvent(new Event('admin:counts'))
+    setRefreshing(false)
   }
 
   const filtered = useMemo(() => {
@@ -204,62 +65,25 @@ export default function ReportsPage() {
     })
   }, [reports, query, statusFilter])
 
-  const counts = useMemo(() => {
-    const base = { all: reports?.length ?? 0, open: 0, replied: 0, waiting: 0, done: 0 }
-    reports?.forEach(r => { base[r.status]++ })
-    return base
-  }, [reports])
+  const counts = useMemo(() => countByStatus(reports), [reports])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
   const startIdx = (currentPage - 1) * PAGE_SIZE
   const pageItems = filtered.slice(startIdx, startIdx + PAGE_SIZE)
+  const rangeLabel = filtered.length === 0
+    ? '0 laporan'
+    : `Menampilkan ${startIdx + 1}–${Math.min(startIdx + PAGE_SIZE, filtered.length)} dari ${filtered.length} laporan`
 
-  function changeFilter(key: 'all' | ReportStatus) {
+  function changeFilter(key: FolderKey) {
     setStatusFilter(key)
     setPage(1)
+    const url = key === 'all' ? '/admin/reports' : `/admin/reports?status=${key}`
+    router.replace(url, { scroll: false })
   }
   function changeQuery(v: string) {
     setQuery(v)
     setPage(1)
-  }
-
-  async function changeStatus(status: ReportStatus) {
-    if (!thread) return
-    const id = thread.report.id
-    const prevReports = reports
-    const prevThread = thread
-    setReports(rs => rs?.map(r => r.id === id ? { ...r, status } : r) ?? rs)
-    setThread(t => t ? { ...t, report: { ...t.report, status } } : t)
-    try {
-      const res = await fetch('/api/admin?action=update_report', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal memperbarui status')
-      toast.success(`Status diperbarui: ${STATUS_LABEL[status]}`)
-    } catch (e) {
-      setReports(prevReports)
-      setThread(prevThread)
-      toast.error(e instanceof Error ? e.message : 'Gagal memperbarui status')
-    }
-  }
-
-  // The drawer is a position:fixed panel with its own stacking context — if
-  // it stayed mounted while the confirm Dialog opened, closing it first
-  // (rather than juggling z-index) is what keeps the Dialog reliably on top.
-  // Closing also means Cancel needs to know whether to reopen the drawer.
-  function askDelete(id: string) {
-    setReopenAfterCancel(selectedId)
-    closeDrawer()
-    setConfirmDeleteId(id)
-  }
-  function cancelDelete() {
-    setConfirmDeleteId(null)
-    const toReopen = reopenAfterCancel
-    setReopenAfterCancel(null)
-    if (toReopen) openDrawer(toReopen)
   }
 
   async function confirmDelete() {
@@ -273,372 +97,181 @@ export default function ReportsPage() {
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Gagal menghapus laporan'); return }
       setReports(rs => rs?.filter(r => r.id !== confirmDeleteId) ?? rs)
+      document.dispatchEvent(new Event('admin:counts'))
       toast.success('Laporan dihapus')
     } catch {
       toast.error('Gagal menghapus laporan')
     } finally {
       setDeleting(false)
       setConfirmDeleteId(null)
-      setReopenAfterCancel(null)
     }
   }
 
-  async function handleFileSelect(kind: 'image' | 'video', file: File | undefined, inputEl: HTMLInputElement | null) {
-    if (!file) return
-    if (file.size > MAX_ATTACHMENT_SIZE) {
-      toast.error('Ukuran file maksimal 5MB.')
-      if (inputEl) inputEl.value = ''
-      return
-    }
-    const setUploading = kind === 'image' ? setUploadingImage : setUploadingVideo
-    setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch('/api/admin/upload-report-attachment', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'Gagal mengunggah lampiran'); return }
-      setDraftAttachments(prev => [...prev, { url: data.url, kind: data.kind, sizeBytes: data.sizeBytes }])
-    } catch {
-      toast.error('Gagal mengunggah lampiran')
-    } finally {
-      setUploading(false)
-      if (inputEl) inputEl.value = ''
-    }
-  }
-  function removeDraftAttachment(idx: number) {
-    setDraftAttachments(prev => prev.filter((_, i) => i !== idx))
-  }
-  function appendDraft(text: string) {
-    setDraft(prev => prev ? `${prev}\n${text}` : text)
-  }
-  function pickQuickReply(e: React.ChangeEvent<HTMLSelectElement>) {
-    const opt = QUICK_REPLIES.find(q => q.value === e.target.value)
-    if (opt) appendDraft(opt.text)
-    e.target.value = ''
-  }
+  const summary = loading ? 'Memuat…' : `${counts.all} laporan total · ${counts.open} perlu dibalas`
+  const detailHref = (id: string) => `/admin/reports/${id}`
+  const deleteTarget = reports?.find(r => r.id === confirmDeleteId)
 
-  async function sendReply() {
-    if (!thread || sending) return
-    const text = draft.trim()
-    if (!text && draftAttachments.length === 0) return
-    setSending(true)
-    try {
-      const res = await fetch('/api/admin?action=reply_report', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: thread.report.id, text, attachments: draftAttachments }),
-      })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'Gagal mengirim balasan'); return }
-      setDraft('')
-      setDraftAttachments([])
-      toast.success('Balasan terkirim ke user')
-      await Promise.all([loadThread(thread.report.id), loadReports()])
-    } catch {
-      toast.error('Gagal mengirim balasan')
-    } finally {
-      setSending(false)
-    }
-  }
+  const searchBox = (id: string, className?: string) => (
+    <InputGroup prepend={<Search size={16} aria-hidden />} className={className}>
+      <Input id={id} type="search" aria-label="Cari username atau email" placeholder="Cari username atau email…" value={query} onChange={e => changeQuery(e.target.value)} />
+    </InputGroup>
+  )
 
-  const todayLabel = fmtDateLongID(new Date())
-  const sendDisabled = !draft.trim() && draftAttachments.length === 0
+  const empty = <EmptyState icon={Inbox} title="Tidak ada laporan yang cocok." />
 
   return (
-    <div className="space-y-5 w-full">
-      <div>
-        <h1 className="text-2xl font-semibold text-primary tracking-tight">Laporan &amp; Helpdesk</h1>
-        <p className="text-base text-secondary mt-1.5">
-          {loading ? 'Memuat…' : `${counts.all} laporan total · ${counts.open} perlu dibalas`}
-        </p>
-      </div>
+    <AdminPage title="Laporan & Helpdesk" breadcrumb={[{ label: 'Laporan & Helpdesk' }]}>
+      {/* ── Desktop: AdminLTE mailbox ── */}
+      <div className="max-lg:hidden grid grid-cols-12 gap-5 items-start">
+        <FolderCard counts={counts} active={statusFilter} onSelect={changeFilter} className="col-span-3" />
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex-1 min-w-[220px] max-w-[360px]">
-          <TextField
-            placeholder="Cari username atau email…"
-            leadingIcon={<IconSearch size={16} />}
-            value={query}
-            onChange={e => changeQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {FILTERS.map(f => (
-            <Chip key={f.key} label={`${f.label} (${counts[f.key]})`} selected={statusFilter === f.key} onClick={() => changeFilter(f.key)} />
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-surface rounded-lg shadow-hairline overflow-hidden">
-        {loading && (
-          <div className="divide-y divide-border">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3.5 px-4 py-3.5">
-                <div className="w-9 h-9 rounded-full gizku-skeleton shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3.5 w-32 gizku-skeleton" />
-                  <div className="h-3 w-2/3 gizku-skeleton" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {!loading && pageItems.map(r => (
-          <div
-            key={r.id}
-            onClick={() => openDrawer(r.id)}
-            className="flex items-center gap-3.5 px-4 sm:px-[18px] py-3.5 border-b border-border last:border-b-0 cursor-pointer hover:bg-sunken transition-colors"
-          >
-            <Avatar label={displayName(r)} size={36} />
-            <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="font-medium text-base text-primary truncate">{displayName(r)}</span>
-                <span className="text-xs text-tertiary whitespace-nowrap">#{r.ticketNumber} · {fmtRelativeID(r.createdAt)}</span>
-              </div>
-              <span className="text-base text-secondary truncate">{r.message}</span>
+        <Card
+          outline="brand"
+          icon={Inbox}
+          title="Kotak Masuk"
+          subtitle={summary}
+          className="col-span-9"
+          noPadding
+          tools={searchBox('reports-q', 'w-[280px]')}
+        >
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border">
+            <CardTool icon={RefreshCw} label="Muat ulang" onClick={refresh} disabled={refreshing} className={refreshing ? '[&>svg]:animate-spin' : undefined} />
+            <div className="flex-1" />
+            <span className="text-sm text-secondary">{loading ? '' : rangeLabel}</span>
+            <div className="flex">
+              <Button variant="outline" size="sm" aria-label="Halaman sebelumnya" className="rounded-r-none px-2" disabled={currentPage <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={16} aria-hidden /></Button>
+              <Button variant="outline" size="sm" aria-label="Halaman berikutnya" className="rounded-l-none -ml-px px-2" disabled={currentPage >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight size={16} aria-hidden /></Button>
             </div>
-            <SourcePill source={r.source} />
-            <StatusPill status={r.status} />
-            <button
-              onClick={e => { e.stopPropagation(); askDelete(r.id) }}
-              title="Hapus laporan"
-              className="flex items-center justify-center w-8 h-8 rounded-md text-tertiary hover:bg-sunken hover:text-danger transition shrink-0 cursor-pointer"
-            >
-              <IconTrash size={15} />
-            </button>
           </div>
+
+          {loading ? (
+            <div className="p-4 flex flex-col gap-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+          ) : filtered.length === 0 ? empty : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <caption className="sr-only">Kotak masuk laporan</caption>
+                <thead>
+                  <tr>
+                    {['Pengirim', 'Pesan', 'Sumber', 'Status'].map(h => (
+                      <th key={h} scope="col" className="px-3 py-2.5 text-sm font-semibold text-primary border-b-2 border-border text-left whitespace-nowrap">{h}</th>
+                    ))}
+                    <th scope="col" className="px-3 py-2.5 border-b-2 border-border w-12"><span className="sr-only">Aksi</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageItems.map(r => {
+                    const unread = r.status === 'open'
+                    return (
+                      <tr key={r.id} className="hover:bg-muted/60 transition-colors">
+                        <td className="px-3 py-2.5 border-t border-border align-middle">
+                          <TrackedLink href={detailHref(r.id)} className="flex items-center gap-2.5 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 rounded-xs">
+                            <Avatar name={displayName(r)} size={32} />
+                            <span className="min-w-0">
+                              <span className={cn('block text-base truncate max-w-[200px]', unread ? 'font-bold text-primary' : 'font-medium text-primary')}>{displayName(r)}</span>
+                              <span className="block text-xs text-secondary whitespace-nowrap">#{r.ticketNumber} · {fmtRelativeID(r.createdAt)}</span>
+                            </span>
+                          </TrackedLink>
+                        </td>
+                        <td className="px-3 py-2.5 border-t border-border align-middle">
+                          <TrackedLink href={detailHref(r.id)} tabIndex={-1} className={cn('block truncate max-w-[420px] text-base', unread ? 'font-semibold text-primary' : 'text-bark-700')}>
+                            {r.message}
+                          </TrackedLink>
+                        </td>
+                        <td className="px-3 py-2.5 border-t border-border align-middle"><SourcePill source={r.source} /></td>
+                        <td className="px-3 py-2.5 border-t border-border align-middle"><StatusBadge status={r.status} /></td>
+                        <td className="px-3 py-2.5 border-t border-border align-middle text-right">
+                          <CardTool icon={Trash2} label={`Hapus laporan #${r.ticketNumber}`} onClick={() => setConfirmDeleteId(r.id)} className="hover:text-rose-600" />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* ── Mobile ── */}
+      <div className="lg:hidden flex flex-col gap-3">
+        <p className="text-base text-secondary">{summary}</p>
+        {searchBox('reports-q-m')}
+        <div role="group" aria-label="Filter status laporan" className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
+          {FOLDERS.map(f => {
+            const active = statusFilter === f.key
+            return (
+              <button
+                key={f.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => changeFilter(f.key)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 shrink-0 min-h-10 px-3 rounded-pill border text-base font-medium whitespace-nowrap',
+                  active ? 'bg-brand text-white border-brand' : 'bg-surface text-bark-800 border-border-strong',
+                )}
+              >
+                {f.label} <span className={cn('tabular-nums', active ? 'text-white/85' : 'text-secondary')}>{counts[f.key]}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[120px] rounded-md" />)}
+        {!loading && filtered.length === 0 && <Card>{empty}</Card>}
+        {!loading && pageItems.map(r => (
+          <article key={r.id} className="bg-surface rounded-md shadow-card overflow-hidden">
+            <TrackedLink href={detailHref(r.id)} className="flex items-start gap-3 px-3.5 pt-3 pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500">
+              <Avatar name={displayName(r)} size={38} />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className={cn('text-md truncate', r.status === 'open' ? 'font-bold' : 'font-semibold')}>{displayName(r)}</span>
+                  <span className="text-xs text-secondary whitespace-nowrap">{fmtRelativeID(r.createdAt)}</span>
+                </span>
+                <span className="block text-base text-bark-700 mt-0.5 line-clamp-2">{r.message}</span>
+              </span>
+            </TrackedLink>
+            <div className="flex items-center gap-2 px-3.5 pb-2.5 pl-[64px]">
+              <span className="text-xs text-secondary">#{r.ticketNumber}</span>
+              <SourcePill source={r.source} />
+              <StatusBadge status={r.status} size="sm" />
+              <CardTool icon={Trash2} label={`Hapus laporan #${r.ticketNumber}`} onClick={() => setConfirmDeleteId(r.id)} className="ml-auto" />
+            </div>
+          </article>
         ))}
-        {!loading && filtered.length === 0 && (
-          <div className="py-12 text-center text-tertiary text-base">Tidak ada laporan yang cocok.</div>
+        {!loading && filtered.length > 0 && (
+          <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} label={rangeLabel} />
         )}
       </div>
 
-      {!loading && filtered.length > 0 && (
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <span className="text-base text-secondary">
-            Menampilkan {startIdx + 1}–{Math.min(startIdx + PAGE_SIZE, filtered.length)} dari {filtered.length} laporan
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" fullWidth={false} disabled={currentPage <= 1} onClick={() => setPage(p => p - 1)}>‹ Sebelumnya</Button>
-            <Button variant="outline" size="sm" fullWidth={false} disabled={currentPage >= totalPages} onClick={() => setPage(p => p + 1)}>Selanjutnya ›</Button>
-          </div>
-        </div>
-      )}
+      <Alert variant="light" icon={Info}>
+        Kotak masuk ini menggabungkan laporan dari dalam aplikasi dan email yang masuk ke <strong>support@gizku.com</strong>. Balasan langsung saat ini tersedia untuk laporan dari email.
+      </Alert>
 
-      {/* ── Reply drawer ── */}
-      {selectedId && (
-        <>
-          <div
-            className="fixed inset-0 z-[200] transition-opacity duration-200"
-            style={{ background: 'var(--color-bg-scrim)', opacity: drawerVisible ? 1 : 0 }}
-            onClick={closeDrawer}
-          />
-          <div
-            className="fixed top-0 right-0 bottom-0 z-[201] w-[480px] max-w-[94vw] bg-surface shadow-md flex flex-col transition-transform duration-200 ease-out"
-            style={{ transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)' }}
-          >
-            {!thread || threadLoading ? (
-              <div className="flex-1 flex items-center justify-center text-tertiary text-base">Memuat…</div>
-            ) : (
-              <>
-                {/* Header */}
-                <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
-                  <Avatar label={displayName(thread.report)} size={34} />
-                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                      <span className="font-semibold text-md text-primary truncate">{displayName(thread.report)}</span>
-                      <span className="text-2xs text-tertiary whitespace-nowrap">#{thread.report.ticketNumber}</span>
-                      <SourcePill source={thread.report.source} />
-                      {thread.report.source === 'email' && (
-                        thread.user
-                          ? <span className="px-2 py-0.5 rounded-pill text-2xs font-medium bg-green-100 text-green-700 whitespace-nowrap">Terdaftar</span>
-                          : <span className="px-2 py-0.5 rounded-pill text-2xs font-medium bg-sand-200 text-clay-600 whitespace-nowrap">Belum terdaftar</span>
-                      )}
-                    </div>
-                    {thread.report.source === 'app' && thread.user?.email && (
-                      <span className="text-xs text-tertiary truncate">{thread.user.email}</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => askDelete(thread.report.id)}
-                    title="Hapus laporan"
-                    className="flex items-center justify-center w-8 h-8 rounded-md text-tertiary hover:bg-sunken hover:text-danger transition shrink-0 cursor-pointer"
-                  >
-                    <IconTrash size={15} />
-                  </button>
-                  <button
-                    onClick={closeDrawer}
-                    title="Tutup"
-                    className="flex items-center justify-center w-8 h-8 rounded-md bg-muted text-secondary hover:bg-sunken transition shrink-0 cursor-pointer"
-                  >
-                    <IconClose size={14} />
-                  </button>
-                </div>
-
-                {/* Status */}
-                <div className="px-5 py-2.5 border-b border-border flex items-center gap-2.5 shrink-0">
-                  <span className="text-2xs text-tertiary font-semibold whitespace-nowrap">Status Laporan</span>
-                  <select
-                    value={thread.report.status}
-                    onChange={e => changeStatus(e.target.value as ReportStatus)}
-                    className="flex-1 min-w-0 rounded-md border border-border bg-surface text-primary text-xs font-medium px-2.5 py-1.5 outline-none cursor-pointer"
-                  >
-                    <option value="open">Open</option>
-                    {thread.report.source === 'email' && (
-                      <>
-                        <option value="replied">Dibalas</option>
-                        <option value="waiting">Menunggu user</option>
-                      </>
-                    )}
-                    <option value="done">Selesai</option>
-                  </select>
-                </div>
-
-                {/* Account context */}
-                {thread.user && (
-                  <div className="px-5 py-2 border-b border-border flex items-center gap-2.5 flex-wrap shrink-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-2xs text-tertiary">Akun</span>
-                      <span className={`text-2xs font-medium px-[7px] py-0.5 rounded-pill ${thread.user.isActive ? 'bg-green-100 text-green-700' : 'bg-sand-200 text-clay-600'}`}>
-                        {thread.user.isActive ? 'Aktif' : 'Nonaktif'}
-                      </span>
-                    </div>
-                    <span className="w-px h-3 bg-border" />
-                    <span className="text-2xs text-tertiary">
-                      Limit harian <b className="text-primary font-semibold">{thread.user.dailyLimit} foto/hari</b>
-                    </span>
-                    <span className="w-px h-3 bg-border" />
-                    <span className="text-2xs text-tertiary">
-                      Pemakaian{' '}
-                      <b className={`font-semibold ${thread.user.todayUsage >= thread.user.dailyLimit ? 'text-danger' : 'text-primary'}`}>
-                        {thread.user.todayUsage}/{thread.user.dailyLimit}
-                      </b>
-                    </span>
-                    <span className="ml-auto text-2xs text-tertiary whitespace-nowrap">per {todayLabel}</span>
-                  </div>
-                )}
-                {thread.report.source === 'email' && !thread.user && (
-                  <div className="px-5 py-3 border-b border-border shrink-0">
-                    <span className="text-xs text-tertiary">Email pengirim tidak ditemukan pada akun Gizku terdaftar.</span>
-                  </div>
-                )}
-
-                {/* Thread */}
-                <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 flex flex-col gap-3.5">
-                  {thread.messages.map(m => (
-                    <div key={m.id} className={`flex flex-col gap-1.5 ${m.sender === 'admin' ? 'items-end' : 'items-start'}`}>
-                      <div className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-base whitespace-pre-wrap break-words ${m.sender === 'admin' ? 'bg-brand-tint text-primary' : 'bg-sunken text-primary shadow-hairline'}`}>
-                        {m.body || <span className="italic text-tertiary">(lampiran tanpa teks)</span>}
-                      </div>
-                      {m.attachments.length > 0 && (
-                        <div className={`flex gap-2 flex-wrap max-w-[260px] ${m.sender === 'admin' ? 'justify-end' : ''}`}>
-                          {m.attachments.map((a, i) => <AttachmentThumb key={a.id ?? i} att={a} size={96} />)}
-                        </div>
-                      )}
-                      <span className="text-xs text-tertiary px-1">
-                        {m.sender === 'admin' ? 'Admin Gizku' : displayName(thread.report)} · {fmtDateTimePrecise(m.createdAt)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Composer (email source only) */}
-                {thread.report.source === 'email' ? (
-                  <>
-                    <div className="px-5 py-2 border-t border-border flex items-center gap-2.5 shrink-0">
-                      <span className="text-2xs text-tertiary font-semibold whitespace-nowrap">Balasan Cepat</span>
-                      <select
-                        defaultValue=""
-                        onChange={pickQuickReply}
-                        className="flex-1 min-w-0 rounded-md border border-border bg-surface text-secondary text-xs px-2.5 py-1.5 outline-none cursor-pointer"
-                      >
-                        <option value="">Pilih balasan cepat…</option>
-                        {QUICK_REPLIES.map(q => (
-                          <option key={q.value} value={q.value}>{q.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="px-5 pt-2.5 pb-4 border-t border-border flex flex-col gap-2.5 shrink-0">
-                      {draftAttachments.length > 0 && (
-                        <div className="flex gap-2 flex-wrap">
-                          {draftAttachments.map((a, i) => (
-                            <AttachmentThumb key={i} att={a} size={72} onRemove={() => removeDraftAttachment(i)} />
-                          ))}
-                        </div>
-                      )}
-                      <textarea
-                        value={draft}
-                        onChange={e => setDraft(e.target.value)}
-                        placeholder="Tulis balasan untuk user…"
-                        className="w-full min-h-[80px] resize-y rounded-lg bg-sunken px-3.5 py-3 text-base text-primary placeholder:text-tertiary outline-none"
-                      />
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => imageInputRef.current?.click()}
-                            disabled={uploadingImage}
-                            title="Lampirkan gambar (maks. 5MB)"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-secondary text-xs font-medium hover:bg-sunken transition disabled:opacity-50 cursor-pointer"
-                          >
-                            <IconGallery size={14} /> {uploadingImage ? 'Mengunggah…' : 'Gambar'}
-                          </button>
-                          <button
-                            onClick={() => videoInputRef.current?.click()}
-                            disabled={uploadingVideo}
-                            title="Lampirkan video (maks. 5MB)"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-secondary text-xs font-medium hover:bg-sunken transition disabled:opacity-50 cursor-pointer"
-                          >
-                            <IconVideoCamera size={14} /> {uploadingVideo ? 'Mengunggah…' : 'Video'}
-                          </button>
-                        </div>
-                        <Button
-                          variant="primary" size="md" fullWidth={false}
-                          icon={<IconSend size={15} />}
-                          disabled={sendDisabled}
-                          loading={sending}
-                          onClick={sendReply}
-                        >
-                          Kirim Balasan
-                        </Button>
-                      </div>
-                      <span className="text-2xs text-tertiary">Ukuran maksimal 5MB per foto/video.</span>
-                      <input
-                        ref={imageInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" className="hidden"
-                        onChange={e => handleFileSelect('image', e.target.files?.[0], e.target)}
-                      />
-                      <input
-                        ref={videoInputRef} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden"
-                        onChange={e => handleFileSelect('video', e.target.files?.[0], e.target)}
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="px-5 pt-4 pb-5 border-t border-border shrink-0">
-                    <div className="flex gap-2.5 p-3.5 rounded-lg bg-sunken">
-                      <IconInfo size={16} className="text-tertiary shrink-0 mt-0.5" />
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-base font-medium text-primary">Balasan lewat aplikasi belum tersedia</span>
-                        <span className="text-xs text-secondary">Laporan ini masuk dari dalam aplikasi Gizku. Kirim balasan langsung baru bisa untuk laporan yang masuk lewat email.</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </>
-      )}
-
-      <Dialog
+      <Modal
         open={!!confirmDeleteId}
-        onClose={cancelDelete}
+        onClose={() => !deleting && setConfirmDeleteId(null)}
+        closeDisabled={deleting}
         title="Hapus laporan ini?"
-        description={`Laporan dari ${displayName(reports?.find(r => r.id === confirmDeleteId) ?? { username: null, fromEmail: null })} akan dihapus permanen dan tidak bisa dikembalikan.`}
-        actions={[
-          { label: 'Hapus', variant: 'danger-outline', onClick: confirmDelete, loading: deleting },
-          { label: 'Batal', variant: 'outline', onClick: cancelDelete },
-        ]}
-      />
-    </div>
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)} disabled={deleting}>Batal</Button>
+            <Button variant="danger" icon={Trash2} loading={deleting} onClick={confirmDelete}>Hapus</Button>
+          </>
+        }
+      >
+        <p className="text-base text-bark-700 leading-normal">
+          Laporan dari <strong className="text-primary">{deleteTarget ? displayName(deleteTarget) : '?'}</strong> akan dihapus permanen dan tidak bisa dikembalikan.
+        </p>
+      </Modal>
+    </AdminPage>
+  )
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReportsInbox />
+    </Suspense>
   )
 }
