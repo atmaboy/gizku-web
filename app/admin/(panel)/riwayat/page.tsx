@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { users, meals } from '@/drizzle/schema'
 import { ilike, eq, count } from 'drizzle-orm'
-import Link from 'next/link'
+import { ChevronRight, Search, SearchX } from 'lucide-react'
+import AdminPage from '@/components/admin/shell/AdminPage'
+import { Avatar, Button, Card, DataTable, EmptyState, Input, InputGroup, ListRow } from '@/components/admin/ui'
+import { fmtNum } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
+
+const HELP = 'Daftar tidak dimuat otomatis agar query tetap ringan. Cari username user untuk melihat riwayat analisa makanannya.'
 
 export default async function RiwayatSearchPage({
   searchParams,
@@ -23,79 +28,69 @@ export default async function RiwayatSearchPage({
     }))
   }
 
-  return (
-    <div className="max-w-[640px] mx-auto space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-[#111827]">Riwayat</h1>
-        <p className="text-sm text-[#6B7280] mt-1">Cari username untuk melihat riwayat analisa makanan.</p>
-      </div>
+  const href = (id: string) => `/admin/riwayat/${id}?from=search&q=${encodeURIComponent(query)}`
 
-      <form action="/admin/riwayat" method="get" className="bg-white ring-1 ring-[#E5E7EB] rounded-[18px] p-4 flex gap-2 shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-        <div className="relative flex-1">
-          <svg
-            width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF"
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-          >
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input
-            type="text"
-            name="q"
-            defaultValue={query}
-            required
-            placeholder="Cari username…"
-            className="w-full pl-9 pr-3 py-2.5 text-base rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] text-[#111827]
-              placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
-          />
-        </div>
-        <button
-          type="submit"
-          className="px-5 py-2.5 rounded-xl text-sm font-medium bg-[#2ECC71] text-white hover:bg-[#28B765] transition min-h-[44px] shrink-0"
-        >
-          Cari
-        </button>
-      </form>
+  return (
+    <AdminPage title="Riwayat Analisa" breadcrumb={[{ label: 'Riwayat Analisa' }]}>
+      <Card outline="brand" icon={Search} title="Cari Riwayat User">
+        <form action="/admin/riwayat" method="get" role="search" className="lg:max-w-[720px]">
+          <label htmlFor="riwayat-q" className="block mb-1.5 text-base font-semibold text-primary">Username</label>
+          <div className="flex gap-2 max-lg:flex-col">
+            <InputGroup prepend={<Search size={16} aria-hidden />}>
+              <Input id="riwayat-q" type="search" name="q" defaultValue={query} required placeholder="Cari username…" aria-describedby="riwayat-q-help" />
+            </InputGroup>
+            <Button type="submit" icon={Search} className="shrink-0 max-lg:w-full">Cari</Button>
+          </div>
+          <p id="riwayat-q-help" className="mt-1.5 text-sm text-secondary">{HELP}</p>
+        </form>
+      </Card>
 
       {!searched && (
-        <div className="text-center py-16 px-6 text-[#9CA3AF]">
-          <div className="text-4xl mb-3">🔍</div>
-          <p className="text-sm max-w-xs mx-auto leading-relaxed">
-            Daftar tidak dimuat otomatis agar query tetap ringan. Cari username user untuk melihat riwayat analisa makanannya.
-          </p>
-        </div>
+        <Card><EmptyState icon={Search} title="Cari user untuk memulai" description={HELP} /></Card>
       )}
 
-      {searched && results.length === 0 && (
-        <div className="text-center py-16 text-[#6B7280] text-sm">
-          Tidak ada user dengan username &ldquo;{query}&rdquo;
-        </div>
-      )}
-
-      {searched && results.length > 0 && (
-        <div className="bg-white ring-1 ring-[#E5E7EB] rounded-[18px] divide-y divide-[#F3F4F6] overflow-hidden shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-          {results.map(u => (
-            <Link
-              key={u.id}
-              href={`/admin/riwayat/${u.id}?from=search&q=${encodeURIComponent(query)}`}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-[#F9FAFB] transition"
-            >
-              <div className="w-9 h-9 rounded-full bg-[#D4F5E4] flex items-center justify-center shrink-0">
-                <span className="text-sm font-semibold text-[#1F9D57] uppercase">{u.username.charAt(0)}</span>
+      {searched && (
+        <Card
+          title={<>Hasil pencarian “{query}”</>}
+          subtitle={`${results.length} user · maks. 20 hasil`}
+          noPadding
+        >
+          {results.length === 0 ? (
+            <EmptyState icon={SearchX} title={<>Tidak ada user dengan username “{query}”</>} />
+          ) : (
+            <>
+              <div className="max-lg:hidden">
+                <DataTable
+                  rows={results}
+                  rowKey={u => u.id}
+                  columns={[
+                    { key: 'u', header: 'Username', render: u => (
+                      <span className="flex items-center gap-2.5 font-semibold"><Avatar name={u.username} size={30} />{u.username}</span>
+                    ) },
+                    { key: 'e', header: 'Email', render: u => <span className="text-secondary">{u.email ?? '—'}</span> },
+                    { key: 't', header: 'Total Analisa', align: 'right', render: u => `${fmtNum(u.totalMeals)} entri` },
+                    { key: 'a', header: <span className="sr-only">Aksi</span>, align: 'right', render: u => (
+                      <Button variant="outline-primary" size="sm" iconRight={ChevronRight} href={href(u.id)}>Lihat Riwayat</Button>
+                    ) },
+                  ]}
+                />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm text-[#111827] truncate">{u.username}</p>
-                <p className="text-xs text-[#6B7280] truncate">{u.email ?? '—'}</p>
+              <div className="lg:hidden">
+                {results.map(u => (
+                  <ListRow
+                    key={u.id}
+                    href={href(u.id)}
+                    leading={<Avatar name={u.username} size={38} />}
+                    title={u.username}
+                    meta={u.email ?? '—'}
+                    trailing={<span className="text-sm text-secondary tabular-nums inline-flex items-center gap-1">{fmtNum(u.totalMeals)} entri<ChevronRight size={16} aria-hidden /></span>}
+                  />
+                ))}
               </div>
-              <span className="text-xs text-[#6B7280] whitespace-nowrap tabular-nums">{u.totalMeals} entri</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </Link>
-          ))}
-        </div>
+            </>
+          )}
+        </Card>
       )}
-    </div>
+    </AdminPage>
   )
 }

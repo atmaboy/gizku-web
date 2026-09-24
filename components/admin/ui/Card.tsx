@@ -8,7 +8,7 @@ const OUTLINE = {
 } as const
 
 export function Card({
-  title, icon: Icon, subtitle, tools, outline, footer, children, className, bodyClassName, headerClassName, noPadding, id, as: As = 'section',
+  title, icon: Icon, subtitle, tools, outline, footer, children, className, bodyClassName, headerClassName, toolsClassName, noPadding, id, as: As = 'section',
 }: {
   title?: React.ReactNode
   icon?: LucideIcon
@@ -20,6 +20,7 @@ export function Card({
   className?: string
   bodyClassName?: string
   headerClassName?: string
+  toolsClassName?: string
   noPadding?: boolean
   id?: string
   as?: 'section' | 'div'
@@ -38,7 +39,7 @@ export function Card({
               </div>
             </div>
           )}
-          {tools && <div className="flex items-center gap-1.5 ml-auto flex-wrap">{tools}</div>}
+          {tools && <div className={cn('flex items-center gap-1.5 ml-auto flex-wrap', toolsClassName)}>{tools}</div>}
         </div>
       )}
       {children !== undefined && children !== null && children !== false && (

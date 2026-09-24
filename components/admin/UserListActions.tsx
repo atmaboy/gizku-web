@@ -1,8 +1,10 @@
 'use client'
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { Eye, History, UserCheck, UserX } from 'lucide-react'
+import { Button, TrackedLink } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import ConfirmPasswordModal, { type ConfirmRequest } from './ConfirmPasswordModal'
 
 type U = { id: string; username: string; isActive: boolean }
@@ -31,49 +33,45 @@ export default function UserListActions({
       severity: user.isActive ? 'orange' : 'green',
       onConfirm: async adminPassword => {
         setLoading(true)
-        const r = await fetch('/api/admin?action=update_user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, isActive: !user.isActive, adminPassword }),
-        })
-        const d = await r.json()
-        if (r.ok) {
-          toast.success('Berhasil')
-          setConfirm(null)
-          router.refresh()
-        } else {
-          toast.error(d.error)
+        try {
+          const r = await fetch('/api/admin?action=update_user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, isActive: !user.isActive, adminPassword }),
+          })
+          const d = await r.json()
+          if (r.ok) {
+            toast.success('Berhasil')
+            setConfirm(null)
+            router.refresh()
+          } else {
+            toast.error(d.error)
+          }
+        } catch {
+          toast.error('Gagal menghubungi server')
+        } finally {
+          setLoading(false)
         }
-        setLoading(false)
       },
     })
   }
 
   const toggleLabel = user.isActive ? 'Nonaktifkan' : 'Aktifkan'
+  const ToggleIcon = user.isActive ? UserX : UserCheck
 
   if (mobileCard) {
+    const cell = 'flex-1 flex items-center justify-center gap-1.5 min-h-12 text-[15px] font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500'
     return (
       <>
-        <div className="flex w-full divide-x divide-[#F3F4F6]">
-          <Link
-            href={riwayatHref}
-            className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-[#3B82F6] hover:bg-[#EFF6FF] transition-colors min-h-[48px]"
-          >
-            Riwayat
-          </Link>
-          <Link
-            href={`/admin/users/${user.id}`}
-            className="flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-[#6B7280] hover:bg-[#F3F4F6] transition-colors min-h-[48px]"
-          >
-            Detail
-          </Link>
-          <button
-            onClick={askToggleActive}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors min-h-[48px] ${
-              user.isActive ? 'text-orange-600 hover:bg-orange-50' : 'text-[#2ECC71] hover:bg-[#F0FDF4]'
-            }`}
-          >
-            {toggleLabel}
+        <div className="flex w-full divide-x divide-border border-t border-border">
+          <TrackedLink href={riwayatHref} className={cn(cell, 'text-green-700')}>
+            <History size={16} aria-hidden />Riwayat
+          </TrackedLink>
+          <TrackedLink href={`/admin/users/${user.id}`} className={cn(cell, 'text-bark-800')}>
+            <Eye size={16} aria-hidden />Detail
+          </TrackedLink>
+          <button type="button" onClick={askToggleActive} className={cn(cell, user.isActive ? 'text-bark-800' : 'text-green-700')}>
+            <ToggleIcon size={16} aria-hidden />{toggleLabel}
           </button>
         </div>
         <ConfirmPasswordModal request={confirm} loading={loading} onCancel={() => setConfirm(null)} />
@@ -84,28 +82,11 @@ export default function UserListActions({
   return (
     <>
       <div className="flex items-center gap-1.5">
-        <Link
-          href={riwayatHref}
-          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#BFDBFE] text-[#3B82F6] hover:bg-[#EFF6FF] transition min-h-[36px] flex items-center"
-        >
-          Riwayat
-        </Link>
-        <Link
-          href={`/admin/users/${user.id}`}
-          className="text-xs px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[36px] flex items-center"
-        >
-          Detail
-        </Link>
-        <button
-          onClick={askToggleActive}
-          className={`text-xs px-2.5 py-1.5 rounded-lg border transition min-h-[36px] ${
-            user.isActive
-              ? 'border-orange-200 text-orange-600 hover:bg-orange-50'
-              : 'border-[#BBF7D0] text-[#2ECC71] hover:bg-[#F0FDF4]'
-          }`}
-        >
+        <Button variant="outline-primary" size="sm" icon={History} href={riwayatHref}>Riwayat</Button>
+        <Button variant="outline" size="sm" icon={Eye} href={`/admin/users/${user.id}`}>Detail</Button>
+        <Button variant={user.isActive ? 'outline-warning' : 'outline-primary'} size="sm" icon={ToggleIcon} onClick={askToggleActive}>
           {toggleLabel}
-        </button>
+        </Button>
       </div>
       <ConfirmPasswordModal request={confirm} loading={loading} onCancel={() => setConfirm(null)} />
     </>

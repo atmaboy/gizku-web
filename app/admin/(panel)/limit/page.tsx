@@ -1,8 +1,17 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { fmtDateTime, fmtDate } from '@/lib/utils'
+import {
+  BadgeCheck, CheckCircle2, ClipboardList, Clock, History, Hourglass, Inbox, Info, Landmark, Layers, Plus, Save, Search, ToggleRight,
+  Trash2, Wallet, XCircle,
+} from 'lucide-react'
+import { fmtDateTime, fmtDate, cn } from '@/lib/utils'
 import { REJECT_REASONS } from '@/lib/limitReasons'
+import AdminPage from '@/components/admin/shell/AdminPage'
+import {
+  Alert, Avatar, Badge, Button, Card, DataTable, EmptyState, FormField, Input, KeyValue, ListRow, Modal, Pagination, Select,
+  Skeleton, SmallBox, Switch, Tabs, Textarea, type BadgeVariant,
+} from '@/components/admin/ui'
 
 type Tab = 'requests' | 'ledger' | 'config'
 type Status = 'all' | 'pending' | 'approved' | 'rejected'
@@ -26,50 +35,25 @@ type TierDraft = { id?: string; label: string; addPerDay: number; price: number 
 type ConfigData = { bankName: string; accountNumber: string; accountHolder: string; featureEnabled: boolean; tiers: TierDraft[] }
 
 const STATUS_LABEL: Record<ReqStatus, string> = { pending: 'Menunggu Review', approved: 'Disetujui', rejected: 'Ditolak' }
-const STATUS_STYLE: Record<ReqStatus, string> = {
-  pending: 'bg-amber-50 text-amber-600',
-  approved: 'bg-[#D4F5E4] text-[#1F9D57]',
-  rejected: 'bg-red-50 text-red-600',
-}
+const STATUS_BADGE: Record<ReqStatus, BadgeVariant> = { pending: 'warning', approved: 'success', rejected: 'danger' }
 const LEDGER_BADGE_LABEL: Record<LedgerRowType, string> = {
   usage: 'Pemakaian', 'tier-approved-reset': 'Disetujui', 'expiry-reset': 'Kedaluwarsa', 'daily-reset': 'Reset Harian',
 }
-const LEDGER_BADGE_STYLE: Record<LedgerRowType, string> = {
-  usage: 'bg-[#F3F4F6] text-[#6B7280]',
-  'tier-approved-reset': 'bg-[#D4F5E4] text-[#1F9D57]',
-  'expiry-reset': 'bg-amber-50 text-amber-600',
-  'daily-reset': 'bg-[#F3F4F6] text-[#9CA3AF]',
+const LEDGER_BADGE: Record<LedgerRowType, BadgeVariant> = {
+  usage: 'light', 'tier-approved-reset': 'success', 'expiry-reset': 'secondary', 'daily-reset': 'soft',
 }
 const FIELD_PLACEHOLDER: Record<'name' | 'email' | 'id', string> = {
   name: 'Cari username...', email: 'Cari email...', id: 'Cari ID user...',
 }
+const STATUS_FILTERS: { value: Status; label: string; icon: typeof Inbox }[] = [
+  { value: 'all', label: 'Semua', icon: Inbox },
+  { value: 'pending', label: 'Menunggu', icon: Hourglass },
+  { value: 'approved', label: 'Disetujui', icon: CheckCircle2 },
+  { value: 'rejected', label: 'Ditolak', icon: XCircle },
+]
 
 function fmtRupiah(n: number) {
   return n.toLocaleString('id-ID')
-}
-
-const inputCls = "w-full border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm bg-white text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
-
-function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
-        active ? 'bg-white text-[#111827] shadow-[0_1px_4px_rgba(16,24,40,0.06)]' : 'text-[#6B7280] hover:text-[#111827]'
-      }`}
-    >
-      {label}
-    </button>
-  )
-}
-
-function StatTile({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-4">
-      <div className="text-[11px] text-[#9CA3AF] mb-1.5">{label}</div>
-      <div className="text-xl font-bold text-[#111827] tabular-nums">{value}</div>
-    </div>
-  )
 }
 
 export default function AdminLimitPage() {
@@ -138,6 +122,7 @@ export default function AdminLimitPage() {
       const d = await res.json()
       if (!res.ok) { toast.error(d.error ?? 'Gagal menyetujui request'); return }
       toast.success('Request disetujui')
+      document.dispatchEvent(new Event('admin:counts'))
       loadStats(); loadList(page, statusFilter); loadDetail(detail.id)
     } finally { setReviewing(null) }
   }
@@ -153,6 +138,7 @@ export default function AdminLimitPage() {
       const d = await res.json()
       if (!res.ok) { toast.error(d.error ?? 'Gagal menolak request'); return }
       toast.success('Request ditolak')
+      document.dispatchEvent(new Event('admin:counts'))
       loadStats(); loadList(page, statusFilter); loadDetail(detail.id)
     } finally { setReviewing(null) }
   }
@@ -276,450 +262,460 @@ export default function AdminLimitPage() {
     } finally { setSaving(false); setConfirmOpen(false) }
   }
 
-  return (
-    <div className="space-y-6 w-full">
-      <div>
-        <h1 className="text-2xl font-bold text-[#111827]">Request Kenaikan Limit Analisa</h1>
-        <p className="text-sm text-[#6B7280] mt-1">Review pengajuan penambahan limit analisa harian, riwayat limit user, dan konfigurasi rekening/tier/fitur.</p>
-        <div className="inline-flex gap-0.5 bg-[#F3F4F6] p-0.5 rounded-xl mt-5">
-          <Pill label="Request Penambahan Limit" active={tab === 'requests'} onClick={() => setTab('requests')} />
-          <Pill label="Riwayat Limit User" active={tab === 'ledger'} onClick={() => setTab('ledger')} />
-          <Pill label="Konfigurasi" active={tab === 'config'} onClick={() => setTab('config')} />
-        </div>
-      </div>
+  const detailRef = useRef<HTMLDivElement>(null)
+  // Below xl the detail card sits under the list — bring it into view on select.
+  useEffect(() => {
+    if (!selectedId || typeof window === 'undefined') return
+    if (window.matchMedia('(max-width: 1279px)').matches) {
+      detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedId])
 
-      {/* ═══════════ TAB A ═══════════ */}
-      {tab === 'requests' && (
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatTile label="Menunggu Review" value={stats?.pendingCount ?? '—'} />
-            <StatTile label="Disetujui Bulan Ini" value={stats?.approvedThisMonthCount ?? '—'} />
-            <StatTile label="Nominal Masuk Bulan Ini" value={stats ? `Rp ${fmtRupiah(stats.nominalMasukThisMonth)}` : '—'} />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex gap-2 flex-wrap">
-                {(['all', 'pending', 'approved', 'rejected'] as Status[]).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => changeStatusFilter(s)}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
-                      statusFilter === s
-                        ? 'bg-[#111827] text-white border-[#111827]'
-                        : 'bg-white text-[#6B7280] border-[#E5E7EB] hover:bg-[#F9FAFB]'
-                    }`}
-                  >
-                    {s === 'all' ? 'Semua' : s === 'pending' ? 'Menunggu' : s === 'approved' ? 'Disetujui' : 'Ditolak'}
-                  </button>
-                ))}
-              </div>
-
-              <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl overflow-x-auto shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-                <table className="w-full text-sm">
-                  <thead className="bg-[#F9FAFB] text-[#6B7280] text-xs uppercase tracking-wide">
-                    <tr>
-                      <th className="text-left px-4 py-3">User</th>
-                      <th className="text-left px-4 py-3">Paket</th>
-                      <th className="text-right px-4 py-3">Nominal</th>
-                      <th className="text-left px-4 py-3">Tanggal</th>
-                      <th className="text-left px-4 py-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {!listLoading && items.map(item => (
-                      <tr
-                        key={item.id}
-                        onClick={() => selectRequest(item.id)}
-                        className={`cursor-pointer ${selectedId === item.id ? 'bg-[#EAFBF1]' : 'bg-white hover:bg-[#F9FAFB]'}`}
-                      >
-                        <td className="px-4 py-3 font-medium text-[#111827]">{item.userName}</td>
-                        <td className="px-4 py-3 text-[#6B7280]">{item.tierLabel} · {item.totalPerDay}/hari</td>
-                        <td className="px-4 py-3 tabular-nums text-right text-[#111827]">Rp {fmtRupiah(item.totalTransfer)}</td>
-                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{fmtDateTime(item.submittedAt)}</td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[item.status]}`}>{STATUS_LABEL[item.status]}</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {listLoading && <div className="text-center py-12 text-[#9CA3AF] text-sm">Memuat…</div>}
-                {!listLoading && items.length === 0 && <div className="text-center py-12 text-[#9CA3AF] text-sm">Belum ada request.</div>}
-              </div>
-
-              {!listLoading && items.length > 0 && (
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <span className="text-xs text-[#6B7280] tabular-nums">{page}/{pageCount} · {total} data</span>
-                  <div className="flex items-center gap-2">
-                    {page > 1 && (
-                      <button onClick={() => loadList(1, statusFilter)} className="px-2.5 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition">Kembali ke Awal</button>
-                    )}
-                    <button disabled={page <= 1} onClick={() => loadList(page - 1, statusFilter)} className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40">← Sebelumnya</button>
-                    <button disabled={page >= pageCount} onClick={() => loadList(page + 1, statusFilter)} className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40">Berikutnya →</button>
-                  </div>
-                </div>
-              )}
-          </div>
-        </div>
-      )}
-
-      {/* ── REQUEST DETAIL MODAL ── */}
-      {selectedId && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center"
-          onClick={closeRequestModal}
-        >
-          <div
-            className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[88vh] flex flex-col shadow-2xl"
-            onClick={e => e.stopPropagation()}
+  const filterChips = (
+    <div role="group" aria-label="Filter status request" className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 lg:flex-wrap lg:overflow-visible">
+      {STATUS_FILTERS.map(s => {
+        const active = statusFilter === s.value
+        return (
+          <button
+            key={s.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => changeStatusFilter(s.value)}
+            className={cn(
+              'inline-flex items-center gap-1.5 shrink-0 min-h-8 max-lg:min-h-10 px-3 rounded-pill border text-sm font-medium whitespace-nowrap transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500',
+              active ? 'bg-brand text-white border-brand' : 'bg-surface text-bark-800 border-border-strong hover:bg-muted',
+            )}
           >
-            {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <div className="min-w-0">
-                <h2 className="font-semibold text-gray-900 text-base truncate">{detail?.userName ?? 'Detail Request'}</h2>
-                {detail && <p className="text-xs text-gray-400 mt-0.5">{detail.tierLabel}</p>}
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                {detail && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[detail.status]}`}>{STATUS_LABEL[detail.status]}</span>
-                )}
-                <button
-                  onClick={closeRequestModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Modal body */}
-            <div className="overflow-y-auto flex-1 px-5 py-4">
-              {detailLoading && <div className="text-center py-8 text-sm text-[#9CA3AF]">Memuat…</div>}
-              {!detailLoading && detail && (
-                <div className="space-y-3.5">
-                  <div className="text-xs space-y-1.5">
-                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Paket</span><span className="text-[#111827] font-medium">{detail.tierLabel}</span></div>
-                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Total/hari</span><span className="text-[#111827] font-medium">{detail.totalPerDay} analisa/hari</span></div>
-                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Nominal</span><span className="text-[#111827] font-medium">Rp {fmtRupiah(detail.totalTransfer)} (kode {detail.uniqueCode})</span></div>
-                    <div className="flex justify-between"><span className="text-[#9CA3AF]">Tanggal</span><span className="text-[#111827] font-medium">{fmtDateTime(detail.submittedAt)}</span></div>
-                    {detail.status === 'approved' && detail.expiresAt && (
-                      <div className="flex justify-between"><span className="text-[#9CA3AF]">Aktif hingga</span><span className="text-[#111827] font-medium">{fmtDate(detail.expiresAt)}</span></div>
-                    )}
-                  </div>
-
-                  {detail.note && (
-                    <div className="text-xs text-[#6B7280] italic bg-[#F9FAFB] rounded-lg p-2.5">&ldquo;{detail.note}&rdquo;</div>
-                  )}
-
-                  {detail.status === 'rejected' && (
-                    <div className="text-xs bg-red-50 rounded-lg p-2.5 space-y-1">
-                      <div className="font-semibold text-red-600">{detail.rejectReason}</div>
-                      {detail.rejectNote && <div className="text-red-600">{detail.rejectNote}</div>}
-                    </div>
-                  )}
-
-                  {(detail.senderAccountHolder || detail.senderAccountNumber || detail.senderBankName) && (
-                    <div className="text-xs bg-[#EAFBF1] rounded-lg p-2.5 space-y-1">
-                      <p className="text-[11px] font-semibold text-[#1F9D57] uppercase tracking-wide mb-1">Rekening Pengirim</p>
-                      {detail.senderBankName && (
-                        <div className="flex justify-between gap-2"><span className="text-[#4B7A63]">Bank</span><span className="text-[#111827] font-medium text-right">{detail.senderBankName}</span></div>
-                      )}
-                      {detail.senderAccountHolder && (
-                        <div className="flex justify-between gap-2"><span className="text-[#4B7A63]">Nama</span><span className="text-[#111827] font-medium text-right">{detail.senderAccountHolder}</span></div>
-                      )}
-                      {detail.senderAccountNumber && (
-                        <div className="flex justify-between gap-2"><span className="text-[#4B7A63]">Nomor</span><span className="text-[#111827] font-medium text-right">{detail.senderAccountNumber}</span></div>
-                      )}
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-[11px] text-[#9CA3AF] mb-1.5">Bukti Transfer</p>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={detail.proofImageUrl} alt="Bukti transfer" className="w-full h-auto rounded-lg ring-1 ring-[#E5E7EB]" />
-                  </div>
-
-                  <button
-                    onClick={() => jumpToLedger(detail.userId, detail.userName)}
-                    className="w-full text-xs font-semibold px-3 py-2.5 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[40px]"
-                  >
-                    Lihat Riwayat Limit Lengkap
-                  </button>
-
-                  {detail.status === 'pending' && (
-                    <div className="pt-3 border-t border-[#F3F4F6] space-y-2.5">
-                      <p className="text-xs font-semibold text-[#111827]">Review Request</p>
-                      <select value={reviewReason} onChange={e => setReviewReason(e.target.value)} className={inputCls}>
-                        <option value="">Pilih alasan…</option>
-                        {REJECT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                      <textarea
-                        value={reviewNote} onChange={e => setReviewNote(e.target.value)}
-                        placeholder="Catatan tambahan (opsional)" rows={2}
-                        className={`${inputCls} resize-none`}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={doReject}
-                          disabled={!reviewReason || reviewing !== null}
-                          className="flex-1 text-sm font-semibold px-3 py-2.5 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[40px]"
-                        >
-                          {reviewing === 'reject' ? '…' : 'Tolak'}
-                        </button>
-                        <button
-                          onClick={doApprove}
-                          disabled={reviewing !== null}
-                          className="flex-1 text-sm font-semibold px-3 py-2.5 rounded-lg bg-[#2ECC71] text-white hover:bg-[#28B765] transition disabled:opacity-50 min-h-[40px]"
-                        >
-                          {reviewing === 'approve' ? '…' : 'Setujui'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════ TAB B ═══════════ */}
-      {tab === 'ledger' && (
-        <div className="flex flex-col lg:flex-row gap-4 items-start">
-          <div className="w-full lg:w-[320px] lg:shrink-0 space-y-3">
-            <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-4 space-y-2.5">
-              <select value={searchField} onChange={e => setSearchField(e.target.value as 'name' | 'email' | 'id')} className={inputCls}>
-                <option value="name">Nama</option>
-                <option value="email">Email</option>
-                <option value="id">ID User</option>
-              </select>
-              <input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && runSearch()}
-                placeholder={FIELD_PLACEHOLDER[searchField]}
-                className={inputCls}
-              />
-              <button
-                onClick={runSearch}
-                disabled={!searchQuery.trim() || searching}
-                className="w-full bg-[#2ECC71] text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-[#28B765] transition disabled:opacity-50 min-h-[40px]"
-              >
-                {searching ? 'Mencari…' : 'Cari'}
-              </button>
-            </div>
-
-            {!searched && <p className="text-xs text-[#9CA3AF] text-center px-2">Ketik lalu klik Cari untuk menemukan user.</p>}
-            {searched && !searching && searchResults.length === 0 && (
-              <p className="text-xs text-[#9CA3AF] text-center px-2">Tidak ada user yang cocok.</p>
+            <s.icon size={14} aria-hidden />
+            {s.label}
+            {s.value === 'pending' && stats && stats.pendingCount > 0 && (
+              <span className={cn('min-w-[18px] px-1 rounded-pill text-[11px] font-bold', active ? 'bg-white/25' : 'bg-warning text-primary')}>{stats.pendingCount}</span>
             )}
-            {searched && !searching && searchResults.length > 0 && (
-              <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl divide-y divide-[#F3F4F6] overflow-hidden">
-                {searchResults.map(u => (
-                  <button
-                    key={u.userId}
-                    onClick={() => { setLedgerUserName(u.name); loadUserLedger(u.userId, 1) }}
-                    className={`w-full text-left px-4 py-3 transition ${ledgerUserId === u.userId ? 'bg-[#EAFBF1]' : 'hover:bg-[#F9FAFB]'}`}
-                  >
-                    <p className="text-sm font-semibold text-[#111827]">{u.name}</p>
-                    <p className="text-xs text-[#6B7280] truncate">{u.email ?? '—'} · {u.userId}</p>
-                    <p className="text-xs text-[#9CA3AF] mt-0.5">Saldo {u.dailyLimit}/hari</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0 w-full">
-            <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-5 shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-              {!ledgerUserId && (
-                <p className="text-sm text-[#9CA3AF] text-center py-10">Cari dan pilih user di panel kiri untuk melihat riwayat limitnya.</p>
-              )}
-              {ledgerUserId && ledgerLoading && <div className="text-center py-10 text-sm text-[#9CA3AF]">Memuat…</div>}
-              {ledgerUserId && !ledgerLoading && (
-                <>
-                  <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-[#111827]">{ledgerUserName}</p>
-                      <p className="text-xs text-[#9CA3AF]">Riwayat pemakaian & penambahan limit</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] text-[#9CA3AF]">Saldo saat ini</p>
-                      <p className="text-xl font-bold text-[#1F9D57] tabular-nums">{ledgerBalance}/hari</p>
-                    </div>
-                  </div>
-
-                  {ledgerRows.length === 0 ? (
-                    <p className="text-sm text-[#9CA3AF] text-center py-8">Belum ada riwayat untuk user ini.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-[#F9FAFB] text-[#6B7280] text-xs uppercase tracking-wide">
-                          <tr>
-                            <th className="text-left px-3 py-2.5">Tanggal</th>
-                            <th className="text-left px-3 py-2.5">Kejadian</th>
-                            <th className="text-right px-3 py-2.5">Sebelum</th>
-                            <th className="text-right px-3 py-2.5">Perubahan</th>
-                            <th className="text-right px-3 py-2.5">Sesudah</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ledgerRows.map((row, i) => (
-                            <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]'}>
-                              <td className="px-3 py-2.5 text-[#6B7280] whitespace-nowrap">{fmtDate(row.date)}</td>
-                              <td className="px-3 py-2.5">
-                                <span className={`text-2xs px-1.5 py-0.5 rounded-full font-medium ${LEDGER_BADGE_STYLE[row.type]}`}>{LEDGER_BADGE_LABEL[row.type]}</span>
-                                <span className="ml-1.5 text-[#111827]">{row.title}</span>
-                              </td>
-                              <td className="px-3 py-2.5 text-right tabular-nums text-[#6B7280]">{row.before}</td>
-                              <td className={`px-3 py-2.5 text-right tabular-nums font-semibold ${row.delta >= 0 ? 'text-[#1F9D57]' : 'text-red-500'}`}>
-                                {row.delta >= 0 ? `+${row.delta}` : row.delta}
-                              </td>
-                              <td className="px-3 py-2.5 text-right tabular-nums text-[#111827] font-medium">{row.after}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {ledgerRows.length > 0 && (
-                    <div className="flex items-center justify-between gap-3 flex-wrap mt-4 pt-3 border-t border-[#F3F4F6]">
-                      <span className="text-xs text-[#6B7280] tabular-nums">{ledgerPage}/{ledgerPageCount} · {ledgerTotal} data</span>
-                      <div className="flex items-center gap-2">
-                        <button disabled={ledgerPage <= 1} onClick={() => goToLedgerPage(ledgerPage - 1)} className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40">← Sebelumnya</button>
-                        <button disabled={ledgerPage >= ledgerPageCount} onClick={() => goToLedgerPage(ledgerPage + 1)} className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40">Berikutnya →</button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════ TAB C ═══════════ */}
-      {tab === 'config' && draft && (
-        <div className="space-y-5 max-w-2xl">
-          {configLoading && <div className="text-sm text-[#9CA3AF]">Memuat konfigurasi…</div>}
-
-          <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-5 shadow-[0_1px_4px_rgba(16,24,40,0.04)] space-y-3">
-            <h2 className="font-semibold text-xs uppercase tracking-wide text-[#6B7280]">Rekening Tujuan Transfer</h2>
-            <div>
-              <label className="text-xs text-[#6B7280] mb-1 block">Nama Bank</label>
-              <input value={draft.bankName} onChange={e => setDraft({ ...draft, bankName: e.target.value })} className={inputCls} placeholder="mis. BCA" />
-            </div>
-            <div>
-              <label className="text-xs text-[#6B7280] mb-1 block">Nomor Rekening Tujuan</label>
-              <input value={draft.accountNumber} onChange={e => setDraft({ ...draft, accountNumber: e.target.value })} className={inputCls} placeholder="mis. 1234567890" />
-            </div>
-            <div>
-              <label className="text-xs text-[#6B7280] mb-1 block">Atas Nama Rekening Tujuan</label>
-              <input value={draft.accountHolder} onChange={e => setDraft({ ...draft, accountHolder: e.target.value })} className={inputCls} placeholder="mis. PT Gizku Sehat Indonesia" />
-            </div>
-          </div>
-
-          <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-5 shadow-[0_1px_4px_rgba(16,24,40,0.04)] space-y-3">
-            <h2 className="font-semibold text-xs uppercase tracking-wide text-[#6B7280]">Tier / Paket Penambahan Limit</h2>
-            <div className="space-y-2.5">
-              {draft.tiers.map((t, i) => (
-                <div key={t.id ?? `new-${i}`}>
-                  <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
-                    <div className="flex-1 min-w-[120px]">
-                      <label className="text-[11px] text-[#9CA3AF] mb-1 block">Nama Tier</label>
-                      <input value={t.label} onChange={e => updateTierField(i, 'label', e.target.value)} className={inputCls} />
-                    </div>
-                    <div className="w-[110px]">
-                      <label className="text-[11px] text-[#9CA3AF] mb-1 block">Tambahan/hari</label>
-                      <input type="number" min={1} value={t.addPerDay} onChange={e => updateTierField(i, 'addPerDay', Number(e.target.value))} className={`${inputCls} ${i === tierOrderErrorIdx ? 'border-red-400' : ''}`} />
-                    </div>
-                    <div className="w-[130px]">
-                      <label className="text-[11px] text-[#9CA3AF] mb-1 block">Harga (Rp)</label>
-                      <input type="number" min={0} step={1000} value={t.price} onChange={e => updateTierField(i, 'price', Number(e.target.value))} className={inputCls} />
-                    </div>
-                    <button
-                      onClick={() => removeTier(i)}
-                      disabled={draft.tiers.length <= 1}
-                      className="text-xs px-3 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed min-h-[38px] shrink-0"
-                    >
-                      Hapus
-                    </button>
-                  </div>
-                  {i === tierOrderErrorIdx && (
-                    <p className="text-xs text-red-500 mt-1">{tierOrderError}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={addTier}
-              disabled={draft.tiers.length >= 10}
-              className="text-xs font-semibold px-3 py-2 rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              + Tambah Tier
-            </button>
-            <p className="text-[11px] text-[#9CA3AF]">{draft.tiers.length}/10 tier · limit dasar gratis 3 analisa/hari</p>
-          </div>
-
-          <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-5 shadow-[0_1px_4px_rgba(16,24,40,0.04)] space-y-2">
-            <h2 className="font-semibold text-xs uppercase tracking-wide text-[#6B7280]">Menu Ajukan Limit Tambahan</h2>
-            <button
-              type="button" onClick={() => setDraft({ ...draft, featureEnabled: !draft.featureEnabled })}
-              role="switch" aria-checked={draft.featureEnabled}
-              className="flex items-center gap-3 min-h-[40px]"
-            >
-              <div className={`w-10 h-6 rounded-full transition-colors relative ${draft.featureEnabled ? 'bg-[#2ECC71]' : 'bg-[#E5E7EB]'}`}>
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${draft.featureEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
-              </div>
-              <span className="text-sm font-medium text-[#111827]">{draft.featureEnabled ? 'Aktif' : 'Nonaktif'}</span>
-            </button>
-            <p className="text-xs text-[#6B7280]">Saat OFF, user melihat status &quot;Coming Soon&quot; dan tombol Ajukan nonaktif.</p>
-          </div>
-
-          <div className="flex items-center justify-end gap-3">
-            {tierOrderError && <span className="text-xs font-medium text-red-500">Urutan tier tidak valid</span>}
-            {!tierOrderError && dirty && <span className="text-xs font-medium text-amber-600">Ada perubahan belum disimpan</span>}
-            <button
-              onClick={() => setConfirmOpen(true)}
-              disabled={!dirty || saving || !!tierOrderError}
-              className="bg-[#2ECC71] text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[#28B765] transition disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
-            >
-              Simpan Konfigurasi
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm dialog */}
-      {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30" onClick={() => !saving && setConfirmOpen(false)}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-[#111827] text-center mb-2">Simpan perubahan konfigurasi?</h3>
-            <p className="text-sm text-[#6B7280] text-center leading-normal mb-5">
-              Perubahan rekening tujuan, tier paket, atau status fitur akan langsung berlaku bagi semua user. Pastikan data sudah benar sebelum menyimpan.
-            </p>
-            <div className="flex flex-col gap-2.5">
-              <button
-                onClick={saveConfig}
-                disabled={saving}
-                className="w-full bg-[#2ECC71] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#28B765] transition disabled:opacity-60 min-h-[44px]"
-              >
-                {saving ? 'Menyimpan…' : 'Ya, Simpan'}
-              </button>
-              <button
-                onClick={() => setConfirmOpen(false)}
-                disabled={saving}
-                className="w-full bg-white text-[#111827] px-4 py-2.5 rounded-xl text-sm font-semibold border border-[#E5E7EB] hover:bg-[#F3F4F6] transition disabled:opacity-60 min-h-[44px]"
-              >
-                Batal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </button>
+        )
+      })}
     </div>
+  )
+
+  const detailPanel = (
+    <Card
+      outline="warning"
+      icon={ClipboardList}
+      title="Detail Request"
+      tools={detail && !detailLoading ? <Badge variant={STATUS_BADGE[detail.status]}>{STATUS_LABEL[detail.status]}</Badge> : undefined}
+    >
+      {!selectedId && <EmptyState icon={ClipboardList} title="Pilih request untuk melihat detail" description="Klik salah satu request di daftar." className="p-8" />}
+      {selectedId && detailLoading && (
+        <div className="flex flex-col gap-3" aria-busy="true">
+          <Skeleton className="h-10" /><Skeleton className="h-24" /><Skeleton className="h-[150px]" />
+        </div>
+      )}
+      {selectedId && !detailLoading && detail && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <Avatar name={detail.userName} size={40} />
+            <div className="min-w-0">
+              <p className="text-md font-semibold text-primary truncate">{detail.userName}</p>
+              <p className="text-sm text-secondary">{fmtDateTime(detail.submittedAt)}</p>
+            </div>
+          </div>
+
+          <KeyValue
+            dense
+            className="border-y border-border"
+            items={[
+              { label: 'Paket', value: detail.tierLabel },
+              { label: 'Total/hari', value: `${detail.totalPerDay} analisa/hari` },
+              { label: 'Nominal', value: <>Rp {fmtRupiah(detail.totalTransfer)} <span className="text-secondary font-normal">(kode {detail.uniqueCode})</span></> },
+              ...(detail.status === 'approved' && detail.expiresAt ? [{ label: 'Aktif hingga', value: fmtDate(detail.expiresAt) }] : []),
+            ]}
+          />
+
+          {detail.note && (
+            <p className="text-base text-bark-700 italic bg-sunken rounded-sm p-3">“{detail.note}”</p>
+          )}
+
+          {detail.status === 'rejected' && (
+            <Alert variant="danger" title={detail.rejectReason ?? 'Ditolak'}>{detail.rejectNote}</Alert>
+          )}
+
+          {(detail.senderAccountHolder || detail.senderAccountNumber || detail.senderBankName) && (
+            <div>
+              <p className="flex items-center gap-2 text-base font-semibold text-primary mb-1"><Landmark size={16} className="text-secondary" aria-hidden />Rekening Pengirim</p>
+              <KeyValue
+                dense
+                items={[
+                  ...(detail.senderBankName ? [{ label: 'Bank', value: detail.senderBankName }] : []),
+                  ...(detail.senderAccountHolder ? [{ label: 'Nama', value: detail.senderAccountHolder }] : []),
+                  ...(detail.senderAccountNumber ? [{ label: 'Nomor', value: <span className="tabular-nums">{detail.senderAccountNumber}</span> }] : []),
+                ]}
+              />
+            </div>
+          )}
+
+          <div>
+            <p className="text-base font-semibold text-primary mb-1.5">Bukti Transfer</p>
+            <a
+              href={detail.proofImageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Buka bukti transfer ukuran penuh"
+              className="block rounded-sm overflow-hidden border border-border bg-muted hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={detail.proofImageUrl} alt="Bukti transfer (klik untuk perbesar)" className="w-full h-[150px] object-cover" />
+            </a>
+          </div>
+
+          <Button variant="outline" icon={History} fullWidth onClick={() => jumpToLedger(detail.userId, detail.userName)}>
+            Lihat Riwayat Limit Lengkap
+          </Button>
+
+          {detail.status === 'pending' && (
+            <div className="pt-4 border-t border-border flex flex-col gap-3">
+              <p className="text-base font-semibold text-primary">Review Request</p>
+              <FormField label="Alasan penolakan" htmlFor="reject-reason" help="Wajib diisi hanya bila menolak.">
+                <Select id="reject-reason" value={reviewReason} onChange={e => setReviewReason(e.target.value)}>
+                  <option value="">Pilih alasan…</option>
+                  {REJECT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Catatan" htmlFor="reject-note">
+                <Textarea id="reject-note" value={reviewNote} onChange={e => setReviewNote(e.target.value)} placeholder="Catatan tambahan (opsional)" rows={2} />
+              </FormField>
+              <div className="flex gap-2">
+                <Button variant="outline-danger" icon={XCircle} className="flex-1" onClick={doReject} disabled={!reviewReason || reviewing !== null} loading={reviewing === 'reject'}>Tolak</Button>
+                <Button icon={BadgeCheck} className="flex-1" onClick={doApprove} disabled={reviewing !== null} loading={reviewing === 'approve'}>Setujui</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  )
+
+  return (
+    <AdminPage title="Request Limit" breadcrumb={[{ label: 'Request Limit' }]}>
+      <Alert variant="light">
+        Review pengajuan penambahan limit analisa harian, riwayat limit user, dan konfigurasi rekening/tier/fitur.
+      </Alert>
+
+      <section className="bg-surface rounded-md shadow-card overflow-hidden">
+        <div className="px-4 pt-2.5 bg-sunken border-b border-border max-lg:p-2">
+          <Tabs
+            variant="tabs"
+            ariaLabel="Menu Request Limit"
+            idPrefix="limit"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { value: 'requests', label: 'Request Penambahan Limit', mobileLabel: 'Request' },
+              { value: 'ledger', label: 'Riwayat Limit User', mobileLabel: 'Riwayat' },
+              { value: 'config', label: 'Konfigurasi', mobileLabel: 'Konfigurasi' },
+            ]}
+          />
+        </div>
+
+        <div className="p-5 max-lg:p-3 bg-sunken" role="tabpanel" id={`limit-panel-${tab}`} aria-labelledby={`limit-tab-${tab}`}>
+          {/* ═══════════ TAB A ═══════════ */}
+          {tab === 'requests' && (
+            <div className="flex flex-col gap-5 max-lg:gap-3">
+              <div className="grid grid-cols-3 gap-5 max-lg:grid-cols-2 max-lg:gap-3">
+                <SmallBox tone="warning" icon={Hourglass} label="Menunggu Review" value={stats?.pendingCount ?? '—'} />
+                <SmallBox tone="brand" icon={CheckCircle2} label="Disetujui Bulan Ini" value={stats?.approvedThisMonthCount ?? '—'} />
+                <SmallBox tone="clay" icon={Wallet} label="Nominal Masuk Bulan Ini" value={stats ? `Rp ${fmtRupiah(stats.nominalMasukThisMonth)}` : '—'} className="max-lg:col-span-2" valueClassName="lg:text-[28px] xl:text-[34px]" />
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 max-lg:gap-3 items-start">
+                <Card
+                  icon={Inbox}
+                  title="Daftar Request"
+                  subtitle={`${total} data`}
+                  className="xl:col-span-7"
+                  noPadding
+                  footer={!listLoading && items.length > 0 ? (
+                    <Pagination page={page} totalPages={pageCount} onPage={p => loadList(p, statusFilter)} label={`${page}/${pageCount} · ${total} data`} />
+                  ) : undefined}
+                >
+                  <div className="px-4 py-3 border-b border-border">{filterChips}</div>
+                  <div className="max-lg:hidden">
+                    <DataTable
+                      rows={items}
+                      rowKey={r => r.id}
+                      loading={listLoading}
+                      emptyState={<EmptyState icon={Inbox} title="Belum ada request." />}
+                      rowClassName={r => selectedId === r.id ? 'bg-green-50 hover:bg-green-50' : undefined}
+                      columns={[
+                        { key: 'u', header: 'User', render: r => (
+                          <button
+                            type="button"
+                            onClick={() => selectRequest(r.id)}
+                            aria-pressed={selectedId === r.id}
+                            className={cn('flex items-center gap-2 text-left hover:text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 rounded-xs', r.status === 'pending' ? 'font-bold' : 'font-medium')}
+                          >
+                            <Avatar name={r.userName} size={28} />{r.userName}
+                          </button>
+                        ) },
+                        { key: 'p', header: 'Paket', className: 'text-secondary', render: r => `${r.tierLabel} · ${r.totalPerDay}/hari` },
+                        { key: 'n', header: 'Nominal', align: 'right', className: 'font-semibold whitespace-nowrap', render: r => `Rp ${fmtRupiah(r.totalTransfer)}` },
+                        { key: 't', header: 'Tanggal', className: 'text-secondary whitespace-nowrap', render: r => fmtDateTime(r.submittedAt) },
+                        { key: 's', header: 'Status', render: r => <Badge variant={STATUS_BADGE[r.status]}>{STATUS_LABEL[r.status]}</Badge> },
+                      ]}
+                    />
+                  </div>
+                  <div className="lg:hidden">
+                    {listLoading && <div className="p-4 flex flex-col gap-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12" />)}</div>}
+                    {!listLoading && items.length === 0 && <EmptyState icon={Inbox} title="Belum ada request." />}
+                    {!listLoading && items.map(r => (
+                      <ListRow
+                        key={r.id}
+                        onClick={() => selectRequest(r.id)}
+                        className={selectedId === r.id ? 'bg-green-50' : undefined}
+                        leading={<Avatar name={r.userName} size={36} />}
+                        title={r.userName}
+                        meta={`${r.tierLabel} · ${fmtDateTime(r.submittedAt)}`}
+                        trailing={
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-sm font-semibold tabular-nums">Rp {fmtRupiah(r.totalTransfer)}</span>
+                            <Badge variant={STATUS_BADGE[r.status]} size="sm">{STATUS_LABEL[r.status]}</Badge>
+                          </div>
+                        }
+                      />
+                    ))}
+                  </div>
+                </Card>
+
+                <div ref={detailRef} className="xl:col-span-5 scroll-mt-20">{detailPanel}</div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════ TAB B ═══════════ */}
+          {tab === 'ledger' && (
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 max-lg:gap-3 items-start">
+              <Card icon={Search} title="Cari User" className="xl:col-span-4" noPadding>
+                <form
+                  className="p-4 flex flex-col gap-2.5"
+                  onSubmit={e => { e.preventDefault(); runSearch() }}
+                  role="search"
+                >
+                  <div className="flex gap-2">
+                    <Select aria-label="Cari berdasarkan" value={searchField} onChange={e => setSearchField(e.target.value as 'name' | 'email' | 'id')} className="w-[110px] shrink-0">
+                      <option value="name">Nama</option>
+                      <option value="email">Email</option>
+                      <option value="id">ID User</option>
+                    </Select>
+                    <Input aria-label="Kata kunci" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={FIELD_PLACEHOLDER[searchField]} />
+                  </div>
+                  <Button type="submit" icon={Search} fullWidth disabled={!searchQuery.trim() || searching} loading={searching}>
+                    {searching ? 'Mencari…' : 'Cari'}
+                  </Button>
+                </form>
+                {!searched && <p className="text-sm text-secondary text-center px-4 pb-4">Ketik lalu klik Cari untuk menemukan user.</p>}
+                {searched && !searching && searchResults.length === 0 && (
+                  <p className="text-sm text-secondary text-center px-4 pb-4">Tidak ada user yang cocok.</p>
+                )}
+                {searched && !searching && searchResults.length > 0 && (
+                  <ul className="list-none m-0 px-3 pb-3 flex flex-col gap-2">
+                    {searchResults.map(u => {
+                      const active = ledgerUserId === u.userId
+                      return (
+                        <li key={u.userId}>
+                          <button
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => { setLedgerUserName(u.name); loadUserLedger(u.userId, 1) }}
+                            className={cn(
+                              'w-full text-left px-3 py-2.5 rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500',
+                              active ? 'border-2 border-brand bg-green-50' : 'border-border hover:bg-muted',
+                            )}
+                          >
+                            <p className="text-base font-semibold text-primary">{u.name}</p>
+                            <p className="text-sm text-secondary truncate">{u.email ?? '—'} · {u.userId}</p>
+                            <p className="text-xs text-secondary mt-0.5">Saldo {u.dailyLimit}/hari</p>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </Card>
+
+              <Card
+                icon={History}
+                title={ledgerUserName ?? 'Riwayat Limit'}
+                subtitle="Riwayat pemakaian & penambahan limit"
+                className="xl:col-span-8"
+                noPadding
+                tools={ledgerUserId && !ledgerLoading ? (
+                  <span className="text-sm text-secondary">Saldo saat ini <strong className="text-lg text-green-700 tabular-nums">{ledgerBalance} foto</strong></span>
+                ) : undefined}
+                footer={ledgerUserId && !ledgerLoading && ledgerRows.length > 0 ? (
+                  <Pagination page={ledgerPage} totalPages={ledgerPageCount} onPage={goToLedgerPage} label={`${ledgerPage}/${ledgerPageCount} · ${ledgerTotal} data`} />
+                ) : undefined}
+              >
+                {!ledgerUserId && (
+                  <EmptyState icon={Search} title="Belum ada user dipilih" description="Cari dan pilih user di panel kiri untuk melihat riwayat limitnya." />
+                )}
+                {ledgerUserId && (
+                  <DataTable
+                    rows={ledgerRows}
+                    rowKey={(_, i) => String(i)}
+                    loading={ledgerLoading}
+                    striped
+                    minWidth={560}
+                    emptyState={<EmptyState icon={Clock} title="Belum ada riwayat untuk user ini." />}
+                    columns={[
+                      { key: 'd', header: 'Tanggal', className: 'text-secondary whitespace-nowrap', render: r => fmtDate(r.date) },
+                      { key: 'k', header: 'Kejadian', render: r => (
+                        <span className="inline-flex items-center gap-2 flex-wrap"><Badge variant={LEDGER_BADGE[r.type]} size="sm">{LEDGER_BADGE_LABEL[r.type]}</Badge>{r.title}</span>
+                      ) },
+                      { key: 'b', header: 'Sebelum', align: 'right', className: 'text-secondary', render: r => r.before },
+                      { key: 'c', header: 'Perubahan', align: 'right', render: r => (
+                        <span className={cn('font-semibold', r.delta >= 0 ? 'text-green-700' : 'text-bark-800')}>{r.delta >= 0 ? `+${r.delta}` : `−${Math.abs(r.delta)}`}</span>
+                      ) },
+                      { key: 'a', header: 'Sesudah', align: 'right', className: 'font-semibold', render: r => r.after },
+                    ]}
+                  />
+                )}
+              </Card>
+            </div>
+          )}
+
+          {/* ═══════════ TAB C ═══════════ */}
+          {tab === 'config' && configLoading && (
+            <div className="flex flex-col gap-4"><Skeleton className="h-40 rounded-md" /><Skeleton className="h-60 rounded-md" /></div>
+          )}
+          {tab === 'config' && draft && !configLoading && (
+            <div className="flex flex-col gap-5 max-lg:gap-3">
+              <Card icon={Landmark} title="Rekening Tujuan Transfer">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <FormField label="Nama Bank" htmlFor="cfg-bank">
+                    <Input id="cfg-bank" value={draft.bankName} onChange={e => setDraft({ ...draft, bankName: e.target.value })} placeholder="mis. BCA" />
+                  </FormField>
+                  <FormField label="Nomor Rekening Tujuan" htmlFor="cfg-acc">
+                    <Input id="cfg-acc" inputMode="numeric" value={draft.accountNumber} onChange={e => setDraft({ ...draft, accountNumber: e.target.value })} placeholder="mis. 1234567890" />
+                  </FormField>
+                  <FormField label="Atas Nama Rekening Tujuan" htmlFor="cfg-holder">
+                    <Input id="cfg-holder" value={draft.accountHolder} onChange={e => setDraft({ ...draft, accountHolder: e.target.value })} placeholder="mis. PT Gizku Sehat Indonesia" />
+                  </FormField>
+                </div>
+              </Card>
+
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 max-lg:gap-3 items-start">
+                <Card
+                  icon={Layers}
+                  title="Tier / Paket Penambahan Limit"
+                  subtitle={`${draft.tiers.length}/10 tier · limit dasar gratis 3 analisa/hari`}
+                  className="xl:col-span-8"
+                  noPadding
+                  footer={
+                    <Button variant="outline" size="sm" icon={Plus} onClick={addTier} disabled={draft.tiers.length >= 10}>Tambah Tier</Button>
+                  }
+                >
+                  {/* Desktop: inline-editable table */}
+                  <div className="max-lg:hidden overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <th scope="col" className="px-3 py-2.5 text-sm font-semibold text-primary border-b-2 border-border text-left w-10">#</th>
+                          <th scope="col" className="px-3 py-2.5 text-sm font-semibold text-primary border-b-2 border-border text-left">Nama Tier</th>
+                          <th scope="col" className="px-3 py-2.5 text-sm font-semibold text-primary border-b-2 border-border text-left w-[150px]">Tambahan/hari</th>
+                          <th scope="col" className="px-3 py-2.5 text-sm font-semibold text-primary border-b-2 border-border text-left w-[170px]">Harga (Rp)</th>
+                          <th scope="col" className="px-3 py-2.5 border-b-2 border-border w-12"><span className="sr-only">Aksi</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draft.tiers.map((t, i) => (
+                          <tr key={t.id ?? `new-${i}`} className="align-top">
+                            <td className="px-3 py-2 border-t border-border text-secondary tabular-nums pt-4">{i + 1}</td>
+                            <td className="px-3 py-2 border-t border-border">
+                              <Input aria-label={`Nama tier ${i + 1}`} value={t.label} onChange={e => updateTierField(i, 'label', e.target.value)} />
+                              {i === tierOrderErrorIdx && <p className="text-sm text-rose-600 mt-1.5">{tierOrderError}</p>}
+                            </td>
+                            <td className="px-3 py-2 border-t border-border">
+                              <Input aria-label={`Tambahan per hari tier ${i + 1}`} type="number" min={1} value={t.addPerDay} invalid={i === tierOrderErrorIdx} onChange={e => updateTierField(i, 'addPerDay', Number(e.target.value))} />
+                            </td>
+                            <td className="px-3 py-2 border-t border-border">
+                              <Input aria-label={`Harga tier ${i + 1}`} type="number" min={0} step={1000} value={t.price} onChange={e => updateTierField(i, 'price', Number(e.target.value))} />
+                            </td>
+                            <td className="px-3 py-2 border-t border-border">
+                              <Button variant="outline-danger" size="sm" aria-label={`Hapus tier ${i + 1}`} title="Hapus tier" onClick={() => removeTier(i)} disabled={draft.tiers.length <= 1} className="px-2 mt-1"><Trash2 size={14} aria-hidden /></Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Mobile: one card per tier */}
+                  <div className="lg:hidden p-3 flex flex-col gap-3">
+                    {draft.tiers.map((t, i) => (
+                      <div key={t.id ?? `new-${i}`} className="border border-border rounded-md p-3 bg-surface">
+                        <div className="flex items-end gap-2">
+                          <FormField label={`Tier ${i + 1}`} htmlFor={`tier-m-${i}`} className="flex-1">
+                            <Input id={`tier-m-${i}`} value={t.label} onChange={e => updateTierField(i, 'label', e.target.value)} />
+                          </FormField>
+                          <Button variant="outline-danger" aria-label={`Hapus tier ${i + 1}`} onClick={() => removeTier(i)} disabled={draft.tiers.length <= 1} className="px-3 shrink-0"><Trash2 size={16} aria-hidden /></Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <FormField label="Tambahan/hari" htmlFor={`tier-m-add-${i}`}>
+                            <Input id={`tier-m-add-${i}`} type="number" inputMode="numeric" min={1} value={t.addPerDay} invalid={i === tierOrderErrorIdx} onChange={e => updateTierField(i, 'addPerDay', Number(e.target.value))} />
+                          </FormField>
+                          <FormField label="Harga (Rp)" htmlFor={`tier-m-price-${i}`}>
+                            <Input id={`tier-m-price-${i}`} type="number" inputMode="numeric" min={0} step={1000} value={t.price} onChange={e => updateTierField(i, 'price', Number(e.target.value))} />
+                          </FormField>
+                        </div>
+                        {i === tierOrderErrorIdx && <p className="text-sm text-rose-600 mt-1.5">{tierOrderError}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card icon={ToggleRight} title="Menu Ajukan Limit Tambahan" className="xl:col-span-4">
+                  <Switch
+                    checked={draft.featureEnabled}
+                    onChange={v => setDraft({ ...draft, featureEnabled: v })}
+                    label={draft.featureEnabled ? 'Aktif' : 'Nonaktif'}
+                    description="Saat OFF, user melihat status “Coming Soon” dan tombol Ajukan nonaktif."
+                  />
+                </Card>
+              </div>
+
+              {tierOrderError && (
+                <Alert variant="danger" title="Urutan tier tidak valid.">Perbaiki urutan tier sebelum menyimpan.</Alert>
+              )}
+              {!tierOrderError && dirty && (
+                <Alert
+                  variant="warning"
+                  icon={Info}
+                  action={<Button icon={Save} onClick={() => setConfirmOpen(true)} disabled={saving} className="max-sm:w-full">Simpan Konfigurasi</Button>}
+                >
+                  Ada perubahan belum disimpan.
+                </Alert>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <Modal
+        open={confirmOpen}
+        onClose={() => !saving && setConfirmOpen(false)}
+        closeDisabled={saving}
+        title="Simpan perubahan konfigurasi?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={saving}>Batal</Button>
+            <Button icon={Save} onClick={saveConfig} loading={saving}>{saving ? 'Menyimpan…' : 'Ya, Simpan'}</Button>
+          </>
+        }
+      >
+        <p className="text-base text-bark-700 leading-normal">
+          Perubahan rekening tujuan, tier paket, atau status fitur akan langsung berlaku bagi semua user. Pastikan data sudah benar sebelum menyimpan.
+        </p>
+      </Modal>
+    </AdminPage>
   )
 }

@@ -1,14 +1,36 @@
-import Link from 'next/link'
 import { db } from '@/lib/db'
 import { users, meals, reports, landingContent } from '@/drizzle/schema'
 import { count, sum, desc, eq, sql } from 'drizzle-orm'
+import {
+  Camera, ChevronRight, Database, Flame, Gauge, KeyRound, LayoutTemplate, MessageSquare, Settings, UtensilsCrossed, Users,
+} from 'lucide-react'
 import { getGlobalLimit, getCfg, getMaintenance } from '@/lib/admin'
+import { getAdminNavCounts } from '@/lib/adminCounts'
 import { fmtNum, fmtDateTime, todayISO } from '@/lib/utils'
+import AdminPage from '@/components/admin/shell/AdminPage'
+import {
+  Alert, Avatar, Badge, Button, Card, Code, DataTable, KeyValue, ListRow, ResponsiveStat, SmallBox, TrackedLink,
+} from '@/components/admin/ui'
 export const dynamic = 'force-dynamic'
+
+/** "21,4 jt" — compact Indonesian number for small mobile tiles. */
+function fmtCompact(n: number) {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} M`
+  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
+  if (n >= 10_000) return `${(n / 1_000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} rb`
+  return fmtNum(n)
+}
+
+const QUICK_LINKS = [
+  { href: '/admin/users',   icon: Users,          title: 'Kelola User',     sub: 'Aktivasi, limit, reset password' },
+  { href: '/admin/reports', icon: MessageSquare,  title: 'Laporan',         sub: 'Balas laporan & helpdesk' },
+  { href: '/admin/landing', icon: LayoutTemplate, title: 'Konten Landing',  sub: 'Hero, fitur, CTA, blog' },
+  { href: '/admin/config',  icon: Settings,       title: 'Pengaturan',      sub: 'Limit, API key, maintenance' },
+]
 
 export default async function AdminDashboard() {
   const today = todayISO()
-  const [[totUsers],[totMeals],[todayMeals],[openReports],[totLanding],globalLimit,hasKey,maintenance] = await Promise.all([
+  const [[totUsers],[totMeals],[todayMeals],[openReports],[totLanding],globalLimit,hasKey,maintenance,navCounts,modelCfg] = await Promise.all([
     db.select({ c: count() }).from(users),
     db.select({ c: count(), cal: sum(meals.totalCalories) }).from(meals),
     db.select({ c: count() }).from(meals).where(sql`DATE(logged_at) = ${today}`),
@@ -17,173 +39,118 @@ export default async function AdminDashboard() {
     getGlobalLimit(),
     getCfg('anthropic_api_key').then(k => !!(process.env.ANTHROPIC_API_KEY || k)),
     getMaintenance(),
+    getAdminNavCounts(),
+    getCfg('anthropic_model'),
   ])
-
-  const kpis = [
-    { label: 'Total User',         val: fmtNum(Number(totUsers.c)),                icon: '\ud83d\udc65' },
-    { label: 'Total Meal Logs',    val: fmtNum(Number(totMeals.c)),                icon: '\ud83c\udf7d\ufe0f' },
-    { label: 'Meal Logs Hari Ini', val: fmtNum(Number(todayMeals.c)),              icon: '\ud83d\udcc5' },
-    { label: 'Total Kalori',       val: fmtNum(Number(totMeals.cal ?? 0))+' kcal', icon: '\ud83d\udd25' },
-    { label: 'Laporan Open',       val: fmtNum(Number(openReports.c)),             icon: '\ud83d\udce3' },
-    { label: 'Konten Landing',     val: fmtNum(Number(totLanding.c))+' item',      icon: '\ud83d\udcc4' },
-  ]
+  // Same fallback as app/api/analyze/route.ts
+  const aiModel = modelCfg || 'claude-sonnet-5'
 
   const recentUsers = await db.select().from(users).orderBy(desc(users.createdAt)).limit(5)
+  const totalCal = Number(totMeals.cal ?? 0)
 
-  const hasAlert = maintenance.enabled || !hasKey
+  const statusBadge = (active: boolean) => active
+    ? <Badge variant="success">Aktif</Badge>
+    : <Badge variant="secondary">Nonaktif</Badge>
 
   return (
-    <div className="space-y-6 md:space-y-8 max-w-5xl">
+    <AdminPage title="Dashboard">
+      {maintenance.enabled && (
+        <Alert variant="warning" title="Mode Maintenance aktif." action={<Button variant="outline-warning" size="sm" icon={Settings} href="/admin/config">Buka Pengaturan</Button>}>
+          Aplikasi user sedang offline dan user yang login otomatis keluar.
+        </Alert>
+      )}
+      {!hasKey && (
+        <Alert variant="danger" title="API Key belum diset." action={<Button variant="outline-danger" size="sm" icon={KeyRound} href="/admin/config">Isi API Key</Button>}>
+          Analisa foto makanan tidak akan berjalan sampai Anthropic API Key diisi.
+        </Alert>
+      )}
 
-      {/* ════════════════════════════════════
-          Page header
-          - Desktop: judul + badge alert satu baris
-          - Mobile: judul dulu, badge alert di baris berikutnya (flex-wrap)
-          ════════════════════════════════════ */}
-      <div className="space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-[#111827]">Dashboard</h1>
-            <p className="text-sm text-[#6B7280] mt-1">{fmtDateTime(new Date())}</p>
-          </div>
-          {/* Badge alert — di desktop muncul di kanan judul */}
-          {hasAlert && (
-            <div className="hidden sm:flex items-center gap-2 shrink-0">
-              {maintenance.enabled && (
-                <span className="text-xs bg-orange-100 text-orange-700 px-3 py-1.5 rounded-full font-medium border border-orange-200 whitespace-nowrap">
-                  \u26a0\ufe0f Maintenance Aktif
-                </span>
-              )}
-              {!hasKey && (
-                <span className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-full font-medium border border-red-200 whitespace-nowrap">
-                  \u26a0\ufe0f API Key belum diset
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Badge alert mobile — di bawah judul, penuh lebar */}
-        {hasAlert && (
-          <div className="flex sm:hidden flex-wrap gap-2">
-            {maintenance.enabled && (
-              <span className="text-xs bg-orange-100 text-orange-700 px-3 py-1.5 rounded-full font-medium border border-orange-200">
-                \u26a0\ufe0f Maintenance Aktif
-              </span>
-            )}
-            {!hasKey && (
-              <span className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-full font-medium border border-red-200">
-                \u26a0\ufe0f API Key belum diset
-              </span>
-            )}
-          </div>
-        )}
+      {/* Small boxes */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 max-lg:gap-3">
+        <SmallBox tone="brand"   value={fmtNum(Number(totUsers.c))}     label="Total User"             icon={Users}           href="/admin/users" />
+        <SmallBox tone="warning" value={fmtNum(Number(todayMeals.c))}   label="Meal Logs Hari Ini"     icon={UtensilsCrossed} href="/admin/riwayat" />
+        <SmallBox tone="dark"    value={fmtNum(Number(openReports.c))}  label="Laporan Open"           icon={MessageSquare}   href="/admin/reports" />
+        <SmallBox tone="clay"    value={fmtNum(navCounts.pendingLimit)} label="Request Limit Menunggu" icon={Gauge}           href="/admin/limit" />
       </div>
 
-      {/* ════════════════════════════════════
-          KPI Grid — sudah responsive (tidak diubah)
-          ════════════════════════════════════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {kpis.map(k => (
-          <div key={k.label} className="bg-white ring-1 ring-[#E5E7EB] rounded-xl p-4 shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-            <div className="text-2xl mb-2">{k.icon}</div>
-            <div className="text-2xl font-bold tabular-nums text-[#111827] leading-tight">{k.val}</div>
-            <div className="text-xs text-[#6B7280] mt-1">{k.label}</div>
+      {/* Info boxes (desktop) / stat tiles (mobile) */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 max-lg:gap-3">
+        <ResponsiveStat icon={Database}       iconTone="brand" label="Total Meal Logs" value={fmtNum(Number(totMeals.c))} />
+        <ResponsiveStat icon={Flame}          iconTone="honey" label="Total Kalori"    value={`${fmtNum(totalCal)} kcal`} mobileValue={fmtCompact(totalCal)} sub="kcal" />
+        <ResponsiveStat icon={LayoutTemplate} iconTone="green" label="Konten Landing"  value={`${fmtNum(Number(totLanding.c))} item`} />
+        <ResponsiveStat icon={Camera}         iconTone="sand"  label="Limit Global"    value={`${globalLimit} foto/hari`} mobileValue={globalLimit} sub="foto/hari" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 max-lg:gap-4 items-start">
+        <Card
+          outline="brand"
+          icon={Users}
+          title="User Terbaru"
+          className="xl:col-span-8"
+          noPadding
+          tools={<Button variant="link" size="sm" iconRight={ChevronRight} href="/admin/users">Lihat semua</Button>}
+        >
+          <div className="max-md:hidden">
+            <DataTable
+              rows={recentUsers}
+              rowKey={u => u.id}
+              striped
+              columns={[
+                { key: 'u', header: 'Username', render: u => (
+                  <TrackedLink href={`/admin/users/${u.id}`} className="flex items-center gap-2.5 font-semibold text-link hover:text-green-800">
+                    <Avatar name={u.username} size={30} />{u.username}
+                  </TrackedLink>
+                ) },
+                { key: 'e', header: 'Email', render: u => <span className="text-secondary">{u.email ?? '—'}</span> },
+                { key: 's', header: 'Status', render: u => statusBadge(u.isActive) },
+                { key: 'j', header: 'Bergabung', className: 'text-secondary whitespace-nowrap', render: u => fmtDateTime(u.createdAt) },
+              ]}
+            />
           </div>
-        ))}
-      </div>
+          <div className="md:hidden">
+            {recentUsers.map(u => (
+              <ListRow
+                key={u.id}
+                href={`/admin/users/${u.id}`}
+                leading={<Avatar name={u.username} size={36} />}
+                title={u.username}
+                meta={fmtDateTime(u.createdAt)}
+                trailing={statusBadge(u.isActive)}
+              />
+            ))}
+          </div>
+        </Card>
 
-      {/* ════════════════════════════════════
-          Quick Links — sudah responsive (tidak diubah)
-          ════════════════════════════════════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { href: '/admin/users',   icon: '\ud83d\udc65', label: 'Kelola User' },
-          { href: '/admin/reports', icon: '\ud83d\udce3', label: 'Laporan' },
-          { href: '/admin/landing', icon: '\ud83d\udcc4', label: 'Konten Landing' },
-          { href: '/admin/config',  icon: '\u2699\ufe0f', label: 'Konfigurasi' },
-        ].map(l => (
-          <Link
-            key={l.href} href={l.href}
-            className="flex items-center gap-3 bg-white ring-1 ring-[#E5E7EB] rounded-xl p-4 hover:bg-[#F9FAFB] active:bg-[#F3F4F6] transition-colors shadow-[0_1px_4px_rgba(16,24,40,0.04)] min-h-[56px]"
-          >
-            <span className="text-xl shrink-0">{l.icon}</span>
-            <span className="text-sm font-semibold text-[#374151]">{l.label}</span>
-          </Link>
-        ))}
-      </div>
-
-      {/* ════════════════════════════════════
-          Recent Users
-          - Desktop: tabel 3 kolom (tidak berubah)
-          - Mobile: card list ringkas
-          ════════════════════════════════════ */}
-      <div className="bg-white ring-1 ring-[#E5E7EB] rounded-xl overflow-hidden shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5E7EB]">
-          <h2 className="font-semibold text-[#111827]">User Terbaru</h2>
-          <Link
-            href="/admin/users"
-            className="text-xs text-[#2ECC71] hover:text-[#1F9D57] font-medium transition-colors"
-          >
-            Lihat semua &rarr;
-          </Link>
-        </div>
-
-        {/* Desktop: tabel */}
-        <div className="hidden sm:block">
-          <table className="w-full text-sm">
-            <thead className="bg-[#F9FAFB] text-[#6B7280] text-xs uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-5 py-3">Username</th>
-                <th className="text-left px-5 py-3">Status</th>
-                <th className="text-left px-5 py-3">Bergabung</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentUsers.map((u, i) => (
-                <tr key={u.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAFB]'}>
-                  <td className="px-5 py-3 font-medium text-[#111827]">{u.username}</td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      u.isActive ? 'bg-[#D4F5E4] text-[#1F9D57]' : 'bg-[#F3F4F6] text-[#6B7280]'
-                    }`}>
-                      {u.isActive ? 'Aktif' : 'Nonaktif'}
+        <div className="xl:col-span-4 flex flex-col gap-5 max-lg:gap-4">
+          <Card title="Akses Cepat" noPadding>
+            <ul className="list-none m-0 p-0">
+              {QUICK_LINKS.map(l => (
+                <li key={l.href} className="border-t border-border first:border-t-0">
+                  <TrackedLink href={l.href} className="flex items-center gap-3 px-4 py-3 min-h-11 hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500">
+                    <span aria-hidden className="w-9 h-9 rounded-sm bg-green-50 text-brand flex items-center justify-center shrink-0"><l.icon size={18} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-base font-semibold text-primary">{l.title}</span>
+                      <span className="block text-xs text-secondary truncate">{l.sub}</span>
                     </span>
-                  </td>
-                  <td className="px-5 py-3 text-[#6B7280]">{fmtDateTime(u.createdAt)}</td>
-                </tr>
+                    <ChevronRight size={16} className="text-secondary shrink-0" aria-hidden />
+                  </TrackedLink>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </Card>
+
+          <Card title="Status Sistem">
+            <KeyValue
+              className="-my-2.5"
+              items={[
+                { label: 'Mode Maintenance', value: maintenance.enabled ? <Badge variant="warning">Aktif</Badge> : <Badge variant="soft">Nonaktif</Badge> },
+                { label: 'Anthropic API Key', value: hasKey ? <Badge variant="success">Terpasang</Badge> : <Badge variant="danger">Belum diset</Badge> },
+                { label: 'Model AI', value: <Code>{aiModel}</Code> },
+              ]}
+            />
+          </Card>
         </div>
-
-        {/* Mobile: daftar ringkas dengan divider */}
-        <ul className="sm:hidden divide-y divide-[#F3F4F6]">
-          {recentUsers.map(u => (
-            <li key={u.id} className="flex items-center justify-between px-4 py-3 gap-3">
-              {/* Avatar + info */}
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-[#D4F5E4] flex items-center justify-center shrink-0">
-                  <span className="text-xs font-bold text-[#1F9D57] uppercase">
-                    {u.username.charAt(0)}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-[#111827] truncate">{u.username}</p>
-                  <p className="text-xs text-[#9CA3AF]">{fmtDateTime(u.createdAt)}</p>
-                </div>
-              </div>
-              {/* Status badge */}
-              <span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${
-                u.isActive ? 'bg-[#D4F5E4] text-[#1F9D57]' : 'bg-[#F3F4F6] text-[#6B7280]'
-              }`}>
-                {u.isActive ? 'Aktif' : 'Nonaktif'}
-              </span>
-            </li>
-          ))}
-        </ul>
       </div>
-
-    </div>
+    </AdminPage>
   )
 }

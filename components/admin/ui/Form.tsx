@@ -63,12 +63,13 @@ export function FormField({ label, htmlFor, help, error, required, children, cla
 }
 
 /** Input with attached addons (icons, text, buttons). Pass the input as a child. */
-export function InputGroup({ prepend, append, children, className }: {
-  prepend?: React.ReactNode; append?: React.ReactNode; children: React.ReactElement; className?: string
+export function InputGroup({ prepend, append, children, className, 'aria-describedby': describedBy }: {
+  prepend?: React.ReactNode; append?: React.ReactNode; children: React.ReactElement; className?: string; 'aria-describedby'?: string
 }) {
   const addon = 'flex items-center px-3 bg-sunken border border-border-strong text-secondary shrink-0'
-  const child = cloneElement(children as React.ReactElement<{ className?: string }>, {
+  const child = cloneElement(children as React.ReactElement<{ className?: string; 'aria-describedby'?: string }>, {
     className: cn((children.props as { className?: string }).className, 'min-w-0 flex-1', prepend && 'rounded-l-none', append && 'rounded-r-none'),
+    ...(describedBy ? { 'aria-describedby': describedBy } : {}),
   })
   return (
     <div className={cn('flex items-stretch w-full', className)}>
