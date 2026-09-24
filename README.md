@@ -28,7 +28,8 @@ Backend ini juga menjadi **satu-satunya API** untuk [gizku-mobile](https://githu
 - 🧪 **Staging banner** — banner kuning yang menandai environment staging (non-production), menampilkan project ref Supabase yang sedang dipakai
 
 ### 🛠️ Admin / Backoffice
-- 📊 **Dashboard admin** — statistik ringkasan & recent users
+- 🧭 **Tampilan AdminLTE × Gizku Design System** — sidebar + navbar + breadcrumb, kartu/small-box/info-box/timeline/mailbox, memakai token warna Gizku (tanpa hex hardcoded), responsif (drawer + kartu di mobile). UI kit ada di `components/admin/ui`, shell di `components/admin/shell`
+- 📊 **Dashboard admin** — statistik ringkasan, status sistem & recent users; badge jumlah laporan open & request limit menunggu di sidebar/navbar
 - 👥 **Manajemen user** — CRUD, aktif/nonaktif, ubah daily limit, reset password (dengan audit trail siapa & kapan)
 - 🖼️ **Landing Page CMS** — seluruh konten landing page (hero, how it works, features, stats, CTA) dikonfigurasi tanpa deploy ulang, termasuk upload hero image ke Supabase Storage
 - 🦶 **Footer CMS** — kelola grup & link footer, urutan tampil, aktif/nonaktif per item
@@ -38,6 +39,7 @@ Backend ini juga menjadi **satu-satunya API** untuk [gizku-mobile](https://githu
 - 🤖 **Konfigurasi & statistik Bot Telegram** — atur bot dari backoffice, lihat statistik pemakaian
 - 📝 **Laporan & Helpdesk** — kelola laporan dari dalam aplikasi maupun inbound email (support@...) dalam satu inbox: balas laporan berbasis email langsung dari backoffice (thread berbalas, lampiran foto/video, threading `In-Reply-To`/`References`), pipeline status 4 tahap (Open/Dibalas/Menunggu user/Selesai), pencarian & filter
 - 🔧 **Maintenance mode** — aktifkan/nonaktifkan mode pemeliharaan aplikasi
+- 🔐 **Konfirmasi password di Pengaturan** — setiap simpan di `/admin/config` (limit global, API key, model AI, verifikasi email, maintenance, Closed Beta) wajib mengetik ulang password admin; ubah password admin memakai *password admin saat ini*. Diverifikasi di server (400 tanpa password, 401 bila salah)
 
 ### ⚙️ Infrastruktur
 - 🗄️ **Supabase** — database PostgreSQL utama (via Drizzle ORM) sekaligus Supabase Storage untuk file upload (hero image, bukti transfer limit, dll)
@@ -82,11 +84,14 @@ gizku-web/
 │   │   └── force-change-password/page.tsx  # Wajib ganti password (setelah admin reset)
 │   │
 │   ├── admin/                        # Backoffice (guard via middleware, cookie nl_admin_token)
-│   │   ├── layout.tsx                # Shell admin (sidebar, nav progress)
-│   │   ├── login/page.tsx
+│   │   ├── login/page.tsx            # Login admin (tanpa shell)
+│   │   ├── (panel)/                  # Route group — semua file di bawah ini berada di app/admin/(panel)/
+│   │   ├── layout.tsx                # Server layout → AdminShell (sidebar, navbar, badge counts)
 │   │   ├── page.tsx                  # Dashboard — statistik & recent users
 │   │   ├── users/page.tsx            # Manajemen user — CRUD, reset password, audit trail
-│   │   ├── reports/page.tsx          # Laporan masukan user
+│   │   ├── riwayat/                  # Cari user & timeline riwayat analisa
+│   │   ├── reports/page.tsx          # Laporan & Helpdesk — inbox (mailbox)
+│   │   ├── reports/[id]/page.tsx     # Detail laporan — thread, balas, ubah status (deep-link)
 │   │   ├── config/page.tsx           # Konfigurasi global (daily limit, maintenance, API key)
 │   │   ├── landing/page.tsx          # Editor landing page CMS
 │   │   ├── footer/page.tsx           # Editor footer CMS
@@ -412,7 +417,7 @@ Semua endpoint admin memerlukan cookie/header `Authorization: Bearer <nl_admin_t
 | Endpoint | Method | Action / Keterangan |
 |---|---|---|
 | `/api/admin` | `POST` | `login`, `logout`, `update_password`, `update_config`, `update_maintenance`, `create_user`, `update_user`, `reset_user_password`, `delete_user`, `update_report` |
-| `/api/admin` | `GET` | `user_meals`, `users` (pagination), `stats`, `config`, `reports` |
+| `/api/admin` | `GET` | `user_meals`, `users` (pagination), `stats`, `config`, `reports`, `report_thread`, `nav_counts` (badge sidebar) |
 | `/api/admin` | `DELETE` | `delete_meal`, `delete_report` |
 | `/api/admin/users/[userId]/meals` | `GET` | Riwayat meal satu user (untuk modal riwayat di halaman Users) |
 | `/api/admin/upload-image` | `POST` | Upload hero image landing page (multipart, maks. 5MB) → Supabase Storage |
@@ -425,6 +430,9 @@ Semua endpoint admin memerlukan cookie/header `Authorization: Bearer <nl_admin_t
 | `/api/admin/blast` | `GET`/`POST` | `list`, `detail`, `recipients`, `estimate`, `lookup_username`, `resolve_username` (GET); `create`, `cancel`, `check_receipts` (POST) |
 | `/api/admin/telegram/config` | `GET`/`POST` | Baca/ubah konfigurasi bot Telegram |
 | `/api/admin/telegram/stats` | `GET` | Statistik pemakaian bot (jumlah user terhubung, analisa via bot, dll) |
+| `/api/admin/beta-optin` | `GET`/`POST` | Konfigurasi Closed Beta Android: `update_enabled`, `update_content` (POST, wajib `adminPassword`) |
+
+**Konfirmasi password admin.** `update_config`, `update_maintenance` (`/api/admin`) dan `update_enabled`/`update_content` (`/api/admin/beta-optin`) wajib menyertakan `adminPassword` di body; `update_password` memakai body `{ currentPassword, newPassword }`. Tanpa password → `400 {error:'Password admin diperlukan'}`, salah → `401 {error:'Password admin salah'}`.
 
 ---
 

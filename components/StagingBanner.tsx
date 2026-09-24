@@ -1,20 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function StagingBanner() {
   const [dismissed, setDismissed] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
   const env = process.env.NEXT_PUBLIC_APP_ENV
   const isStaging = env === 'staging' || env === 'preview'
+  const visible = isStaging && !dismissed
 
-  if (!isStaging || dismissed) return null
+  // Expose the banner height as --staging-banner-h so fixed/sticky chrome
+  // (e.g. the admin shell) can offset itself instead of sitting underneath.
+  useEffect(() => {
+    const root = document.documentElement
+    const el = ref.current
+    if (!visible || !el) { root.style.setProperty('--staging-banner-h', '0px'); return }
+    const update = () => root.style.setProperty('--staging-banner-h', `${el.offsetHeight}px`)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => { ro.disconnect(); root.style.setProperty('--staging-banner-h', '0px') }
+  }, [visible])
+
+  if (!visible) return null
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
   const projectRef = supabaseUrl.match(/https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? 'unknown'
 
   return (
     <div
+      ref={ref}
       role="alert"
       aria-label="Staging environment banner"
       style={{

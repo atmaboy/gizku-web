@@ -2,6 +2,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { Eye, EyeOff, KeyRound, Lock, RotateCcw, Settings2, Shield, ShieldCheck, Smartphone, Trash2 } from 'lucide-react'
+import {
+  AddonButton, Alert, Badge, Button, Card, FormField, Input, InputGroup, KeyValue, Tabs,
+} from '@/components/admin/ui'
 import ConfirmPasswordModal, { type ConfirmRequest } from './ConfirmPasswordModal'
 
 type U = {
@@ -40,21 +44,26 @@ export default function UserDetailTabs({ user, globalLimit }: { user: U; globalL
 
   async function runConfirmed(action: string, body: Record<string, unknown>, onSuccess?: () => void) {
     setLoading(true)
-    const r = await fetch(`/api/admin?action=${action}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const d = await r.json()
-    if (r.ok) {
-      toast.success('Berhasil')
-      setConfirm(null)
-      onSuccess?.()
-      router.refresh()
-    } else {
-      toast.error(d.error)
+    try {
+      const r = await fetch(`/api/admin?action=${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const d = await r.json()
+      if (r.ok) {
+        toast.success('Berhasil')
+        setConfirm(null)
+        onSuccess?.()
+        router.refresh()
+      } else {
+        toast.error(d.error)
+      }
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   function askSave() {
@@ -115,215 +124,184 @@ export default function UserDetailTabs({ user, globalLimit }: { user: U; globalL
     })
   }
 
-  return (
-    <div className="bg-white ring-1 ring-[#E5E7EB] rounded-[18px] overflow-hidden">
-      {/* Tabs */}
-      <div className="flex border-b border-[#E5E7EB] px-5 pt-1">
-        <button
-          onClick={() => setActiveTab('config')}
-          className={`pb-2.5 pt-3.5 text-sm font-medium border-b-2 mr-6 transition ${
-            activeTab === 'config' ? 'border-[#2ECC71] text-[#111827]' : 'border-transparent text-[#6B7280] hover:text-[#111827]'
-          }`}
-        >Konfigurasi</button>
-        <button
-          onClick={() => { setActiveTab('reset'); setResetDone(false) }}
-          className={`pb-2.5 pt-3.5 text-sm font-medium border-b-2 transition flex items-center gap-1.5 ${
-            activeTab === 'reset' ? 'border-red-500 text-[#111827]' : 'border-transparent text-[#6B7280] hover:text-[#111827]'
-          }`}
-        >
-          Reset Password
-          {user.mustChangePassword && (
-            <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">!</span>
-          )}
-        </button>
-      </div>
+  const eyeBtn = (shown: boolean, toggle: () => void) => (
+    <AddonButton label={shown ? 'Sembunyikan password' : 'Tampilkan password'} onClick={toggle}>
+      {shown ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+    </AddonButton>
+  )
 
-      {/* Tab: Konfigurasi */}
+  return (
+    <Card
+      icon={Settings2}
+      title="Pengaturan Akun"
+      headerClassName="max-lg:flex-col max-lg:items-stretch"
+      toolsClassName="max-lg:w-full max-lg:ml-0"
+      tools={
+        <Tabs
+          variant="pills"
+          ariaLabel="Pengaturan akun"
+          idPrefix="user-tabs"
+          value={activeTab}
+          onChange={v => { setActiveTab(v); if (v === 'reset') setResetDone(false) }}
+          items={[
+            { value: 'config', label: 'Konfigurasi' },
+            {
+              value: 'reset', label: 'Reset Password',
+              badge: user.mustChangePassword ? <Badge variant="warning" pill size="sm" title="User wajib ganti password">!</Badge> : undefined,
+            },
+          ]}
+        />
+      }
+    >
       {activeTab === 'config' && (
-        <div className="p-5 space-y-5">
-          <div className="bg-[#F9FAFB] rounded-xl p-3.5 space-y-2">
-            <p className="text-sm font-semibold text-[#111827]">Closed Beta Tester Android</p>
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-[#6B7280]">Status opt-in</span>
-              <span className={`px-2 py-0.5 rounded-full font-medium ${
-                user.betaOptinAndroid ? 'bg-[#D4F5E4] text-[#1F9D57]' : 'bg-[#F3F4F6] text-[#9CA3AF]'
-              }`}>
-                {user.betaOptinAndroid ? 'Ikut' : 'Tidak'}
-              </span>
-            </div>
-            {user.betaOptinAndroid && (
-              <div className="flex justify-between text-xs">
-                <span className="text-[#6B7280]">Opt-in pada</span>
-                <span className="text-[#111827]">{fmtAudit(user.betaOptinAndroidAt) ?? '—'}</span>
-              </div>
-            )}
-            <p className="text-[11.5px] text-[#9CA3AF] leading-relaxed pt-0.5">
+        <div role="tabpanel" id="user-tabs-panel-config" aria-labelledby="user-tabs-tab-config" className="flex flex-col gap-5">
+          <Alert variant="light" icon={Shield}>
+            Setiap perubahan pada akun user wajib dikonfirmasi dengan password admin.
+          </Alert>
+
+          <div className="bg-sunken border border-border rounded-md p-3.5">
+            <p className="flex items-center gap-2 text-base font-semibold text-primary">
+              <Smartphone size={16} className="text-secondary" aria-hidden />Closed Beta Tester Android
+            </p>
+            <KeyValue
+              dense
+              className="mt-1"
+              items={[
+                { label: 'Status opt-in', value: user.betaOptinAndroid ? <Badge variant="soft">Ikut</Badge> : <Badge variant="light">Tidak</Badge> },
+                ...(user.betaOptinAndroid ? [{ label: 'Opt-in pada', value: fmtAudit(user.betaOptinAndroidAt) ?? '—' }] : []),
+              ]}
+            />
+            <p className="text-sm text-secondary leading-normal mt-1">
               Data ini diambil dari persetujuan user saat registrasi, digunakan untuk mendaftarkan email ke Google Play Console.
             </p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[#111827]">Limit Harian (foto/hari)</label>
-            <div className="flex gap-2">
-              <input
+          <FormField
+            label="Limit Harian (foto/hari)"
+            htmlFor="user-limit"
+            help={`Kosongkan untuk mengikuti limit global (${globalLimit}/hari).`}
+          >
+            <div className="flex gap-2 lg:max-w-[420px]">
+              <Input
+                id="user-limit"
                 type="number" min={1} max={9999}
+                inputMode="numeric"
                 value={limit}
                 onChange={e => setLimit(e.target.value)}
                 placeholder={`Default global: ${globalLimit}`}
-                className="flex-1 border border-[#E5E7EB] rounded-xl px-3 py-2.5 text-base bg-white text-[#111827]
-                  placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2ECC71] focus:border-transparent transition"
               />
-              {limit && (
-                <button
-                  onClick={() => setLimit('')}
-                  title="Reset ke global"
-                  className="text-xs border border-[#E5E7EB] px-3 rounded-xl hover:bg-[#F3F4F6] text-[#6B7280] transition min-h-[44px]"
-                >↺</button>
-              )}
+              <Button
+                variant="outline"
+                aria-label="Reset ke limit global"
+                title="Reset ke limit global"
+                onClick={() => setLimit('')}
+                disabled={!limit}
+                className="px-3 shrink-0"
+              >
+                <RotateCcw size={16} aria-hidden />
+              </Button>
             </div>
-            <p className="text-xs text-[#6B7280]">Kosongkan untuk mengikuti limit global ({globalLimit}/hari)</p>
+          </FormField>
+
+          <div className="flex flex-wrap gap-2 max-lg:flex-col">
+            <Button icon={Lock} onClick={askSave} className="max-lg:w-full">Simpan Perubahan</Button>
+            <Button variant={user.isActive ? 'outline-warning' : 'outline-primary'} icon={Lock} onClick={askToggleActive} className="max-lg:w-full">
+              {user.isActive ? 'Nonaktifkan User' : 'Aktifkan User'}
+            </Button>
           </div>
 
-          <button
-            onClick={askSave}
-            className="w-full bg-[#2ECC71] text-white py-3 rounded-xl text-sm font-medium hover:bg-[#28B765] transition min-h-[48px]"
-          >
-            Simpan Perubahan
-          </button>
-
-          <button
-            onClick={askToggleActive}
-            className={`w-full py-3 rounded-xl text-sm font-medium border transition min-h-[48px] ${
-              user.isActive
-                ? 'text-orange-600 border-orange-200 hover:bg-orange-50'
-                : 'text-[#2ECC71] border-[#BBF7D0] hover:bg-[#F0FDF4]'
-            }`}
-          >
-            {user.isActive ? 'Nonaktifkan User' : 'Aktifkan User'}
-          </button>
-
-          <div className="border-t border-[#E5E7EB] pt-4">
-            <p className="text-xs text-[#6B7280] mb-3">Zona Berbahaya</p>
-            <button
-              onClick={askDelete}
-              className="w-full py-3 rounded-xl text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition min-h-[48px]"
-            >
-              Hapus User Permanen
-            </button>
+          <div className="border-t border-border pt-4">
+            <h3 className="text-base font-semibold text-rose-600">Zona Berbahaya</h3>
+            <p className="text-sm text-secondary mt-1 mb-3 leading-normal">
+              Menghapus user juga menghapus seluruh riwayat makanan dan datanya. Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <Button variant="outline-danger" icon={Trash2} onClick={askDelete} className="max-lg:w-full">Hapus User Permanen</Button>
           </div>
         </div>
       )}
 
-      {/* Tab: Reset Password */}
       {activeTab === 'reset' && (
-        <div className="p-5 space-y-4">
-          <div className="bg-[#F9FAFB] rounded-xl p-3.5 space-y-2 text-xs">
-            <p className="font-medium text-[#111827] text-sm">Riwayat Password</p>
-            <div className="flex justify-between text-[#6B7280]">
-              <span>Terakhir diubah</span>
-              <span className="text-[#111827] font-medium">{fmtAudit(user.passwordChangedAt) ?? '—'}</span>
-            </div>
-            <div className="flex justify-between text-[#6B7280]">
-              <span>Diubah oleh</span>
-              <span>
-                {user.passwordChangedBy === 'admin' ? (
-                  <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
-                    Admin{user.adminResetBy ? ` (${user.adminResetBy})` : ''}
-                  </span>
-                ) : user.passwordChangedBy === 'user' ? (
-                  <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">User sendiri</span>
-                ) : (
-                  <span className="text-[#9CA3AF] italic">—</span>
-                )}
-              </span>
-            </div>
-            <div className="flex justify-between text-[#6B7280]">
-              <span>Status wajib ganti</span>
-              <span>
-                {user.mustChangePassword ? (
-                  <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⚠ Belum diganti</span>
-                ) : (
-                  <span className="bg-[#D4F5E4] text-[#1F9D57] px-2 py-0.5 rounded-full font-medium">✓ Normal</span>
-                )}
-              </span>
-            </div>
+        <div role="tabpanel" id="user-tabs-panel-reset" aria-labelledby="user-tabs-tab-reset" className="flex flex-col gap-4">
+          <div className="bg-sunken border border-border rounded-md p-3.5">
+            <p className="text-base font-semibold text-primary">Riwayat Password</p>
+            <KeyValue
+              dense
+              className="mt-1"
+              items={[
+                { label: 'Terakhir diubah', value: fmtAudit(user.passwordChangedAt) ?? '—' },
+                {
+                  label: 'Diubah oleh',
+                  value: user.passwordChangedBy === 'admin'
+                    ? <Badge variant="honeysoft">Admin{user.adminResetBy ? ` (${user.adminResetBy})` : ''}</Badge>
+                    : user.passwordChangedBy === 'user'
+                      ? <Badge variant="soft">User sendiri</Badge>
+                      : <span className="text-secondary font-normal">—</span>,
+                },
+                {
+                  label: 'Status wajib ganti',
+                  value: user.mustChangePassword ? <Badge variant="warning">Belum diganti</Badge> : <Badge variant="success">Normal</Badge>,
+                },
+              ]}
+            />
           </div>
 
           {resetDone ? (
-            <div className="text-center py-4 space-y-2">
-              <div className="text-3xl">🔐</div>
-              <p className="text-sm font-medium text-[#111827]">Password berhasil direset!</p>
-              <p className="text-xs text-[#6B7280]">User @{user.username} wajib mengganti password saat login berikutnya.</p>
+            <div className="text-center py-6 flex flex-col items-center gap-2">
+              <ShieldCheck size={32} className="text-brand" aria-hidden />
+              <p className="text-base font-semibold text-primary">Password berhasil direset!</p>
+              <p className="text-sm text-secondary">User @{user.username} wajib mengganti password saat login berikutnya.</p>
             </div>
           ) : (
             <>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[#111827]">Password Baru</label>
-                <div className="relative">
-                  <input
-                    type={showNewPwd ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Min. 6 karakter"
-                    className="w-full border border-[#E5E7EB] rounded-xl px-3 py-2.5 pr-10 text-base bg-white text-[#111827]
-                      placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPwd(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] transition w-8 h-8 flex items-center justify-center"
-                    aria-label={showNewPwd ? 'Sembunyikan password' : 'Tampilkan password'}
-                    tabIndex={-1}
-                  >
-                    {showNewPwd ? '🙈' : '👁'}
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <FormField label="Password Baru" htmlFor="reset-new">
+                  <InputGroup append={eyeBtn(showNewPwd, () => setShowNewPwd(v => !v))}>
+                    <Input
+                      id="reset-new"
+                      type={showNewPwd ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="Min. 6 karakter"
+                      autoComplete="new-password"
+                    />
+                  </InputGroup>
+                </FormField>
+                <FormField label="Konfirmasi Password" htmlFor="reset-confirm" error={pwdMismatch ? 'Password tidak cocok' : undefined}>
+                  <InputGroup append={eyeBtn(showConfirmPwd, () => setShowConfirmPwd(v => !v))}>
+                    <Input
+                      id="reset-confirm"
+                      type={showConfirmPwd ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="Ulangi password baru"
+                      autoComplete="new-password"
+                      invalid={pwdMismatch}
+                    />
+                  </InputGroup>
+                </FormField>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-[#111827]">Konfirmasi Password</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPwd ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder="Ulangi password baru"
-                    className={`w-full border rounded-xl px-3 py-2.5 pr-10 text-base bg-white text-[#111827]
-                      placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 transition ${
-                      pwdMismatch ? 'border-red-300 focus:ring-red-200' : 'border-[#E5E7EB] focus:ring-red-300 focus:border-transparent'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPwd(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] transition w-8 h-8 flex items-center justify-center"
-                    aria-label={showConfirmPwd ? 'Sembunyikan password' : 'Tampilkan password'}
-                    tabIndex={-1}
-                  >
-                    {showConfirmPwd ? '🙈' : '👁'}
-                  </button>
-                </div>
-                {pwdMismatch && <p className="text-xs text-red-500">Password tidak cocok</p>}
-              </div>
+              <Alert variant="warning" title="Perhatian.">
+                Setelah direset, user akan dipaksa mengganti password saat login berikutnya. Beritahu user password sementara ini secara langsung.
+              </Alert>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 space-y-1">
-                <p className="font-medium">⚠ Perhatian</p>
-                <p>Setelah direset, user akan dipaksa mengganti password saat login berikutnya. Beritahu user password sementara ini secara langsung.</p>
+              <div>
+                <Button
+                  variant="danger"
+                  icon={KeyRound}
+                  onClick={askResetPassword}
+                  disabled={pwdMismatch || newPassword.length < 6}
+                  className="max-lg:w-full"
+                >
+                  Reset Password User
+                </Button>
               </div>
-
-              <button
-                onClick={askResetPassword}
-                disabled={pwdMismatch || newPassword.length < 6}
-                className="w-full py-3 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px]"
-              >
-                🔑 Reset Password User
-              </button>
             </>
           )}
         </div>
       )}
 
       <ConfirmPasswordModal request={confirm} loading={loading} onCancel={() => setConfirm(null)} />
-    </div>
+    </Card>
   )
 }
