@@ -1,6 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { toast as sonner } from 'sonner'
+import { BookOpen, Eye, EyeOff, Footprints, Link2, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import GizkuLogo from '@/components/GizkuLogo'
+import AdminPage from '@/components/admin/shell/AdminPage'
+import {
+  Badge, Button, Card, Code, EmptyState, FormField, Input, ListRow, Modal, Select, Skeleton, Switch, Textarea, type BadgeVariant,
+} from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 
 /* ─── Types ─────────────────────────────────────────────── */
 type FooterRow = {
@@ -57,26 +65,18 @@ const META_TYPES = [
   { value: 'brand',       label: 'Brand / Logo' },
 ]
 
-const META_TYPE_COLORS: Record<string, string> = {
-  brand:       '#8B5CF6',
-  tagline:     '#2ECC71',
-  copyright:   '#6B7280',
-  links_group: '#3B82F6',
-  social:      '#F59E0B',
+const META_TYPE_BADGE: Record<string, BadgeVariant> = {
+  brand:       'secondary',
+  tagline:     'light',
+  links_group: 'soft',
+  social:      'honeysoft',
+  copyright:   'secondary',
 }
 
 /* ─── Helper ─────────────────────────────────────────────── */
 function toast(msg: string, type: 'success' | 'error' = 'success') {
-  const el = document.createElement('div')
-  el.textContent = msg
-  el.style.cssText = `
-    position:fixed;bottom:24px;right:24px;z-index:9999;
-    padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;
-    color:#fff;background:${type === 'success' ? '#2ECC71' : '#EF4444'};
-    box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:opacity 0.4s;
-  `
-  document.body.appendChild(el)
-  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400) }, 2800)
+  if (type === 'success') sonner.success(msg)
+  else sonner.error(msg)
 }
 
 function rowToForm(r: FooterRow): FormState {
@@ -112,34 +112,11 @@ function formToPayload(f: FormState) {
   }
 }
 
-/* ─── Input component ───────────────────────────────────── */
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-        {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
-      </label>
-      {children}
-    </div>
-  )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '9px 12px', borderRadius: 8,
-  border: '1.5px solid #E5E7EB', fontSize: 14, outline: 'none',
-  background: '#fff', color: '#111827', transition: 'border-color 0.15s',
-}
 
 /* ─── Badge ─────────────────────────────────────────────── */
 function TypeBadge({ type }: { type: string }) {
-  const color = META_TYPE_COLORS[type] ?? '#6B7280'
   const label = META_TYPES.find(m => m.value === type)?.label ?? type
-  return (
-    <span style={{
-      padding: '2px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-      background: color + '18', color,
-    }}>{label}</span>
-  )
+  return <Badge variant={META_TYPE_BADGE[type] ?? 'light'} size="sm">{label}</Badge>
 }
 
 /* ─── Preview Panel ─────────────────────────────────────── */
@@ -153,57 +130,40 @@ function FooterPreview({ rows }: { rows: FooterRow[] }) {
   const socialLinks = (social?.meta?.links as LinkItem[]) ?? []
 
   return (
-    <div style={{
-      background: '#111827', borderRadius: 16, padding: '40px 32px 28px',
-      marginBottom: 32, border: '1px solid #1F2937',
-    }}>
-      <p style={{ fontSize: 10, fontWeight: 700, color: '#4B5563', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 24 }}>PREVIEW FOOTER</p>
-
-      {/* Top: brand + links */}
-      <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap', marginBottom: 32, paddingBottom: 28, borderBottom: '1px solid #1F2937' }}>
-        {/* Brand column */}
-        <div style={{ flex: '0 0 200px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2ECC71', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: '#fff', fontWeight: 900, fontSize: 13 }}>G</span>
+    <Card title="Pratinjau Footer" icon={Eye} noPadding>
+      <div className="bg-bark-900 px-8 pt-8 pb-6 max-lg:px-5">
+        <div className="flex gap-12 max-lg:gap-6 flex-wrap mb-7 pb-6 border-b border-white/10">
+          <div className="basis-[200px] shrink-0">
+            <div className="flex items-center gap-2.5 mb-2.5">
+              <GizkuLogo size={28} />
+              <span className="text-white font-bold text-lg">{brand?.title ?? 'Gizku'}</span>
             </div>
-            <span style={{ color: '#fff', fontWeight: 800, fontSize: 17 }}>{brand?.title ?? 'Gizku'}</span>
-          </div>
-          <p style={{ fontSize: 13, color: '#6B7280', lineHeight: 1.6 }}>{tagline?.subtitle ?? 'AI Nutrition Companion'}</p>
-          {/* Social icons */}
-          {socialLinks.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-              {socialLinks.map((l, i) => (
-                <span key={i} style={{
-                  padding: '5px 10px', borderRadius: 8,
-                  background: '#1F2937', color: '#9CA3AF', fontSize: 11, fontWeight: 600,
-                }}>{l.label}</span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Link group columns */}
-        {linkGroups.map((g) => {
-          const links = (g.meta?.links as LinkItem[]) ?? []
-          return (
-            <div key={g.id} style={{ flex: '0 0 140px' }}>
-              <p style={{ fontSize: 11, fontWeight: 800, color: '#9CA3AF', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{g.title}</p>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {links.map((l, i) => (
-                  <li key={i} style={{ fontSize: 13, color: '#6B7280' }}>{l.label}</li>
+            <p className="text-sm text-sand-300 leading-relaxed">{tagline?.subtitle ?? 'AI Nutrition Companion'}</p>
+            {socialLinks.length > 0 && (
+              <div className="flex gap-2 mt-3.5 flex-wrap">
+                {socialLinks.map((l, i) => (
+                  <span key={i} className="px-2.5 py-1 rounded-sm bg-bark-800 text-sand-200 text-xs font-semibold">{l.label}</span>
                 ))}
-              </ul>
-            </div>
-          )
-        })}
+              </div>
+            )}
+          </div>
+          {linkGroups.map(g => {
+            const links = (g.meta?.links as LinkItem[]) ?? []
+            return (
+              <div key={g.id} className="basis-[140px] shrink-0">
+                <p className="text-xs font-bold text-sand-200 mb-3 uppercase tracking-[0.06em]">{g.title}</p>
+                <ul className="list-none p-0 m-0 flex flex-col gap-2">
+                  {links.map((l, i) => <li key={i} className="text-sm text-sand-300">{l.label}</li>)}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+        <p className="text-xs text-sand-300 text-center">
+          {copyright?.title ?? `© ${new Date().getFullYear()} Gizku. Dibuat untuk hidup lebih sehat.`}
+        </p>
       </div>
-
-      {/* Copyright */}
-      <p style={{ fontSize: 12, color: '#4B5563', textAlign: 'center' }}>
-        {copyright?.title ?? `© ${new Date().getFullYear()} Gizku. Dibuat dengan 💚 untuk hidup lebih sehat.`}
-      </p>
-    </div>
+    </Card>
   )
 }
 
@@ -216,6 +176,8 @@ export default function FooterConfigPage() {
   const [form, setForm]         = useState<FormState>(EMPTY_FORM)
   const [showForm, setShowForm] = useState(false)
   const [preview, setPreview]   = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<FooterRow | null>(null)
+  const formRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -270,7 +232,6 @@ export default function FooterConfigPage() {
   }
 
   async function del(id: number) {
-    if (!confirm('Hapus item ini?')) return
     setDeleting(id)
     try {
       const res = await fetch('/api/admin/footer', {
@@ -281,6 +242,8 @@ export default function FooterConfigPage() {
       const j = await res.json()
       if (!res.ok) { toast(j.error ?? 'Gagal menghapus', 'error'); return }
       toast(j.message ?? 'Dihapus')
+      setConfirmDelete(null)
+      if (form.id === id) { setShowForm(false); setForm(EMPTY_FORM) }
       load()
     } catch {
       toast('Terjadi kesalahan', 'error')
@@ -292,7 +255,7 @@ export default function FooterConfigPage() {
   function edit(r: FooterRow) {
     setForm(rowToForm(r))
     setShowForm(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
   function setLink(i: number, field: 'label' | 'url', val: string) {
@@ -305,249 +268,217 @@ export default function FooterConfigPage() {
   function addLink()              { setForm(f => ({ ...f, meta_links: [...f.meta_links, { label: '', url: '' }] })) }
   function removeLink(i: number) { setForm(f => ({ ...f, meta_links: f.meta_links.filter((_, j) => j !== i) })) }
 
-  const S: React.CSSProperties = {
-    fontFamily: '\'Plus Jakarta Sans\', system-ui, sans-serif',
-    maxWidth: 880, margin: '0 auto',
-  }
+  const linkEditor = (form.meta_type === 'links_group' || form.meta_type === 'social') && (
+    <fieldset>
+      <legend className="text-base font-semibold text-primary mb-2">{form.meta_type === 'social' ? 'Social Media Links' : 'Daftar Link'}</legend>
+      <div className="flex flex-col gap-2.5">
+        {form.meta_links.length === 0 && <p className="text-sm text-secondary">Belum ada link.</p>}
+        {form.meta_links.map((l, i) => (
+          <div key={i} className="flex gap-2 items-start max-lg:flex-col max-lg:border max-lg:border-border max-lg:rounded-md max-lg:p-3 max-lg:bg-sunken">
+            <div className="flex gap-2 w-full lg:w-[38%] lg:shrink-0 items-center">
+              <Input aria-label={`Label link ${i + 1}`} value={l.label} onChange={e => setLink(i, 'label', e.target.value)} placeholder="Label (misal: Instagram)" />
+              <Button variant="outline-danger" aria-label={`Hapus link ${i + 1}`} onClick={() => removeLink(i)} className="px-3 shrink-0 lg:hidden"><X size={16} aria-hidden /></Button>
+            </div>
+            <Input aria-label={`URL link ${i + 1}`} value={l.url} onChange={e => setLink(i, 'url', e.target.value)} placeholder="URL (misal: https://instagram.com/gizku)" />
+            <Button variant="outline-danger" aria-label={`Hapus link ${i + 1}`} onClick={() => removeLink(i)} className="px-2.5 shrink-0 max-lg:hidden"><X size={14} aria-hidden /></Button>
+          </div>
+        ))}
+      </div>
+      <Button variant="outline-primary" size="sm" icon={Plus} onClick={addLink} className="mt-2.5">Tambah Link</Button>
+    </fieldset>
+  )
+
+  const formCard = (
+    <Card
+      outline="brand"
+      icon={form.id ? Pencil : Plus}
+      title={form.id ? `Edit Item: ${form.slug}` : 'Tambah Item'}
+      tools={<Button variant="tool" size="sm" aria-label="Tutup form" onClick={() => { setShowForm(false); setForm(EMPTY_FORM) }} className="px-2"><X size={16} aria-hidden /></Button>}
+      footer={
+        <div className="flex justify-end gap-2 max-lg:flex-col-reverse">
+          <Button variant="outline" onClick={() => { setShowForm(false); setForm(EMPTY_FORM) }}>Batal</Button>
+          <Button icon={Save} loading={saving} onClick={save}>{saving ? 'Menyimpan…' : form.id ? 'Update' : 'Simpan'}</Button>
+        </div>
+      }
+      bodyClassName="flex flex-col gap-4"
+    >
+      <FormField label="Slug" htmlFor="ft-slug" required>
+        <Select id="ft-slug" value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}>
+          <option value="">— Pilih slug —</option>
+          {SLUG_PRESETS.map(p => <option key={p.value} value={p.value}>{p.label} ({p.value})</option>)}
+        </Select>
+      </FormField>
+      <FormField label="Tipe Konten" htmlFor="ft-type" required>
+        <Select id="ft-type" value={form.meta_type} onChange={e => setForm(f => ({ ...f, meta_type: e.target.value, meta_links: [] }))}>
+          {META_TYPES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+        </Select>
+      </FormField>
+      <FormField label="Title" htmlFor="ft-title" required>
+        <Input
+          id="ft-title"
+          value={form.title}
+          onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+          placeholder={form.meta_type === 'copyright' ? '© 2025 Gizku. Semua hak dilindungi.' : form.meta_type === 'brand' ? 'Gizku' : 'Judul atau nama grup'}
+        />
+      </FormField>
+      <FormField label="Subtitle" htmlFor="ft-subtitle">
+        <Input id="ft-subtitle" value={form.subtitle} onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))} placeholder="Sub-teks (opsional)" />
+      </FormField>
+      <div className="grid grid-cols-2 gap-4 items-end">
+        <FormField label="Urutan" htmlFor="ft-sort">
+          <Input id="ft-sort" type="number" inputMode="numeric" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))} />
+        </FormField>
+        <div className="pb-2">
+          <Switch checked={form.isActive} onChange={v => setForm(f => ({ ...f, isActive: v }))} label={form.isActive ? 'Aktif' : 'Nonaktif'} />
+        </div>
+      </div>
+      {linkEditor}
+      <FormField label="Body / Keterangan Tambahan" htmlFor="ft-body">
+        <Textarea id="ft-body" value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} rows={2} placeholder="Teks tambahan (opsional)" />
+      </FormField>
+    </Card>
+  )
+
+  const linkCount = (r: FooterRow) => Array.isArray(r.meta?.links) ? (r.meta?.links as LinkItem[]).length : 0
+  const guide = (
+    <Card title="Panduan Slug Footer" icon={BookOpen} noPadding>
+      <dl className="divide-y divide-border">
+        {SLUG_PRESETS.map(p => (
+          <div key={p.value} className="flex items-center justify-between gap-3 px-4 py-2.5">
+            <dt><Code>{p.value}</Code></dt>
+            <dd className="text-base text-bark-700 text-right">{p.label}</dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  )
+
+  const emptyList = (
+    <EmptyState
+      icon={Footprints}
+      title="Belum ada item footer"
+      description="Klik “Tambah Item” untuk mulai mengonfigurasi footer."
+      action={<Button icon={Plus} onClick={() => { setForm(EMPTY_FORM); setShowForm(true) }}>Tambah Item</Button>}
+    />
+  )
 
   return (
-    <div style={S}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>Konfigurasi Footer</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>Kelola teks, link, dan konten footer landing page Gizku</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setPreview(p => !p)}
-            style={{
-              padding: '9px 18px', borderRadius: 10, border: '1.5px solid #E5E7EB',
-              background: preview ? '#F0FDF4' : '#fff', color: preview ? '#15803D' : '#374151',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            {preview ? '✓ Preview Aktif' : '👁 Preview'}
-          </button>
-          <button
-            onClick={() => { setForm(EMPTY_FORM); setShowForm(s => !s) }}
-            style={{
-              padding: '9px 18px', borderRadius: 10, border: 'none',
-              background: '#111827', color: '#fff',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            {showForm ? '✕ Tutup Form' : '+ Tambah Item'}
-          </button>
-        </div>
-      </div>
-
-      {/* Preview */}
+    <AdminPage title="Konfigurasi Footer" breadcrumb={[{ label: 'Halaman Publik' }, { label: 'Footer' }]}>
       {preview && <FooterPreview rows={rows} />}
 
-      {/* Form */}
-      {showForm && (
-        <div style={{
-          background: '#F9FAFB', borderRadius: 16, padding: 24,
-          border: '1.5px solid #E5E7EB', marginBottom: 28,
-        }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 20 }}>
-            {form.id ? '✏️ Edit Item Footer' : '➕ Tambah Item Footer'}
-          </h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-            <Field label="Slug" required>
-              <select
-                value={form.slug}
-                onChange={e => setForm(f => ({ ...f, slug: e.target.value }))}
-                style={inputStyle}
-              >
-                <option value="">— Pilih slug —</option>
-                {SLUG_PRESETS.map(p => (
-                  <option key={p.value} value={p.value}>{p.label} ({p.value})</option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Tipe Konten" required>
-              <select
-                value={form.meta_type}
-                onChange={e => setForm(f => ({ ...f, meta_type: e.target.value, meta_links: [] }))}
-                style={inputStyle}
-              >
-                {META_TYPES.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Title" required>
-              <input
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder={form.meta_type === 'copyright' ? '© 2025 Gizku. Semua hak dilindungi.' : form.meta_type === 'brand' ? 'Gizku' : 'Judul atau nama grup'}
-                style={inputStyle}
-              />
-            </Field>
-
-            <Field label="Subtitle">
-              <input
-                value={form.subtitle}
-                onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))}
-                placeholder="Sub-teks (opsional)"
-                style={inputStyle}
-              />
-            </Field>
-
-            <Field label="Urutan (Sort Order)">
-              <input
-                type="number"
-                value={form.sortOrder}
-                onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
-                style={{ ...inputStyle, width: 100 }}
-              />
-            </Field>
-
-            <Field label="Status">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))}
-                  style={{ width: 16, height: 16, accentColor: '#2ECC71' }}
-                />
-                Aktif
-              </label>
-            </Field>
-          </div>
-
-          {/* Links editor — untuk links_group & social */}
-          {(form.meta_type === 'links_group' || form.meta_type === 'social') && (
-            <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {form.meta_type === 'social' ? 'Social Media Links' : 'Daftar Link'}
-              </p>
-              {form.meta_links.map((l, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'center' }}>
-                  <input
-                    value={l.label}
-                    onChange={e => setLink(i, 'label', e.target.value)}
-                    placeholder="Label (misal: Instagram)"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                  <input
-                    value={l.url}
-                    onChange={e => setLink(i, 'url', e.target.value)}
-                    placeholder="URL (misal: https://instagram.com/gizku)"
-                    style={{ ...inputStyle, flex: 2 }}
-                  />
-                  <button
-                    onClick={() => removeLink(i)}
-                    style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: '#FEF2F2', color: '#EF4444', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
-                  >✕</button>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 max-lg:gap-4 items-start">
+        <div className="xl:col-span-7 flex flex-col gap-5 max-lg:gap-4 min-w-0">
+          <Card
+            outline="brand"
+            icon={Footprints}
+            title="Item Footer"
+            subtitle="Teks, link, dan konten footer landing page Gizku"
+            noPadding
+            tools={
+              <>
+                <Button variant="outline" size="sm" icon={preview ? EyeOff : Eye} aria-pressed={preview} onClick={() => setPreview(p => !p)}>
+                  {preview ? 'Tutup Preview' : 'Preview'}
+                </Button>
+                <Button size="sm" icon={Plus} onClick={() => { setForm(EMPTY_FORM); setShowForm(true); requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}>Tambah Item</Button>
+              </>
+            }
+          >
+            {loading ? (
+              <div className="p-4 flex flex-col gap-3">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-10" />)}</div>
+            ) : rows.length === 0 ? emptyList : (
+              <>
+                <div className="max-lg:hidden overflow-x-auto">
+                  <table className="w-full border-collapse min-w-[640px]">
+                    <thead>
+                      <tr>
+                        {['Slug', 'Tipe', 'Title', 'Link', 'Urutan', 'Status', ''].map((h, i) => (
+                          <th key={i} scope="col" className={cn('px-3 py-2.5 text-sm font-semibold text-primary border-b-2 border-border whitespace-nowrap', i === 4 ? 'text-center' : 'text-left')}>
+                            {h || <span className="sr-only">Aksi</span>}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(r => (
+                        <tr key={r.id} className={cn('hover:bg-muted/60 transition-colors', form.id === r.id && showForm && 'bg-green-50', !r.isActive && 'text-secondary')}>
+                          <td className="px-3 py-2.5 border-t border-border"><Code>{r.slug}</Code></td>
+                          <td className="px-3 py-2.5 border-t border-border"><TypeBadge type={(r.meta?.type as string) ?? 'unknown'} /></td>
+                          <td className="px-3 py-2.5 border-t border-border text-base font-semibold max-w-[200px] truncate">{r.title}</td>
+                          <td className="px-3 py-2.5 border-t border-border text-sm text-secondary whitespace-nowrap">{linkCount(r) ? `${linkCount(r)} link` : '—'}</td>
+                          <td className="px-3 py-2.5 border-t border-border text-center tabular-nums">{r.sortOrder}</td>
+                          <td className="px-3 py-2.5 border-t border-border">
+                            <button
+                              type="button"
+                              onClick={() => toggleActive(r.id, r.isActive)}
+                              aria-pressed={r.isActive}
+                              title={r.isActive ? 'Klik untuk nonaktifkan' : 'Klik untuk aktifkan'}
+                              className={cn('px-2 py-[3px] rounded-pill text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500', r.isActive ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-muted text-secondary hover:bg-sand-200')}
+                            >
+                              {r.isActive ? 'Aktif' : 'Nonaktif'}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2.5 border-t border-border">
+                            <div className="flex gap-1.5 justify-end">
+                              <Button variant="outline-primary" size="sm" icon={Pencil} onClick={() => edit(r)}>Edit</Button>
+                              <Button variant="outline-danger" size="sm" aria-label={`Hapus ${r.slug}`} title="Hapus" loading={deleting === r.id} onClick={() => setConfirmDelete(r)} className="px-2">
+                                {deleting !== r.id && <Trash2 size={14} aria-hidden />}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
-              <button
-                onClick={addLink}
-                style={{ padding: '8px 16px', borderRadius: 8, border: '1.5px dashed #D1FAE5', background: '#F0FDF4', color: '#15803D', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-              >+ Tambah Link</button>
-            </div>
+                <div className="lg:hidden">
+                  {rows.map(r => (
+                    <ListRow
+                      key={r.id}
+                      leading={<span className="w-8 h-8 rounded-full bg-muted text-bark-800 text-sm font-semibold flex items-center justify-center shrink-0 tabular-nums">{r.sortOrder}</span>}
+                      title={<span className={cn(!r.isActive && 'text-secondary')}>{r.title}</span>}
+                      meta={<span className="inline-flex items-center gap-1.5 flex-wrap">{r.slug} <TypeBadge type={(r.meta?.type as string) ?? 'unknown'} />{linkCount(r) > 0 && <span className="inline-flex items-center gap-0.5"><Link2 size={12} aria-hidden />{linkCount(r)}</span>}{!r.isActive && <Badge variant="light" size="sm">Nonaktif</Badge>}</span>}
+                      trailing={
+                        <>
+                          <Button variant="outline-primary" aria-label={`Edit ${r.slug}`} onClick={() => edit(r)} className="px-3"><Pencil size={16} aria-hidden /></Button>
+                          <Button variant="outline-danger" aria-label={`Hapus ${r.slug}`} loading={deleting === r.id} onClick={() => setConfirmDelete(r)} className="px-3">{deleting !== r.id && <Trash2 size={16} aria-hidden />}</Button>
+                        </>
+                      }
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
+          <div className="max-xl:hidden">{guide}</div>
+        </div>
+
+        <div ref={formRef} className="xl:col-span-5 scroll-mt-20 min-w-0">
+          {showForm ? formCard : (
+            <Card title="Form Item" icon={Pencil} className="max-xl:hidden">
+              <EmptyState icon={Pencil} title="Pilih item untuk diedit" description="Klik Edit pada salah satu item, atau tambah item baru." className="p-8" />
+            </Card>
           )}
-
-          {/* Body (free text) */}
-          <Field label="Body / Keterangan Tambahan">
-            <textarea
-              value={form.body}
-              onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-              rows={2}
-              placeholder="Teks tambahan (opsional)"
-              style={{ ...inputStyle, resize: 'vertical' }}
-            />
-          </Field>
-
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button
-              onClick={() => { setShowForm(false); setForm(EMPTY_FORM) }}
-              style={{ padding: '10px 20px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-            >Batal</button>
-            <button
-              onClick={save}
-              disabled={saving}
-              style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: saving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
-            >{saving ? 'Menyimpan…' : form.id ? 'Update' : 'Simpan'}</button>
-          </div>
         </div>
-      )}
-
-      {/* Table */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 48, color: '#9CA3AF', fontSize: 14 }}>Memuat…</div>
-      ) : rows.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 64, background: '#F9FAFB', borderRadius: 16, border: '1.5px dashed #E5E7EB' }}>
-          <p style={{ fontSize: 32, marginBottom: 12 }}>🦶</p>
-          <p style={{ fontWeight: 700, color: '#374151', marginBottom: 6 }}>Belum ada item footer</p>
-          <p style={{ fontSize: 13, color: '#9CA3AF' }}>Klik "+ Tambah Item" untuk mulai mengonfigurasi footer.</p>
-        </div>
-      ) : (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1.5px solid #E5E7EB', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                {['Slug', 'Title', 'Tipe', 'Urutan', 'Status', 'Aksi'].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 700, color: '#6B7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.id} style={{ borderBottom: i < rows.length - 1 ? '1px solid #F3F4F6' : 'none', background: r.isActive ? '#fff' : '#F9FAFB' }}>
-                  <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: 12, color: '#374151' }}>{r.slug}</td>
-                  <td style={{ padding: '12px 16px', fontWeight: 600, color: '#111827', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</td>
-                  <td style={{ padding: '12px 16px' }}><TypeBadge type={(r.meta?.type as string) ?? 'unknown'} /></td>
-                  <td style={{ padding: '12px 16px', color: '#6B7280', textAlign: 'center' }}>{r.sortOrder}</td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <button
-                      onClick={() => toggleActive(r.id, r.isActive)}
-                      style={{
-                        padding: '3px 10px', borderRadius: 100, border: 'none', cursor: 'pointer',
-                        fontSize: 11, fontWeight: 700,
-                        background: r.isActive ? '#D1FAE5' : '#F3F4F6',
-                        color: r.isActive ? '#15803D' : '#9CA3AF',
-                      }}
-                    >{r.isActive ? 'Aktif' : 'Nonaktif'}</button>
-                  </td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button
-                        onClick={() => edit(r)}
-                        style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                      >Edit</button>
-                      <button
-                        onClick={() => del(r.id)}
-                        disabled={deleting === r.id}
-                        style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#FEF2F2', color: '#EF4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                      >{deleting === r.id ? '…' : 'Hapus'}</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Guide */}
-      <div style={{ marginTop: 32, padding: 20, background: '#F0FDF4', borderRadius: 12, border: '1px solid #BBF7D0' }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#15803D', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>💡 Panduan Slug Footer</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 4 }}>
-          {SLUG_PRESETS.map(p => (
-            <div key={p.value} style={{ fontSize: 12, color: '#374151' }}>
-              <code style={{ fontSize: 11, color: '#15803D', background: '#DCFCE7', padding: '1px 6px', borderRadius: 4 }}>{p.value}</code> — {p.label}
-            </div>
-          ))}
-        </div>
+        <div className="xl:hidden">{guide}</div>
       </div>
-    </div>
+
+      <Modal
+        open={!!confirmDelete}
+        onClose={() => deleting === null && setConfirmDelete(null)}
+        closeDisabled={deleting !== null}
+        title="Hapus item ini?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)} disabled={deleting !== null}>Batal</Button>
+            <Button variant="danger" icon={Trash2} loading={deleting !== null} onClick={() => confirmDelete && del(confirmDelete.id)}>Hapus</Button>
+          </>
+        }
+      >
+        <p className="text-base text-bark-700 leading-normal">
+          Item <Code>{confirmDelete?.slug}</Code> akan dihapus dari footer landing page.
+        </p>
+      </Modal>
+    </AdminPage>
   )
 }

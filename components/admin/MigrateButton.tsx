@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { DatabaseZap } from 'lucide-react'
+import { Alert, Button } from '@/components/admin/ui'
 
 export default function MigrateButton({ token }: { token: string }) {
   const [loading, setLoading] = useState(false)
@@ -28,23 +30,20 @@ export default function MigrateButton({ token }: { token: string }) {
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">
-        Pindahkan data lama dari <strong>Supabase KV Store</strong> ke PostgreSQL.
-        Jalankan <strong>sekali</strong> setelah deploy pertama.
+    <div className="flex flex-col gap-3">
+      <p className="text-base text-secondary">
+        Pindahkan data lama dari <strong className="text-primary">Supabase KV Store</strong> ke PostgreSQL.
+        Jalankan <strong className="text-primary">sekali</strong> setelah deploy pertama.
       </p>
-      <button
-        onClick={run}
-        disabled={loading}
-        className="bg-orange-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-orange-700 disabled:opacity-50 transition-colors"
-      >
-        {loading ? '⏳ Migrasi berjalan…' : '🚀 Jalankan Migrasi KV → PostgreSQL'}
-      </button>
+      <div>
+        <Button variant="warning" icon={DatabaseZap} loading={loading} onClick={run}>
+          {loading ? 'Migrasi berjalan…' : 'Jalankan Migrasi KV → PostgreSQL'}
+        </Button>
+      </div>
       {result && (
-        <div className="border rounded-xl p-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-sm font-mono">
-          <p className="font-semibold text-green-700 dark:text-green-400 mb-1">✅ Migrasi selesai:</p>
-          <p>👥 Users: {result.users} · 🍽️ Meals: {result.meals} · 📣 Reports: {result.reports} · ⚙️ Config: {result.config}</p>
-        </div>
+        <Alert variant="info" title="Migrasi selesai:">
+          <span className="font-mono text-sm">Users: {result.users} · Meals: {result.meals} · Reports: {result.reports} · Config: {result.config}</span>
+        </Alert>
       )}
     </div>
   )

@@ -1,8 +1,20 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { toast as sonner } from 'sonner'
+import {
+  ChevronLeft, ChevronRight, Eye, FilePlus2, FileText, Info, Layers, Pencil, Plus, Save, Smartphone, Trash2, X,
+} from 'lucide-react'
 import RichTextEditor from '@/components/admin/RichTextEditor'
+import AdminPage from '@/components/admin/shell/AdminPage'
+import {
+  Alert, Badge, Button, Card, EmptyState, FormField, Input, ListRow, Modal, Select, Skeleton, Tabs, Textarea,
+  useDialogBehavior,
+} from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 
+/* ─── Types ─────────────────────────────────────────────── */
 /* ─── Types ─────────────────────────────────────────────── */
 type LangContent = { title: string; bodyHtml: string }
 type DocumentRow = {
@@ -21,16 +33,8 @@ const EMPTY_LANG: LangContent = { title: '', bodyHtml: '' }
 
 /* ─── Helpers ───────────────────────────────────────────── */
 function toast(msg: string, type: 'success' | 'error' = 'success') {
-  const el = document.createElement('div')
-  el.textContent = msg
-  el.style.cssText = `
-    position:fixed;bottom:24px;right:24px;z-index:9999;
-    padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;
-    color:#fff;background:${type === 'success' ? '#2ECC71' : '#EF4444'};
-    box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:opacity 0.4s;
-  `
-  document.body.appendChild(el)
-  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400) }, 2600)
+  if (type === 'success') sonner.success(msg)
+  else sonner.error(msg)
 }
 
 function slugify(str: string) {
@@ -41,15 +45,6 @@ function fmtDate(d: string) {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(d))
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10,
-  border: '1.5px solid #E5E7EB', fontSize: 14, fontFamily: 'inherit', outline: 'none', color: '#111827', background: '#fff',
-}
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 6,
-  textTransform: 'uppercase', letterSpacing: '0.04em',
-}
-const cardStyle: React.CSSProperties = { background: '#fff', border: '1.5px solid #E5E7EB', borderRadius: 14, padding: 20, boxSizing: 'border-box' }
 
 /* ─── Main Page ─────────────────────────────────────────── */
 export default function LegalDocumentsPage() {
@@ -79,6 +74,27 @@ export default function LegalDocumentsPage() {
   const [previewLang, setPreviewLang] = useState<'id' | 'en'>('id')
   const [previewView, setPreviewView] = useState<'about' | 'detail'>('about')
   const [previewSlug, setPreviewSlug] = useState<string | null>(null)
+
+  // In-app confirmation (replaces window.confirm for deletes)
+  const [confirmReq, setConfirmReq] = useState<{ title: string; message: string; label: string; onConfirm: () => void } | null>(null)
+  function askDeleteDoc(id: string) {
+    const doc = documents.find(d => d.id === id)
+    setConfirmReq({
+      title: 'Hapus dokumen ini?',
+      message: `“${doc?.langs.id.title || 'Dokumen tanpa judul'}” akan dihapus dan tidak lagi tampil di aplikasi.`,
+      label: 'Hapus Dokumen',
+      onConfirm: () => deleteDoc(id),
+    })
+  }
+  function askRemoveType(key: string) {
+    const t = documentTypes.find(x => x.key === key)
+    setConfirmReq({
+      title: 'Hapus jenis dokumen ini?',
+      message: `Jenis “${t?.label ?? key}” akan dihapus dari pilihan.`,
+      label: 'Hapus Jenis',
+      onConfirm: () => removeType(key),
+    })
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -161,7 +177,7 @@ export default function LegalDocumentsPage() {
   }
 
   async function deleteDoc(id: string) {
-    if (!confirm('Hapus dokumen ini?')) return
+    setConfirmReq(null)
     setDeletingId(id)
     try {
       const res = await fetch('/api/admin/legal?action=delete_document', {
@@ -197,7 +213,7 @@ export default function LegalDocumentsPage() {
   }
 
   async function removeType(key: string) {
-    if (!confirm('Hapus jenis dokumen ini?')) return
+    setConfirmReq(null)
     try {
       const res = await fetch('/api/admin/legal?action=delete_type', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key }),
@@ -248,63 +264,104 @@ export default function LegalDocumentsPage() {
   }
   const previewDoc = previewSlug ? documents.find(d => d.slug === previewSlug) : null
 
-  const S: React.CSSProperties = { fontFamily: '\'Plus Jakarta Sans\', system-ui, sans-serif', maxWidth: 1000, margin: '0 auto' }
+
+  const editorRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (view === 'editor' && typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches) {
+      editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [view, draft?.id])
+
+  const crumbs = [{ label: 'Halaman Publik' }, { label: 'Dokumen Legal' }]
 
   if (loading) {
-    return <div style={{ ...S, textAlign: 'center', padding: 64, color: '#9CA3AF', fontSize: 14 }}>Memuat…</div>
+    return (
+      <AdminPage title="Dokumen Legal" breadcrumb={crumbs}>
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+          <Skeleton className="xl:col-span-5 h-[360px] rounded-md" />
+          <Skeleton className="xl:col-span-7 h-[480px] rounded-md" />
+        </div>
+      </AdminPage>
+    )
   }
 
   return (
-    <div style={S}>
-      {view === 'list' && (
-        <ListView
-          documents={documents}
-          documentTypes={documentTypes}
-          about={about}
-          deletingId={deletingId}
-          onNewDoc={openNewDoc}
-          onEditDoc={openEditDoc}
-          onDeleteDoc={deleteDoc}
-          onOpenTypesModal={() => setTypesModalOpen(true)}
-          onOpenAboutModal={openAboutModal}
-          onOpenPreview={openPreview}
-        />
-      )}
+    <AdminPage title="Dokumen Legal" breadcrumb={crumbs}>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 max-lg:gap-4 items-start">
+        <div className="xl:col-span-5 flex flex-col gap-5 max-lg:gap-4 min-w-0 max-xl:order-2">
+          <ListView
+            documents={documents}
+            documentTypes={documentTypes}
+            deletingId={deletingId}
+            activeId={view === 'editor' ? draft?.id ?? null : null}
+            onNewDoc={openNewDoc}
+            onEditDoc={openEditDoc}
+            onOpenTypesModal={() => setTypesModalOpen(true)}
+          />
+          <Card
+            title="Konten Halaman Tentang Aplikasi"
+            icon={Info}
+            tools={
+              <>
+                <Button variant="outline" size="sm" icon={Eye} onClick={openPreview}>Preview</Button>
+                <Button variant="outline-primary" size="sm" icon={Pencil} onClick={openAboutModal}>Edit</Button>
+              </>
+            }
+          >
+            <p className="text-base text-bark-700 leading-normal">{about.id.description || <em className="not-italic text-secondary">Belum diisi</em>}</p>
+            <p className="text-sm text-secondary leading-normal mt-2.5"><strong className="text-primary">Disclaimer:</strong> {about.id.disclaimer || '—'}</p>
+          </Card>
+          <Alert variant="light">
+            Isi dokumen disanitasi (allowlist tag: paragraf, judul H3, list, tebal, miring) sebelum disimpan. Setiap dokumen yang disimpan langsung terbit dan diambil aplikasi berdasarkan slug-nya.
+          </Alert>
+        </div>
 
-      {view === 'editor' && draft && (
-        <EditorView
-          draft={draft}
-          documentTypes={documentTypes}
-          activeLang={activeLang}
-          setActiveLang={setActiveLang}
-          setDraftLang={setDraftLang}
-          setDraftType={(typeKey) => setDraft(d => d && ({ ...d, typeKey }))}
-          addTypeOpen={addTypeOpen}
-          setAddTypeOpen={setAddTypeOpen}
-          newTypeName={newTypeName}
-          setNewTypeName={setNewTypeName}
-          confirmAddType={confirmAddType}
-          onBack={backToList}
-          onSave={saveDraft}
-          onDelete={() => draft.id && deleteDoc(draft.id)}
-          saving={saving}
-          deleting={deletingId === draft.id}
-        />
-      )}
+        <div ref={editorRef} className="xl:col-span-7 min-w-0 scroll-mt-20 max-xl:order-1">
+          {view === 'editor' && draft ? (
+            <EditorView
+              draft={draft}
+              documentTypes={documentTypes}
+              activeLang={activeLang}
+              setActiveLang={setActiveLang}
+              setDraftLang={setDraftLang}
+              setDraftType={(typeKey) => setDraft(d => d && ({ ...d, typeKey }))}
+              addTypeOpen={addTypeOpen}
+              setAddTypeOpen={setAddTypeOpen}
+              newTypeName={newTypeName}
+              setNewTypeName={setNewTypeName}
+              confirmAddType={confirmAddType}
+              onBack={backToList}
+              onSave={saveDraft}
+              onDelete={() => draft.id && askDeleteDoc(draft.id)}
+              saving={saving}
+              deleting={deletingId === draft.id}
+            />
+          ) : (
+            <Card title="Edit Dokumen" icon={Pencil} className="max-xl:hidden">
+              <EmptyState
+                icon={FileText}
+                title="Pilih dokumen untuk diedit"
+                description="Klik Edit pada salah satu dokumen, atau buat dokumen baru."
+                action={<Button icon={FilePlus2} onClick={openNewDoc}>Dokumen Baru</Button>}
+              />
+            </Card>
+          )}
+        </div>
+      </div>
 
-      {typesModalOpen && (
-        <TypesModal
-          types={documentTypes}
-          newName={typesModalNewName}
-          setNewName={setTypesModalNewName}
-          onAdd={addTypeFromModal}
-          onRemove={removeType}
-          onClose={() => setTypesModalOpen(false)}
-        />
-      )}
+      <TypesModal
+        open={typesModalOpen}
+        types={documentTypes}
+        newName={typesModalNewName}
+        setNewName={setTypesModalNewName}
+        onAdd={addTypeFromModal}
+        onRemove={askRemoveType}
+        onClose={() => setTypesModalOpen(false)}
+      />
 
-      {aboutModalOpen && aboutDraft && (
+      {aboutDraft && (
         <AboutModal
+          open={aboutModalOpen}
           draft={aboutDraft}
           activeLang={aboutActiveLang}
           setActiveLang={setAboutActiveLang}
@@ -315,116 +372,128 @@ export default function LegalDocumentsPage() {
         />
       )}
 
-      {previewOpen && (
-        <PreviewPanel
-          about={about}
-          documents={documents}
-          lang={previewLang}
-          setLang={setPreviewLang}
-          view={previewView}
-          previewDoc={previewDoc ?? null}
-          onOpenDoc={(slug) => { setPreviewSlug(slug); setPreviewView('detail') }}
-          onBackAbout={() => { setPreviewView('about'); setPreviewSlug(null) }}
-          onClose={() => setPreviewOpen(false)}
-        />
-      )}
-    </div>
+      <PreviewPanel
+        open={previewOpen}
+        about={about}
+        documents={documents}
+        lang={previewLang}
+        setLang={setPreviewLang}
+        view={previewView}
+        previewDoc={previewDoc ?? null}
+        onOpenDoc={(slug) => { setPreviewSlug(slug); setPreviewView('detail') }}
+        onBackAbout={() => { setPreviewView('about'); setPreviewSlug(null) }}
+        onClose={() => setPreviewOpen(false)}
+      />
+
+      <Modal
+        open={!!confirmReq}
+        onClose={() => setConfirmReq(null)}
+        title={confirmReq?.title ?? ''}
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmReq(null)}>Batal</Button>
+            <Button variant="danger" icon={Trash2} onClick={() => confirmReq?.onConfirm()}>{confirmReq?.label}</Button>
+          </>
+        }
+      >
+        <p className="text-base text-bark-700 leading-normal">{confirmReq?.message}</p>
+      </Modal>
+    </AdminPage>
   )
 }
 
 /* ─── List View ─────────────────────────────────────────── */
+function LangBadges({ doc }: { doc: DocumentRow }) {
+  return (
+    <span className="inline-flex gap-1">
+      <Badge variant={doc.langs.id.title ? 'soft' : 'light'} size="sm">ID</Badge>
+      <Badge variant={doc.langs.en.title ? 'soft' : 'light'} size="sm">{doc.langs.en.title ? 'EN' : 'EN belum'}</Badge>
+    </span>
+  )
+}
+
 function ListView({
-  documents, documentTypes, about, deletingId,
-  onNewDoc, onEditDoc, onDeleteDoc, onOpenTypesModal, onOpenAboutModal, onOpenPreview,
+  documents, documentTypes, deletingId, activeId, onNewDoc, onEditDoc, onOpenTypesModal,
 }: {
   documents: DocumentRow[]
   documentTypes: DocType[]
-  about: AboutState
   deletingId: string | null
+  activeId: string | null
   onNewDoc: () => void
   onEditDoc: (d: DocumentRow) => void
-  onDeleteDoc: (id: string) => void
   onOpenTypesModal: () => void
-  onOpenAboutModal: () => void
-  onOpenPreview: () => void
 }) {
   const typeLabel = (key: string) => documentTypes.find(t => t.key === key)?.label ?? key
 
   return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>Dokumen Legal</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4, maxWidth: 560, lineHeight: 1.6 }}>
-            Kelola dokumen legal (Syarat &amp; Ketentuan, Kebijakan Privasi, dan lainnya). Setiap dokumen yang disimpan langsung terbit dan diambil oleh aplikasi berdasarkan slug-nya.
-          </p>
+    <Card
+      outline="brand"
+      icon={FileText}
+      title="Dokumen Legal"
+      subtitle="Syarat & Ketentuan, Kebijakan Privasi, dan lainnya"
+      noPadding
+      tools={
+        <div className="max-lg:hidden flex gap-1.5">
+          <Button variant="outline" size="sm" icon={Layers} onClick={onOpenTypesModal}>Kelola Jenis</Button>
+          <Button size="sm" icon={Plus} onClick={onNewDoc}>Dokumen Baru</Button>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button onClick={onOpenPreview} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            Preview di Aplikasi
-          </button>
-          <button onClick={onNewDoc} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-            + Dokumen Baru
-          </button>
+      }
+      footer={
+        <div className="lg:hidden grid grid-cols-2 gap-2">
+          <Button variant="outline" icon={Layers} onClick={onOpenTypesModal}>Kelola Jenis</Button>
+          <Button icon={Plus} onClick={onNewDoc}>Dokumen Baru</Button>
         </div>
-      </div>
-
-      <div style={{ marginBottom: 14 }}>
-        <button onClick={onOpenTypesModal} style={{ background: 'none', border: 'none', color: '#15803D', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-          Kelola Jenis Dokumen
-        </button>
-      </div>
-
+      }
+    >
       {documents.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 64, background: '#F9FAFB', borderRadius: 16, border: '1.5px dashed #E5E7EB' }}>
-          <p style={{ fontWeight: 700, color: '#374151', marginBottom: 6 }}>Belum ada dokumen legal</p>
-          <p style={{ fontSize: 13, color: '#9CA3AF' }}>Klik &ldquo;+ Dokumen Baru&rdquo; untuk mulai menambahkan.</p>
-        </div>
+        <EmptyState icon={FileText} title="Belum ada dokumen legal" description="Klik “Dokumen Baru” untuk mulai menambahkan." />
       ) : (
-        <div style={{ background: '#fff', border: '1.5px solid #E5E7EB', borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.9fr 1fr 1.3fr', gap: 12, padding: '12px 20px', background: '#F9FAFB', fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            <div>Dokumen</div><div>Bahasa</div><div>Diubah</div><div style={{ textAlign: 'right' }}>Aksi</div>
+        <>
+          <div className="max-lg:hidden overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  {['Dokumen', 'Bahasa', 'Diubah', ''].map((h, i) => (
+                    <th key={i} scope="col" className="px-3 py-2.5 text-sm font-semibold text-primary border-b-2 border-border text-left whitespace-nowrap">
+                      {h || <span className="sr-only">Aksi</span>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {documents.map(doc => (
+                  <tr key={doc.id} className={cn('hover:bg-muted/60 transition-colors', activeId === doc.id && 'bg-green-50 hover:bg-green-50')}>
+                    <td className="px-3 py-2.5 border-t border-border">
+                      <p className="text-base font-semibold text-primary">{doc.langs.id.title || <em className="not-italic text-secondary">(tanpa judul)</em>}</p>
+                      <p className="text-xs text-secondary mt-0.5">{typeLabel(doc.typeKey)} · /legal/{doc.slug}</p>
+                    </td>
+                    <td className="px-3 py-2.5 border-t border-border"><LangBadges doc={doc} /></td>
+                    <td className="px-3 py-2.5 border-t border-border text-sm text-secondary whitespace-nowrap">{fmtDate(doc.updatedAt)}</td>
+                    <td className="px-3 py-2.5 border-t border-border text-right">
+                      <Button variant="outline-primary" size="sm" icon={Pencil} onClick={() => onEditDoc(doc)} loading={deletingId === doc.id}>Edit</Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          {documents.map((doc, i) => {
-            const hasId = !!doc.langs.id.title
-            const hasEn = !!doc.langs.en.title
-            return (
-              <div key={doc.id} style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.9fr 1fr 1.3fr', gap: 12, padding: '16px 20px', borderTop: i > 0 ? '1px solid #F3F4F6' : 'none', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{doc.langs.id.title || <em style={{ color: '#9CA3AF', fontStyle: 'normal' }}>(tanpa judul)</em>}</div>
-                  <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{typeLabel(doc.typeKey)}</div>
-                </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 7px', borderRadius: 6, background: hasId ? '#D1FAE5' : '#F3F4F6', color: hasId ? '#15803D' : '#9CA3AF' }}>ID</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 7px', borderRadius: 6, background: hasEn ? '#D1FAE5' : '#F3F4F6', color: hasEn ? '#15803D' : '#9CA3AF' }}>EN</span>
-                </div>
-                <div style={{ fontSize: 12.5, color: '#6B7280' }}>{fmtDate(doc.updatedAt)}</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-                  <button onClick={() => onEditDoc(doc)} style={{ background: 'none', border: 'none', color: '#15803D', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Edit</button>
-                  <span style={{ color: '#E5E7EB' }}>&middot;</span>
-                  <button onClick={() => onDeleteDoc(doc.id)} disabled={deletingId === doc.id} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
-                    {deletingId === doc.id ? '…' : 'Hapus'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+          <div className="lg:hidden">
+            {documents.map(doc => (
+              <ListRow
+                key={doc.id}
+                onClick={() => onEditDoc(doc)}
+                leading={<span aria-hidden className="w-9 h-9 rounded-sm bg-green-50 text-brand flex items-center justify-center shrink-0"><FileText size={18} /></span>}
+                title={doc.langs.id.title || '(tanpa judul)'}
+                meta={<span className="inline-flex items-center gap-2 flex-wrap">{fmtDate(doc.updatedAt)} <LangBadges doc={doc} /></span>}
+                trailing={<ChevronRight size={18} className="text-secondary" aria-hidden />}
+                className={activeId === doc.id ? 'bg-green-50' : undefined}
+              />
+            ))}
+          </div>
+        </>
       )}
-
-      <div style={{ ...cardStyle, marginTop: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
-          <div>
-            <div style={labelStyle}>Konten Halaman Tentang Aplikasi</div>
-            <p style={{ margin: '8px 0 0', fontSize: 13.5, color: '#374151', lineHeight: 1.6, maxWidth: 540 }}>{about.id.description || <em style={{ color: '#9CA3AF', fontStyle: 'normal' }}>Belum diisi</em>}</p>
-            <p style={{ margin: '10px 0 0', fontSize: 12, color: '#6B7280', lineHeight: 1.5, maxWidth: 540 }}><strong style={{ color: '#374151' }}>Disclaimer:</strong> {about.id.disclaimer || '—'}</p>
-          </div>
-          <button onClick={onOpenAboutModal} style={{ background: '#fff', color: '#374151', border: '1.5px solid #E5E7EB', borderRadius: 10, padding: '9px 16px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            Edit Konten
-          </button>
-        </div>
-      </div>
-    </>
+    </Card>
   )
 }
 
@@ -452,103 +521,104 @@ function EditorView({
   deleting: boolean
 }) {
   const slugPreview = slugify(draft.langs.id.title)
-  const tabBase: React.CSSProperties = { flex: 1, textAlign: 'center', padding: '10px 0', cursor: 'pointer', fontSize: 14, fontWeight: 700 }
 
   return (
-    <div style={{ maxWidth: 980, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
-        <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: 10, background: '#fff', border: '1.5px solid #E5E7EB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#111827' }} aria-label="Kembali">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 5l-7 7 7 7" /></svg>
-        </button>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#111827' }}>{draft.id ? 'Edit Dokumen' : 'Dokumen Baru'}</h2>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={cardStyle}>
-            <label style={labelStyle}>Jenis Dokumen</label>
-            <select
-              value={draft.typeKey}
-              onChange={e => {
-                if (e.target.value === '__add_new__') { setAddTypeOpen(true); return }
-                setDraftType(e.target.value)
-              }}
-              style={{ ...inputStyle, cursor: 'pointer' }}
-            >
-              {documentTypes.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
-              <option value="__add_new__">+ Tambah jenis baru…</option>
-            </select>
-            {addTypeOpen && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <input value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="Nama jenis dokumen baru" style={{ ...inputStyle, flex: 1 }} />
-                <button onClick={confirmAddType} style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Tambah</button>
-                <button onClick={() => { setAddTypeOpen(false); setNewTypeName('') }} style={{ padding: '0 16px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
-              </div>
-            )}
-          </div>
-
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', margin: '-20px -20px 18px' }}>
-              <div onClick={() => setActiveLang('id')} style={{ ...tabBase, borderBottom: activeLang === 'id' ? '2px solid #2ECC71' : '2px solid transparent', color: activeLang === 'id' ? '#15803D' : '#6B7280' }}>Bahasa Indonesia</div>
-              <div onClick={() => setActiveLang('en')} style={{ ...tabBase, borderBottom: activeLang === 'en' ? '2px solid #2ECC71' : '2px solid transparent', color: activeLang === 'en' ? '#15803D' : '#6B7280' }}>English</div>
-            </div>
-
-            <div style={{ display: activeLang === 'id' ? 'block' : 'none' }}>
-              <label style={labelStyle}>Judul</label>
-              <input value={draft.langs.id.title} onChange={e => setDraftLang('id', 'title', e.target.value)} placeholder="mis. Syarat & Ketentuan" style={inputStyle} />
-              <label style={{ ...labelStyle, marginTop: 16 }}>Isi Dokumen</label>
-              <RichTextEditor
-                value={draft.langs.id.bodyHtml}
-                onChange={html => setDraftLang('id', 'bodyHtml', html)}
-                placeholder="Tulis isi dokumen di sini…"
-                resetKey={`${draft.id ?? 'new'}-id`}
-              />
-            </div>
-
-            <div style={{ display: activeLang === 'en' ? 'block' : 'none' }}>
-              <label style={labelStyle}>Title</label>
-              <input value={draft.langs.en.title} onChange={e => setDraftLang('en', 'title', e.target.value)} placeholder="e.g. Terms & Conditions" style={inputStyle} />
-              <label style={{ ...labelStyle, marginTop: 16 }}>Document Content</label>
-              <RichTextEditor
-                value={draft.langs.en.bodyHtml}
-                onChange={html => setDraftLang('en', 'bodyHtml', html)}
-                placeholder="Write document content here…"
-                resetKey={`${draft.id ?? 'new'}-en`}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={cardStyle}>
-            <label style={labelStyle}>Slug</label>
-            <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 10px', fontSize: 12.5, color: '#6B7280', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-              /{slugPreview}
-            </div>
-          </div>
-
+    <Card
+      outline="brand"
+      icon={draft.id ? Pencil : FilePlus2}
+      title={draft.id ? 'Edit Dokumen' : 'Dokumen Baru'}
+      tools={<Button variant="outline" size="sm" icon={ChevronLeft} onClick={onBack}>Kembali</Button>}
+      footer={
+        <div className="flex items-center gap-2 flex-wrap max-lg:flex-col-reverse max-lg:items-stretch">
           {draft.id && (
-            <button onClick={onDelete} disabled={deleting} style={{ background: '#fff', color: '#EF4444', border: '1.5px solid #EF4444', borderRadius: 10, padding: '10px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              {deleting ? 'Menghapus…' : 'Hapus Dokumen'}
-            </button>
+            <Button variant="outline-danger" icon={Trash2} onClick={onDelete} loading={deleting}>{deleting ? 'Menghapus…' : 'Hapus Dokumen'}</Button>
           )}
+          <div className="flex-1 max-lg:hidden" />
+          <Button variant="outline" onClick={onBack}>Batal</Button>
+          <Button icon={Save} onClick={onSave} loading={saving}>{saving ? 'Menyimpan…' : 'Simpan Dokumen'}</Button>
+        </div>
+      }
+      bodyClassName="flex flex-col gap-4"
+    >
+      <FormField label="Jenis Dokumen" htmlFor="lg-type">
+        <Select
+          id="lg-type"
+          value={draft.typeKey}
+          onChange={e => {
+            if (e.target.value === '__add_new__') { setAddTypeOpen(true); return }
+            setDraftType(e.target.value)
+          }}
+        >
+          {documentTypes.map(opt => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
+          <option value="__add_new__">+ Tambah jenis baru…</option>
+        </Select>
+      </FormField>
+      {addTypeOpen && (
+        <div className="flex gap-2 -mt-1 max-lg:flex-col">
+          <Input aria-label="Nama jenis dokumen baru" value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="Nama jenis dokumen baru" />
+          <div className="flex gap-2 shrink-0">
+            <Button icon={Plus} onClick={confirmAddType} className="max-lg:flex-1">Tambah</Button>
+            <Button variant="outline" onClick={() => { setAddTypeOpen(false); setNewTypeName('') }} className="max-lg:flex-1">Batal</Button>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <Tabs
+          variant="tabs"
+          ariaLabel="Bahasa dokumen"
+          idPrefix="legal-lang"
+          items={[{ value: 'id', label: 'Bahasa Indonesia' }, { value: 'en', label: 'English' }]}
+          value={activeLang}
+          onChange={setActiveLang}
+          className="lg:border-b lg:border-border"
+        />
+      </div>
+
+      <div role="tabpanel" id="legal-lang-panel-id" aria-labelledby="legal-lang-tab-id" className={cn('flex-col gap-4', activeLang === 'id' ? 'flex' : 'hidden')}>
+        <FormField label="Judul" htmlFor="lg-title-id">
+          <Input id="lg-title-id" value={draft.langs.id.title} onChange={e => setDraftLang('id', 'title', e.target.value)} placeholder="mis. Syarat & Ketentuan" />
+        </FormField>
+        <div>
+          <p className="mb-1.5 text-base font-semibold text-primary">Isi Dokumen</p>
+          <RichTextEditor
+            value={draft.langs.id.bodyHtml}
+            onChange={html => setDraftLang('id', 'bodyHtml', html)}
+            placeholder="Tulis isi dokumen di sini…"
+            resetKey={`${draft.id ?? 'new'}-id`}
+            ariaLabel="Isi dokumen (Bahasa Indonesia)"
+          />
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
-        <button onClick={onBack} style={{ padding: '10px 24px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
-        <button onClick={onSave} disabled={saving} style={{ padding: '10px 28px', borderRadius: 10, border: 'none', background: saving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-          {saving ? 'Menyimpan…' : 'Simpan Dokumen'}
-        </button>
+      <div role="tabpanel" id="legal-lang-panel-en" aria-labelledby="legal-lang-tab-en" className={cn('flex-col gap-4', activeLang === 'en' ? 'flex' : 'hidden')}>
+        <FormField label="Title" htmlFor="lg-title-en">
+          <Input id="lg-title-en" value={draft.langs.en.title} onChange={e => setDraftLang('en', 'title', e.target.value)} placeholder="e.g. Terms & Conditions" />
+        </FormField>
+        <div>
+          <p className="mb-1.5 text-base font-semibold text-primary">Document Content</p>
+          <RichTextEditor
+            value={draft.langs.en.bodyHtml}
+            onChange={html => setDraftLang('en', 'bodyHtml', html)}
+            placeholder="Write document content here…"
+            resetKey={`${draft.id ?? 'new'}-en`}
+            ariaLabel="Document content (English)"
+          />
+        </div>
       </div>
-    </div>
+
+      <FormField label="Slug" help="URL publik dibentuk dari judul Bahasa Indonesia.">
+        <div className="bg-sunken border border-border rounded-sm px-3 py-2 text-sm text-bark-700 font-mono break-all">/legal/{slugPreview}</div>
+      </FormField>
+    </Card>
   )
 }
 
 /* ─── Document Types Modal ──────────────────────────────── */
 function TypesModal({
-  types, newName, setNewName, onAdd, onRemove, onClose,
+  open, types, newName, setNewName, onAdd, onRemove, onClose,
 }: {
+  open: boolean
   types: DocType[]
   newName: string
   setNewName: (v: string) => void
@@ -557,38 +627,41 @@ function TypesModal({
   onClose: () => void
 }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: 420, maxHeight: '70vh', display: 'flex', flexDirection: 'column', padding: 22, boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827' }}>Kelola Jenis Dokumen</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6B7280' }}>&times;</button>
-        </div>
-        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-          {types.map(t => (
-            <div key={t.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#F9FAFB', borderRadius: 10 }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: '#111827' }}>{t.label}</div>
-                <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>{t.usedCount} dokumen &middot; {t.builtin ? 'bawaan sistem' : 'kustom'}</div>
-              </div>
-              {!t.builtin && t.usedCount === 0 && (
-                <button onClick={() => onRemove(t.key)} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Hapus</button>
-              )}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Kelola Jenis Dokumen"
+      size="sm"
+      sheetOnMobile
+      footer={
+        <form className="flex gap-2 w-full" onSubmit={e => { e.preventDefault(); onAdd() }}>
+          <Input aria-label="Nama jenis baru" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nama jenis baru" />
+          <Button type="submit" icon={Plus} disabled={!newName.trim()} className="shrink-0">Tambah</Button>
+        </form>
+      }
+    >
+      <ul className="list-none m-0 p-0 flex flex-col gap-2">
+        {types.map(t => (
+          <li key={t.key} className="flex justify-between items-center gap-3 px-3 py-2.5 bg-sunken border border-border rounded-sm">
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-primary">{t.label}</p>
+              <p className="text-xs text-secondary mt-0.5">{t.usedCount} dokumen · {t.builtin ? 'bawaan sistem' : 'kustom'}</p>
             </div>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nama jenis baru" style={{ ...inputStyle, flex: 1 }} />
-          <button onClick={onAdd} style={{ padding: '0 16px', borderRadius: 10, border: 'none', background: '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Tambah</button>
-        </div>
-      </div>
-    </div>
+            {!t.builtin && t.usedCount === 0 && (
+              <Button variant="outline-danger" size="sm" icon={Trash2} onClick={() => onRemove(t.key)}>Hapus</Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Modal>
   )
 }
 
 /* ─── About Content Modal ───────────────────────────────── */
 function AboutModal({
-  draft, activeLang, setActiveLang, setField, onSave, onClose, saving,
+  open, draft, activeLang, setActiveLang, setField, onSave, onClose, saving,
 }: {
+  open: boolean
   draft: AboutState
   activeLang: 'id' | 'en'
   setActiveLang: (l: 'id' | 'en') => void
@@ -597,49 +670,50 @@ function AboutModal({
   onClose: () => void
   saving: boolean
 }) {
-  const tabBase: React.CSSProperties = { flex: 1, textAlign: 'center', padding: '10px 0', cursor: 'pointer', fontSize: 13.5, fontWeight: 700 }
-  const textareaStyle: React.CSSProperties = { ...inputStyle, resize: 'vertical' }
-
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: 520, maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: 22, boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827' }}>Konten Halaman Tentang Aplikasi</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6B7280' }}>&times;</button>
-        </div>
-        <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', marginBottom: 16 }}>
-          <div onClick={() => setActiveLang('id')} style={{ ...tabBase, borderBottom: activeLang === 'id' ? '2px solid #2ECC71' : '2px solid transparent', color: activeLang === 'id' ? '#15803D' : '#6B7280' }}>Bahasa Indonesia</div>
-          <div onClick={() => setActiveLang('en')} style={{ ...tabBase, borderBottom: activeLang === 'en' ? '2px solid #2ECC71' : '2px solid transparent', color: activeLang === 'en' ? '#15803D' : '#6B7280' }}>English</div>
-        </div>
-
-        <div style={{ display: activeLang === 'id' ? 'block' : 'none' }}>
-          <label style={labelStyle}>Deskripsi Aplikasi</label>
-          <textarea value={draft.id.description} onChange={e => setField('id', 'description', e.target.value)} rows={3} style={textareaStyle} />
-          <label style={{ ...labelStyle, marginTop: 14 }}>Disclaimer</label>
-          <textarea value={draft.id.disclaimer} onChange={e => setField('id', 'disclaimer', e.target.value)} rows={4} style={textareaStyle} />
-        </div>
-        <div style={{ display: activeLang === 'en' ? 'block' : 'none' }}>
-          <label style={labelStyle}>App Description</label>
-          <textarea value={draft.en.description} onChange={e => setField('en', 'description', e.target.value)} rows={3} style={textareaStyle} />
-          <label style={{ ...labelStyle, marginTop: 14 }}>Disclaimer</label>
-          <textarea value={draft.en.disclaimer} onChange={e => setField('en', 'disclaimer', e.target.value)} rows={4} style={textareaStyle} />
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Batal</button>
-          <button onClick={onSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: saving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? 'Menyimpan…' : 'Simpan'}
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Konten Halaman Tentang Aplikasi"
+      size="md"
+      sheetOnMobile
+      headerAction={<Button size="sm" icon={Save} loading={saving} onClick={onSave} className="lg:hidden">Simpan</Button>}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>Batal</Button>
+          <Button icon={Save} loading={saving} onClick={onSave}>{saving ? 'Menyimpan…' : 'Simpan'}</Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Tabs
+          variant="tabs"
+          ariaLabel="Bahasa konten"
+          items={[{ value: 'id', label: 'Bahasa Indonesia' }, { value: 'en', label: 'English' }]}
+          value={activeLang}
+          onChange={setActiveLang}
+          className="lg:border-b lg:border-border"
+        />
+        {(['id', 'en'] as const).map(l => (
+          <div key={l} className={cn('flex-col gap-4', activeLang === l ? 'flex' : 'hidden')}>
+            <FormField label={l === 'id' ? 'Deskripsi Aplikasi' : 'App Description'} htmlFor={`about-desc-${l}`}>
+              <Textarea id={`about-desc-${l}`} value={draft[l].description} onChange={e => setField(l, 'description', e.target.value)} rows={3} />
+            </FormField>
+            <FormField label="Disclaimer" htmlFor={`about-disc-${l}`}>
+              <Textarea id={`about-disc-${l}`} value={draft[l].disclaimer} onChange={e => setField(l, 'disclaimer', e.target.value)} rows={4} />
+            </FormField>
+          </div>
+        ))}
       </div>
-    </div>
+    </Modal>
   )
 }
 
 /* ─── Preview Panel ─────────────────────────────────────── */
 function PreviewPanel({
-  about, documents, lang, setLang, view, previewDoc, onOpenDoc, onBackAbout, onClose,
+  open, about, documents, lang, setLang, view, previewDoc, onOpenDoc, onBackAbout, onClose,
 }: {
+  open: boolean
   about: AboutState
   documents: DocumentRow[]
   lang: 'id' | 'en'
@@ -650,69 +724,97 @@ function PreviewPanel({
   onBackAbout: () => void
   onClose: () => void
 }) {
-  const pillBase: React.CSSProperties = { padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: '1px solid #E5E7EB' }
+  const panelRef = useRef<HTMLDivElement>(null)
+  useDialogBehavior(open, onClose, panelRef)
+  if (!open || typeof document === 'undefined') return null
+
   const aboutLang = about[lang] ?? about.id
   const docLang = previewDoc ? (previewDoc.langs[lang]?.title ? previewDoc.langs[lang] : previewDoc.langs.id) : null
   const docBody = previewDoc?.langs[lang]?.bodyHtml
 
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.4)', zIndex: 40 }} />
-      <div style={{ position: 'fixed', top: 0, right: 0, height: '100vh', width: 380, maxWidth: '100vw', background: '#F9FAFB', boxShadow: '-8px 0 24px rgba(17,24,39,0.18)', zIndex: 41, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid #E5E7EB', flexShrink: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>Preview — Tentang Aplikasi</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6B7280' }}>&times;</button>
+  return createPortal(
+    <div className="fixed inset-0 z-[100]">
+      <div className="absolute inset-0 bg-bark-900/45 animate-[fadeIn_150ms_ease-out]" onClick={onClose} aria-hidden />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Preview Tentang Aplikasi"
+        tabIndex={-1}
+        className="absolute top-0 right-0 h-full w-[380px] max-w-full bg-sunken shadow-[-8px_0_24px_rgba(36,30,25,0.18)] flex flex-col focus:outline-none"
+      >
+        <div className="flex items-center gap-2 px-4 h-14 border-b border-border bg-surface shrink-0">
+          <Smartphone size={18} className="text-secondary" aria-hidden />
+          <h2 className="text-md font-semibold text-primary flex-1">Preview — Tentang Aplikasi</h2>
+          <button type="button" onClick={onClose} aria-label="Tutup preview" className="w-10 h-10 rounded-sm text-secondary hover:bg-muted flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500">
+            <X size={18} aria-hidden />
+          </button>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '14px 20px 0', flexShrink: 0 }}>
-          <button onClick={() => setLang('id')} style={{ ...pillBase, background: lang === 'id' ? '#2ECC71' : '#fff', color: lang === 'id' ? '#fff' : '#374151', borderColor: lang === 'id' ? '#2ECC71' : '#E5E7EB' }}>ID</button>
-          <button onClick={() => setLang('en')} style={{ ...pillBase, background: lang === 'en' ? '#2ECC71' : '#fff', color: lang === 'en' ? '#fff' : '#374151', borderColor: lang === 'en' ? '#2ECC71' : '#E5E7EB' }}>EN</button>
+        <div className="flex justify-center gap-2 pt-3.5 shrink-0" role="group" aria-label="Bahasa pratinjau">
+          {(['id', 'en'] as const).map(l => (
+            <button
+              key={l}
+              type="button"
+              aria-pressed={lang === l}
+              onClick={() => setLang(l)}
+              className={cn('min-h-9 px-4 rounded-pill text-sm font-semibold border', lang === l ? 'bg-brand text-white border-brand' : 'bg-surface text-bark-800 border-border-strong')}
+            >
+              {l.toUpperCase()}
+            </button>
+          ))}
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: 20 }}>
-          <div style={{ width: 300, background: '#F9FAFB', border: '8px solid #111827', borderRadius: 36, overflow: 'hidden', boxShadow: '0 12px 30px rgba(17,24,39,.25)', display: 'flex', flexDirection: 'column', height: 620, flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 18px 4px', fontSize: 12, fontWeight: 700, color: '#111827', flexShrink: 0 }}>
-              <span>9:41</span><span>&#9679;&#9679;&#9679;</span>
+        <div className="flex-1 overflow-y-auto flex justify-center p-5">
+          <div className="w-[300px] bg-sunken border-8 border-bark-900 rounded-[36px] overflow-hidden shadow-md flex flex-col h-[620px] shrink-0">
+            <div className="flex justify-between px-[18px] pt-2.5 pb-1 text-xs font-bold text-primary shrink-0">
+              <span>9:41</span><span aria-hidden>•••</span>
             </div>
 
             {view === 'about' && (
-              <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px 24px' }}>
-                <div style={{ textAlign: 'center', padding: '16px 0 10px' }}>
-                  <div style={{ fontSize: 21, fontWeight: 800, color: '#111827' }}>Gizku</div>
-                  <div style={{ fontSize: 11.5, color: '#9CA3AF', marginTop: 4 }}>Versi 1.0.0</div>
-                  <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.5, margin: '10px 0 0' }}>{aboutLang.description}</p>
+              <div className="flex-1 overflow-y-auto px-[18px] pb-6">
+                <div className="text-center pt-4 pb-2.5">
+                  <div className="text-[21px] font-bold text-primary">Gizku</div>
+                  <div className="text-xs text-secondary mt-1">Versi {process.env.NEXT_PUBLIC_APP_VERSION ?? '1.2.0'}</div>
+                  <p className="text-xs text-bark-700 leading-normal mt-2.5">{aboutLang.description}</p>
                 </div>
-                <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 14, marginTop: 14, overflow: 'hidden' }}>
+                <div className="bg-surface border border-border rounded-lg mt-3.5 overflow-hidden">
                   {documents.map(d => (
-                    <div key={d.slug} onClick={() => onOpenDoc(d.slug)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 14px', borderTop: '1px solid #F3F4F6', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#111827' }}>
-                      <span>{(d.langs[lang]?.title || d.langs.id.title)}</span><span style={{ color: '#D1D5DB' }}>&rsaquo;</span>
-                    </div>
+                    <button
+                      key={d.slug}
+                      type="button"
+                      onClick={() => onOpenDoc(d.slug)}
+                      className="w-full flex justify-between items-center px-3.5 py-3 border-t border-border first:border-t-0 text-sm font-semibold text-primary text-left hover:bg-muted"
+                    >
+                      <span>{d.langs[lang]?.title || d.langs.id.title}</span><ChevronRight size={14} className="text-secondary" aria-hidden />
+                    </button>
                   ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 14px', borderTop: '1px solid #F3F4F6', fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                  <div className="flex justify-between items-center px-3.5 py-3 border-t border-border text-sm font-semibold text-primary">
                     <span>Kunjungi Website</span>
-                    <span style={{ color: '#6B7280', fontWeight: 500 }}>gizku.com &rsaquo;</span>
+                    <span className="text-secondary font-medium inline-flex items-center gap-0.5">gizku.com <ChevronRight size={14} aria-hidden /></span>
                   </div>
                 </div>
-                <div style={{ background: '#F3F4F6', borderRadius: 14, marginTop: 14, padding: 13, fontSize: 11, color: '#6B7280', lineHeight: 1.5 }}>
+                <div className="bg-muted rounded-lg mt-3.5 p-3 text-[11px] text-bark-700 leading-normal">
                   <strong>Disclaimer:</strong> {aboutLang.disclaimer}
                 </div>
               </div>
             )}
 
             {view === 'detail' && previewDoc && (
-              <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px 24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0 14px' }}>
-                  <div onClick={onBackAbout} style={{ cursor: 'pointer', width: 28, height: 28, borderRadius: 8, background: '#F9FAFB', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M15 5l-7 7 7 7" /></svg>
-                  </div>
-                  <div style={{ fontSize: 14.5, fontWeight: 800, color: '#111827' }}>{docLang?.title}</div>
+              <div className="flex-1 overflow-y-auto px-[18px] pb-6">
+                <div className="flex items-center gap-2.5 pt-2 pb-3.5">
+                  <button type="button" onClick={onBackAbout} aria-label="Kembali" className="w-7 h-7 rounded-sm bg-surface border border-border flex items-center justify-center">
+                    <ChevronLeft size={14} aria-hidden />
+                  </button>
+                  <div className="text-[14.5px] font-bold text-primary">{docLang?.title}</div>
                 </div>
                 {docBody
-                  ? <div style={{ fontSize: 12, color: '#374151' }} dangerouslySetInnerHTML={{ __html: docBody }} />
-                  : <p style={{ color: '#9CA3AF', fontSize: 12 }}>Belum tersedia dalam bahasa ini.</p>}
+                  ? <div className="legal-doc-body text-xs" dangerouslySetInnerHTML={{ __html: docBody }} />
+                  : <p className="text-secondary text-xs">Belum tersedia dalam bahasa ini.</p>}
               </div>
             )}
           </div>
         </div>
       </div>
-    </>
+    </div>,
+    document.body,
   )
 }

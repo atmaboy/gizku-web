@@ -192,7 +192,6 @@
 /* Admin — Legal Document rich-text editor (components/admin/RichTextEditor.tsx) */
 .gz-rte:empty:before { content: attr(data-placeholder); color: var(--color-text-tertiary); }
 .gz-rte:focus { outline: none; }
-.gz-rte h2 { font-size: 17px; margin: 16px 0 8px; font-weight: 700; color: var(--color-text-primary); }
 .gz-rte h3 { font-size: 15px; margin: 14px 0 6px; font-weight: 700; color: var(--color-text-primary); }
 .gz-rte p { margin: 0 0 9px; }
 .gz-rte ul, .gz-rte ol { margin: 0 0 9px; padding-left: 18px; }

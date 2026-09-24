@@ -1,245 +1,280 @@
 'use client'
+/**
+ * HeroImageUploader — drag-and-drop / file-picker yang upload langsung ke
+ * Supabase Storage via POST /api/admin/upload-image (dipakai Landing Editor
+ * untuk gambar screenshot app di section Hero).
+ */
+import { useEffect, useRef, useState } from 'react'
+import { AlertOctagon, Check, ImageOff, Link2, RefreshCw, Trash2, UploadCloud } from 'lucide-react'
+import { Button, Input, Progress } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 
-import { useRef, useState, useCallback } from 'react'
+const ALLOWED_TYPES  = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+const MAX_SIZE_MB    = 5
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
-interface Props {
-  value: string          // current URL (kosong = belum ada gambar)
-  onChange: (url: string) => void
-  disabled?: boolean
-}
+type UploadState =
+  | { status: 'idle' }
+  | { status: 'dragover' }
+  | { status: 'uploading'; progress: number; filename: string }
+  | { status: 'success'; url: string }
+  | { status: 'error'; message: string }
 
-const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
-const MAX_MB   = 5
+export default function HeroImageUploader({
+  currentUrl,
+  onUploaded,
+  onRemove,
+}: {
+  currentUrl: string
+  onUploaded: (url: string) => void
+  onRemove: () => void
+}) {
+  const [uploadState, setUploadState] = useState<UploadState>({ status: 'idle' })
+  const [manualUrl, setManualUrl]     = useState(currentUrl)
+  const [previewErr, setPreviewErr]   = useState(false)
+  const [showManual, setShowManual]   = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-export default function HeroImageUploader({ value, onChange, disabled }: Props) {
-  const inputRef               = useRef<HTMLInputElement>(null)
-  const [dragging, setDragging] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [deleting, setDeleting]   = useState(false)
-  const [error, setError]         = useState('')
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null)  // blob URL untuk preview lokal
+  // Sync manualUrl bila currentUrl berubah dari luar (e.g. edit row berbeda)
+  useEffect(() => {
+    setManualUrl(currentUrl)
+    setPreviewErr(false)
+    if (currentUrl && uploadState.status !== 'uploading') {
+      setUploadState({ status: 'success', url: currentUrl })
+    } else if (!currentUrl) {
+      setUploadState({ status: 'idle' })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUrl])
 
-  // ─── Validasi file ───────────────────────────────────────────
-  function validate(file: File): string {
-    if (!ACCEPTED.includes(file.type))
-      return `Format tidak didukung: ${file.type}. Gunakan JPEG, PNG, WebP, atau GIF.`
-    if (file.size > MAX_MB * 1024 * 1024)
-      return `File terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal ${MAX_MB} MB.`
-    return ''
+  function validateFile(file: File): string | null {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return `Tipe file tidak didukung (${file.type}). Gunakan JPEG, PNG, WebP, atau GIF.`
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      return `Ukuran file terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maks ${MAX_SIZE_MB} MB.`
+    }
+    return null
   }
 
-  // ─── Upload ──────────────────────────────────────────────────
-  const upload = useCallback(async (file: File) => {
-    const errMsg = validate(file)
-    if (errMsg) { setError(errMsg); return }
+  async function uploadFile(file: File) {
+    const err = validateFile(file)
+    if (err) { setUploadState({ status: 'error', message: err }); return }
 
-    // Tampilkan preview lokal dulu (optimistic UI)
-    const blobUrl = URL.createObjectURL(file)
-    setPreviewSrc(blobUrl)
-    setError('')
-    setUploading(true)
+    setUploadState({ status: 'uploading', progress: 0, filename: file.name })
 
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      if (value) fd.append('oldUrl', value)  // server akan hapus gambar lama
+    // Simulate granular progress via XHR (fetch tidak expose upload progress)
+    const form = new FormData()
+    form.append('file', file)
+    if (currentUrl) form.append('oldUrl', currentUrl)
 
-      const res  = await fetch('/api/admin/upload-image', { method: 'POST', body: fd })
-      const json = await res.json()
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/admin/upload-image')
 
-      if (!res.ok) {
-        setError(json.error ?? 'Upload gagal')
-        setPreviewSrc(null)  // batalkan preview
-        return
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 90) // cap at 90% until response
+          setUploadState({ status: 'uploading', progress: pct, filename: file.name })
+        }
       }
 
-      onChange(json.url)   // simpan URL final ke parent
-      setPreviewSrc(null)  // pakai URL final, bukan blob
-    } catch {
-      setError('Terjadi kesalahan saat upload')
-      setPreviewSrc(null)
-    } finally {
-      setUploading(false)
-      URL.revokeObjectURL(blobUrl)
-    }
-  }, [value, onChange])
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const json = JSON.parse(xhr.responseText) as { url?: string; error?: string }
+            if (json.url) {
+              setUploadState({ status: 'success', url: json.url })
+              setManualUrl(json.url)
+              setPreviewErr(false)
+              onUploaded(json.url)
+            } else {
+              setUploadState({ status: 'error', message: json.error ?? 'Upload gagal' })
+            }
+          } catch {
+            setUploadState({ status: 'error', message: 'Respons server tidak valid' })
+          }
+        } else {
+          try {
+            const json = JSON.parse(xhr.responseText) as { error?: string }
+            setUploadState({ status: 'error', message: json.error ?? `Server error ${xhr.status}` })
+          } catch {
+            setUploadState({ status: 'error', message: `Server error ${xhr.status}` })
+          }
+        }
+        resolve()
+      }
 
-  // ─── Hapus gambar ────────────────────────────────────────────
-  async function handleDelete() {
-    if (!value) return
-    setDeleting(true)
-    setError('')
-    try {
-      await fetch('/api/admin/delete-image', {
-        method:  'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ url: value }),
-      })
-      onChange('')  // kosongkan di parent
-    } catch {
-      setError('Gagal menghapus gambar')
-    } finally {
-      setDeleting(false)
-    }
+      xhr.onerror = () => {
+        setUploadState({ status: 'error', message: 'Koneksi gagal. Periksa jaringan Anda.' })
+        resolve()
+      }
+
+      xhr.send(form)
+    })
   }
 
-  // ─── Drag & Drop ─────────────────────────────────────────────
-  function onDragOver(e: React.DragEvent) { e.preventDefault(); setDragging(true)  }
-  function onDragLeave()                  { setDragging(false) }
-  function onDrop(e: React.DragEvent) {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault()
-    setDragging(false)
+    setUploadState({ status: 'idle' })
     const file = e.dataTransfer.files?.[0]
-    if (file) upload(file)
+    if (file) uploadFile(file)
   }
 
-  // ─── File input change ───────────────────────────────────────
-  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (file) upload(file)
-    e.target.value = ''  // reset agar bisa upload file yang sama lagi
+    if (file) uploadFile(file)
+    // Reset input sehingga file yang sama bisa dipilih ulang
+    e.target.value = ''
   }
 
-  const displaySrc = previewSrc ?? (value || null)
-  const isLoading  = uploading || deleting
+  function handleManualSave() {
+    const url = manualUrl.trim()
+    if (url) {
+      onUploaded(url)
+      setUploadState({ status: 'success', url })
+      setPreviewErr(false)
+    } else {
+      handleRemove()
+    }
+    setShowManual(false)
+  }
+
+  function handleRemove() {
+    setUploadState({ status: 'idle' })
+    setManualUrl('')
+    setPreviewErr(false)
+    setShowManual(false)
+    onRemove()
+  }
+
+  const isDragover   = uploadState.status === 'dragover'
+  const isUploading  = uploadState.status === 'uploading'
+  const isSuccess    = uploadState.status === 'success'
+  const isError      = uploadState.status === 'error'
+  const displayUrl   = isSuccess ? uploadState.url : currentUrl
+
+
+  const fileName = displayUrl ? decodeURIComponent(displayUrl.split('/').pop()?.split('?')[0] ?? '') : ''
+
+  const manualEditor = (label: string, submitLabel: string) => (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="hero-manual-url" className="text-sm text-secondary">{label}</label>
+      <div className="flex gap-2">
+        <Input
+          id="hero-manual-url"
+          type="url"
+          value={manualUrl}
+          onChange={e => setManualUrl(e.target.value)}
+          placeholder="https://example.com/screenshot-app.png"
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleManualSave() } }}
+        />
+        <Button onClick={handleManualSave} disabled={!manualUrl.trim() && !isSuccess} className="shrink-0">{submitLabel}</Button>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="space-y-2">
-
-      {/* Drop zone / preview area */}
-      <div
-        role="button"
-        tabIndex={disabled || isLoading ? -1 : 0}
-        aria-label="Upload gambar hero"
-        onClick={() => !isLoading && !disabled && inputRef.current?.click()}
-        onKeyDown={e => e.key === 'Enter' && !isLoading && !disabled && inputRef.current?.click()}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        className="relative rounded-xl border-2 transition-all overflow-hidden cursor-pointer"
-        style={{
-          borderColor:     dragging ? '#2ECC71' : (displaySrc ? '#E5E7EB' : '#D1D5DB'),
-          borderStyle:     displaySrc ? 'solid' : 'dashed',
-          backgroundColor: dragging ? '#F0FDF4' : (displaySrc ? '#F9FAFB' : '#FAFAFA'),
-          minHeight:       displaySrc ? 0 : 120,
-          opacity:         disabled ? 0.6 : 1,
-          boxShadow:       dragging ? '0 0 0 3px rgba(46,204,113,0.2)' : 'none',
-        }}
-      >
-        {/* State: ada gambar */}
-        {displaySrc && (
-          <div className="relative group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={displaySrc}
-              alt="Hero image preview"
-              width={800}
-              height={450}
-              className="w-full object-cover rounded-xl"
-              style={{ maxHeight: 220, objectPosition: 'center top' }}
-              onError={() => { if (!previewSrc) onChange('') }}
-            />
-
-            {/* Overlay on hover */}
-            {!isLoading && (
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all rounded-xl flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); inputRef.current?.click() }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-[#111827] shadow hover:bg-[#F3F4F6] min-h-[36px] transition-colors"
-                >
-                  Ganti Gambar
-                </button>
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); handleDelete() }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#EF4444] text-white shadow hover:bg-[#DC2626] min-h-[36px] transition-colors"
-                >
-                  Hapus
-                </button>
-              </div>
-            )}
-
-            {/* Loading overlay */}
-            {isLoading && (
-              <div className="absolute inset-0 bg-black/40 rounded-xl flex flex-col items-center justify-center gap-2">
-                <svg className="animate-spin" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                </svg>
-                <p className="text-white text-xs font-medium">{uploading ? 'Mengupload…' : 'Menghapus…'}</p>
-              </div>
-            )}
+    <div className="flex flex-col gap-3">
+      {/* ── State: sukses / ada gambar ── */}
+      {isSuccess && displayUrl && (
+        <div className="rounded-md border border-border overflow-hidden bg-surface">
+          <div className="flex items-center gap-3 p-3 max-sm:flex-col max-sm:items-stretch">
+            <div className="w-[120px] h-[90px] max-sm:w-full max-sm:h-40 rounded-sm bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
+              {!previewErr ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={displayUrl} alt="Preview gambar hero" className="max-w-full max-h-full object-contain" onError={() => setPreviewErr(true)} />
+              ) : (
+                <span className="flex flex-col items-center gap-1 text-rose-600 text-xs font-medium"><ImageOff size={22} aria-hidden />Gambar tidak dapat dimuat</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-semibold text-primary truncate">{fileName || 'Gambar hero'}</p>
+              <p className="text-xs text-secondary font-mono truncate mt-0.5" title={displayUrl}>{displayUrl}</p>
+              <p className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 mt-1.5"><Check size={12} aria-hidden />Tersimpan di Supabase</p>
+            </div>
           </div>
-        )}
-
-        {/* State: kosong */}
-        {!displaySrc && (
-          <div className="flex flex-col items-center justify-center py-8 px-4 text-center select-none">
-            {uploading ? (
-              <>
-                <svg className="animate-spin mb-3 text-[#2ECC71]" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-                </svg>
-                <p className="text-sm text-[#6B7280]">Mengupload gambar…</p>
-              </>
-            ) : (
-              <>
-                <div
-                  className="w-10 h-10 rounded-xl mb-3 flex items-center justify-center"
-                  style={{ background: dragging ? '#D1FAE5' : '#F3F4F6' }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={dragging ? '#059669' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <polyline points="21 15 16 10 5 21"/>
-                  </svg>
-                </div>
-                <p className="text-sm font-medium text-[#374151]">
-                  {dragging ? 'Lepaskan untuk upload' : 'Klik atau drag & drop gambar'}
-                </p>
-                <p className="text-xs text-[#9CA3AF] mt-1">JPEG, PNG, WebP, GIF · Maks. {MAX_MB} MB</p>
-              </>
-            )}
+          <div className="flex flex-wrap gap-2 px-3 py-2.5 bg-sunken border-t border-border">
+            <Button variant="outline" size="sm" icon={RefreshCw} onClick={() => fileInputRef.current?.click()} disabled={isUploading}>Ganti</Button>
+            <Button variant="outline" size="sm" icon={Link2} onClick={() => { setShowManual(v => !v); setManualUrl(displayUrl) }} aria-expanded={showManual}>Edit URL</Button>
+            <Button variant="outline-danger" size="sm" icon={Trash2} onClick={handleRemove} className="ml-auto">Hapus</Button>
           </div>
-        )}
-      </div>
+          {showManual && <div className="px-3 pb-3 pt-2.5 border-t border-border">{manualEditor('Atau tempel URL gambar langsung (harus bisa diakses publik):', 'Simpan')}</div>}
+        </div>
+      )}
 
-      {/* URL input manual (opsional fallback) */}
-      <details className="group">
-        <summary className="text-[11px] text-[#9CA3AF] cursor-pointer hover:text-[#6B7280] transition-colors select-none list-none flex items-center gap-1">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-open:rotate-90 transition-transform">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
-          Atau masukkan URL gambar secara manual
-        </summary>
-        <input
-          type="url"
-          value={value}
-          onChange={e => { onChange(e.target.value); setError('') }}
-          placeholder="https://…"
-          disabled={disabled || uploading}
-          className="mt-1.5 w-full text-xs px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-[#374151] placeholder-[#D1D5DB] focus:outline-none focus:ring-2 focus:ring-[#2ECC71]/30 focus:border-[#2ECC71] transition-all disabled:opacity-50"
-        />
-      </details>
+      {/* ── State: uploading ── */}
+      {isUploading && (
+        <div className="rounded-md border border-border bg-sunken p-4 flex flex-col gap-3" role="status" aria-live="polite">
+          <div className="flex items-center gap-3">
+            <span className="w-9 h-9 rounded-sm bg-green-50 text-brand flex items-center justify-center shrink-0"><UploadCloud size={18} className="animate-bounce" aria-hidden /></span>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold text-primary truncate">{uploadState.filename}</p>
+              <p className="text-sm text-secondary">Mengunggah ke Supabase Storage…</p>
+            </div>
+            <span className="text-base font-bold tabular-nums text-brand">{uploadState.progress}%</span>
+          </div>
+          <Progress value={uploadState.progress} height={6} label="Progres unggah" />
+        </div>
+      )}
 
-      {/* Error message */}
-      {error && (
-        <p className="text-xs text-[#EF4444] flex items-center gap-1">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          {error}
-        </p>
+      {/* ── State: error ── */}
+      {isError && (
+        <div role="alert" className="rounded-md border border-rose-300 bg-rose-50 p-3 flex items-start gap-3">
+          <AlertOctagon size={18} className="text-rose-500 shrink-0 mt-0.5" aria-hidden />
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-semibold text-rose-600">Upload gagal</p>
+            <p className="text-sm text-bark-700">{uploadState.message}</p>
+          </div>
+          <Button variant="outline-danger" size="sm" onClick={() => setUploadState({ status: 'idle' })}>Coba lagi</Button>
+        </div>
+      )}
+
+      {/* ── State: idle / drop zone ── */}
+      {!isSuccess && !isUploading && (
+        <button
+          type="button"
+          aria-label="Area upload gambar, klik atau seret file ke sini"
+          className={cn(
+            'rounded-md border-2 border-dashed transition-colors flex flex-col items-center justify-center gap-2.5 py-7 px-4 text-center',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2',
+            isDragover ? 'border-brand bg-green-50' : 'border-border-strong bg-sunken hover:bg-muted',
+          )}
+          onDragOver={e => { e.preventDefault(); setUploadState({ status: 'dragover' }) }}
+          onDragLeave={() => setUploadState({ status: 'idle' })}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <span className={cn('w-12 h-12 rounded-md flex items-center justify-center', isDragover ? 'bg-green-100 text-green-700' : 'bg-surface text-brand border border-border')}>
+            <UploadCloud size={22} aria-hidden />
+          </span>
+          <span>
+            <span className="block text-base font-semibold text-primary">{isDragover ? 'Lepaskan untuk upload' : 'Seret gambar ke sini'}</span>
+            <span className="block text-sm text-secondary mt-0.5">atau <span className="underline font-semibold text-link">klik untuk memilih file</span></span>
+            <span className="block text-xs text-secondary mt-1.5">PNG, JPG, WebP, GIF · Maks {MAX_SIZE_MB} MB · Upload ke Supabase Storage</span>
+          </span>
+        </button>
+      )}
+
+      {/* Manual URL fallback (idle state) */}
+      {!isSuccess && !isUploading && (
+        <div>
+          <Button variant="link" size="sm" className="px-0" aria-expanded={showManual} onClick={() => setShowManual(v => !v)}>
+            {showManual ? 'Sembunyikan' : 'Atau tempel URL gambar langsung'}
+          </Button>
+          {showManual && <div className="mt-1">{manualEditor('URL gambar (harus bisa diakses publik)', 'Pakai URL ini')}</div>}
+        </div>
       )}
 
       {/* Hidden file input */}
       <input
-        ref={inputRef}
+        ref={fileInputRef}
         type="file"
-        accept={ACCEPTED.join(',')}
+        accept={ALLOWED_TYPES.join(',')}
         className="sr-only"
-        onChange={onInputChange}
-        disabled={disabled || isLoading}
+        onChange={handleFileChange}
+        aria-hidden="true"
+        tabIndex={-1}
       />
     </div>
   )
