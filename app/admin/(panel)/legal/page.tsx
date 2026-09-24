@@ -741,7 +741,7 @@ function PreviewPanel({
         aria-modal="true"
         aria-label="Preview Tentang Aplikasi"
         tabIndex={-1}
-        className="absolute top-0 right-0 h-full w-[380px] max-w-full bg-sunken shadow-[-8px_0_24px_rgba(36,30,25,0.18)] flex flex-col focus:outline-none"
+        className="absolute top-[var(--staging-banner-h,0px)] bottom-0 right-0 w-[380px] max-w-full bg-sunken shadow-[-8px_0_24px_rgba(36,30,25,0.18)] flex flex-col focus:outline-none"
       >
         <div className="flex items-center gap-2 px-4 h-14 border-b border-border bg-surface shrink-0">
           <Smartphone size={18} className="text-secondary" aria-hidden />

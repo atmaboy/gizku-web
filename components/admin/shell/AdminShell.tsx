@@ -74,7 +74,7 @@ function Drawer({ open, onClose, counts, onLogout }: { open: boolean; onClose: (
         aria-label="Navigasi admin"
         tabIndex={-1}
         className={cn(
-          'absolute inset-y-0 left-0 w-[292px] max-w-[85vw] bg-surface shadow-[4px_0_24px_rgba(36,30,25,0.18)] flex flex-col transition-transform duration-200 ease-out focus:outline-none',
+          'absolute bottom-0 top-[var(--staging-banner-h,0px)] left-0 w-[292px] max-w-[85vw] bg-surface shadow-[4px_0_24px_rgba(36,30,25,0.18)] flex flex-col transition-transform duration-200 ease-out focus:outline-none',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -136,7 +136,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
   const year = new Date().getFullYear()
 
   return (
-    <div className="flex min-h-screen bg-sunken">
+    <div className="flex min-h-screen bg-sunken pt-[var(--staging-banner-h,0px)]">
       <NavProgress />
       <a href="#admin-main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:bg-surface focus:px-3 focus:py-2 focus:rounded-sm focus:shadow-md focus:text-link">
         Lewati ke konten
@@ -145,7 +145,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
       {/* Desktop sidebar */}
       <aside
         aria-label="Navigasi admin"
-        className={cn('hidden w-sidebar shrink-0 bg-surface border-r border-border flex-col sticky top-0 h-screen', !sidebarHidden && 'lg:flex')}
+        className={cn('hidden w-sidebar shrink-0 bg-surface border-r border-border flex-col sticky top-[var(--staging-banner-h,0px)] h-[calc(100vh-var(--staging-banner-h,0px))]', !sidebarHidden && 'lg:flex')}
       >
         <Link href="/admin" className="h-navbar px-[18px] border-b border-border flex items-center gap-2.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500">
           <Brand />
@@ -158,7 +158,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
 
       <div className="flex-1 min-w-0 flex flex-col min-h-screen">
         {/* Desktop navbar */}
-        <header className="hidden lg:flex h-navbar bg-surface border-b border-border px-4 items-center gap-1 sticky top-0 z-30">
+        <header className="hidden lg:flex h-navbar bg-surface border-b border-border px-4 items-center gap-1 sticky top-[var(--staging-banner-h,0px)] z-30">
           <button
             type="button"
             onClick={() => setSidebarHidden(h => !h)}
@@ -178,7 +178,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
         </header>
 
         {/* Mobile app bar */}
-        <header className="lg:hidden h-14 px-1.5 bg-surface border-b border-border flex items-center gap-0.5 sticky top-0 z-30">
+        <header className="lg:hidden h-14 px-1.5 bg-surface border-b border-border flex items-center gap-0.5 sticky top-[var(--staging-banner-h,0px)] z-30">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}

@@ -63,7 +63,7 @@ export default function Modal({ open, onClose, title, size = 'md', footer, child
     <div className="fixed inset-0 z-[100]">
       <div className="absolute inset-0 bg-bark-900/45 animate-[fadeIn_150ms_ease-out]" onClick={close} aria-hidden />
       <div className={cn('absolute inset-0 overflow-y-auto pointer-events-none', sheetOnMobile ? 'max-lg:overflow-hidden' : '')}>
-        <div className={cn('flex justify-center px-4 pt-[72px] pb-10 lg:pt-[110px]', sheetOnMobile && 'max-lg:p-0 max-lg:h-full')}>
+        <div className={cn('flex justify-center px-4 pt-[calc(72px+var(--staging-banner-h,0px))] pb-10 lg:pt-[calc(110px+var(--staging-banner-h,0px))]', sheetOnMobile && 'max-lg:p-0 max-lg:pt-[var(--staging-banner-h,0px)] max-lg:h-full')}>
           <div
             ref={panelRef}
             role="dialog"

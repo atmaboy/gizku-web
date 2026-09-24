@@ -71,7 +71,7 @@ export default function ConfirmPasswordModal({
     <div className="fixed inset-0 z-[110]">
       <div className="absolute inset-0 bg-bark-900/45 animate-[fadeIn_150ms_ease-out]" onClick={handleClose} aria-hidden />
       <div className="absolute inset-0 overflow-y-auto pointer-events-none">
-        <div className="flex justify-center px-4 pt-[72px] lg:pt-[120px] pb-10">
+        <div className="flex justify-center px-4 pt-[calc(72px+var(--staging-banner-h,0px))] lg:pt-[calc(120px+var(--staging-banner-h,0px))] pb-10">
           <div
             ref={panelRef}
             role="dialog"
