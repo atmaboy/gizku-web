@@ -29,7 +29,7 @@ export default function Pagination({ page, totalPages, onPage, hrefPattern, labe
   function Ctl({ p, disabled, children, className: c, ariaLabel, current }: { p: number; disabled?: boolean; children: React.ReactNode; className?: string; ariaLabel?: string; current?: boolean }) {
     const cls = cn(item, !disabled && !current && 'hover:bg-muted', current && 'bg-brand text-white border-brand z-[1]', disabled && disabledCls, c)
     if (hrefFor && !disabled && !current) {
-      return <Link href={hrefFor(p)} className={cls} aria-label={ariaLabel} onClick={() => document.dispatchEvent(new Event('nav:start'))}>{children}</Link>
+      return <Link prefetch={false} href={hrefFor(p)} className={cls} aria-label={ariaLabel} onClick={() => document.dispatchEvent(new Event('nav:start'))}>{children}</Link>
     }
     return (
       <button type="button" className={cls} disabled={disabled} aria-label={ariaLabel} aria-current={current ? 'page' : undefined} onClick={() => !current && onPage?.(p)}>
@@ -41,7 +41,7 @@ export default function Pagination({ page, totalPages, onPage, hrefPattern, labe
   const mobileBtn = 'inline-flex items-center justify-center gap-1 min-h-11 px-3 rounded-sm border border-border-strong bg-surface text-base font-medium text-bark-800'
 
   function MobileCtl({ p, disabled, children, ariaLabel }: { p: number; disabled: boolean; children: React.ReactNode; ariaLabel: string }) {
-    if (hrefFor && !disabled) return <Link href={hrefFor(p)} className={mobileBtn} aria-label={ariaLabel}>{children}</Link>
+    if (hrefFor && !disabled) return <Link prefetch={false} href={hrefFor(p)} className={mobileBtn} aria-label={ariaLabel}>{children}</Link>
     return <button type="button" disabled={disabled} onClick={() => onPage?.(p)} aria-label={ariaLabel} className={cn(mobileBtn, 'disabled:opacity-50 disabled:cursor-not-allowed')}>{children}</button>
   }
 

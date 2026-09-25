@@ -1,11 +1,10 @@
 import { db } from '@/lib/db'
-import { users, meals, reports, landingContent } from '@/drizzle/schema'
-import { count, sum, desc, eq, sql } from 'drizzle-orm'
+import { users, meals, adminConfig } from '@/drizzle/schema'
+import { desc, eq, inArray, sql } from 'drizzle-orm'
 import {
   Camera, ChevronRight, Database, Flame, Gauge, KeyRound, LayoutTemplate, MessageSquare, Settings, UtensilsCrossed, Users,
 } from 'lucide-react'
-import { getGlobalLimit, getCfg, getMaintenance } from '@/lib/admin'
-import { getAdminNavCounts } from '@/lib/adminCounts'
+import { getMaintenance } from '@/lib/admin'
 import { fmtNum, fmtDateTime, todayISO, cn } from '@/lib/utils'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import {
@@ -30,30 +29,46 @@ const QUICK_LINKS = [
 
 export default async function AdminDashboard() {
   const today = todayISO()
-  const [[totUsers],[totMeals],[todayMeals],[openReports],[totLanding],globalLimit,hasKey,maintenance,navCounts,modelCfg] = await Promise.all([
-    db.select({ c: count() }).from(users),
-    db.select({ c: count(), cal: sum(meals.totalCalories) }).from(meals),
-    db.select({ c: count() }).from(meals).where(sql`DATE(logged_at) = ${today}`),
-    db.select({ c: count() }).from(reports).where(eq(reports.status,'open')),
-    db.select({ c: count() }).from(landingContent),
-    getGlobalLimit(),
-    getCfg('anthropic_api_key').then(k => !!(process.env.ANTHROPIC_API_KEY || k)),
-    getMaintenance(),
-    getAdminNavCounts(),
-    getCfg('anthropic_model'),
-  ])
-  // Same fallback as app/api/analyze/route.ts
-  const aiModel = modelCfg || 'claude-sonnet-5'
+  // Keep the dashboard light on the connection pool: all counters in ONE
+  // round trip, then config + lists sequentially in small batches (the old
+  // ~12-way Promise.all could starve the Supabase pooler under load).
+  const [stats] = await db.execute<{
+    tot_users: number; tot_meals: number; tot_cal: number; today_meals: number
+    open_reports: number; tot_landing: number; pending_limit: number
+  }>(sql`
+    SELECT
+      (SELECT count(*) FROM users)::int                                   AS tot_users,
+      (SELECT count(*) FROM meals)::int                                   AS tot_meals,
+      (SELECT coalesce(sum(total_calories), 0) FROM meals)::bigint        AS tot_cal,
+      (SELECT count(*) FROM meals WHERE logged_at >= ${today}::date
+                                    AND logged_at <  ${today}::date + 1)::int AS today_meals,
+      (SELECT count(*) FROM reports WHERE status = 'open')::int           AS open_reports,
+      (SELECT count(*) FROM landing_content)::int                         AS tot_landing,
+      (SELECT count(*) FROM limit_requests WHERE status = 'pending')::int AS pending_limit
+  `)
+  const totUsers = Number(stats.tot_users), totMealCount = Number(stats.tot_meals)
+  const totalCal = Number(stats.tot_cal), todayMeals = Number(stats.today_meals)
+  const openReports = Number(stats.open_reports), totLanding = Number(stats.tot_landing)
+  const pendingLimit = Number(stats.pending_limit)
 
-  const [recentUsers, recentMeals] = await Promise.all([
-    db.select().from(users).orderBy(desc(users.createdAt)).limit(5),
-    db.select({
-      id: meals.id, dishNames: meals.dishNames, totalCalories: meals.totalCalories, loggedAt: meals.loggedAt,
-      userId: users.id, username: users.username,
-    }).from(meals).leftJoin(users, eq(meals.userId, users.id)).orderBy(desc(meals.loggedAt)).limit(5),
-  ])
+  const cfgRows = await db.select({ key: adminConfig.key, value: adminConfig.value }).from(adminConfig)
+    .where(inArray(adminConfig.key, ['default_daily_limit', 'anthropic_api_key', 'anthropic_model']))
+  const cfg = (k: string) => cfgRows.find(r => r.key === k)?.value ?? null
+  const parsedLimit = parseInt(cfg('default_daily_limit') ?? '5', 10)
+  const globalLimit = isNaN(parsedLimit) ? 5 : parsedLimit
+  const hasKey = !!(process.env.ANTHROPIC_API_KEY || cfg('anthropic_api_key'))
+  // Same fallback as app/api/analyze/route.ts
+  const aiModel = cfg('anthropic_model') || 'claude-sonnet-5'
+  const maintenance = await getMaintenance()
+
+  const recentUsers = await db.select({
+    id: users.id, username: users.username, email: users.email, isActive: users.isActive, createdAt: users.createdAt,
+  }).from(users).orderBy(desc(users.createdAt)).limit(5)
+  const recentMeals = await db.select({
+    id: meals.id, dishNames: meals.dishNames, totalCalories: meals.totalCalories, loggedAt: meals.loggedAt,
+    userId: users.id, username: users.username,
+  }).from(meals).leftJoin(users, eq(meals.userId, users.id)).orderBy(desc(meals.loggedAt)).limit(5)
   const menuLabel = (names: string[] | null) => names && names.length ? names.join(', ') : 'Tidak terdeteksi'
-  const totalCal = Number(totMeals.cal ?? 0)
 
   const statusBadge = (active: boolean) => active
     ? <Badge variant="success">Aktif</Badge>
@@ -74,17 +89,17 @@ export default async function AdminDashboard() {
 
       {/* Small boxes */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 max-lg:gap-3">
-        <SmallBox tone="brand"   value={fmtNum(Number(totUsers.c))}     label="Total User"             icon={Users}           href="/admin/users" />
-        <SmallBox tone="warning" value={fmtNum(Number(todayMeals.c))}   label="Meal Logs Hari Ini"     icon={UtensilsCrossed} href="/admin/riwayat" />
-        <SmallBox tone="dark"    value={fmtNum(Number(openReports.c))}  label="Laporan Open"           icon={MessageSquare}   href="/admin/reports" />
-        <SmallBox tone="clay"    value={fmtNum(navCounts.pendingLimit)} label="Request Limit Menunggu" icon={Gauge}           href="/admin/limit" />
+        <SmallBox tone="brand"   value={fmtNum(totUsers)}     label="Total User"             icon={Users}           href="/admin/users" />
+        <SmallBox tone="warning" value={fmtNum(todayMeals)}   label="Meal Logs Hari Ini"     icon={UtensilsCrossed} href="/admin/riwayat" />
+        <SmallBox tone="dark"    value={fmtNum(openReports)}  label="Laporan Open"           icon={MessageSquare}   href="/admin/reports" />
+        <SmallBox tone="clay"    value={fmtNum(pendingLimit)} label="Request Limit Menunggu" icon={Gauge}           href="/admin/limit" />
       </div>
 
       {/* Info boxes (desktop) / stat tiles (mobile) */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 max-lg:gap-3">
-        <ResponsiveStat icon={Database}       iconTone="brand" label="Total Meal Logs" value={fmtNum(Number(totMeals.c))} />
+        <ResponsiveStat icon={Database}       iconTone="brand" label="Total Meal Logs" value={fmtNum(totMealCount)} />
         <ResponsiveStat icon={Flame}          iconTone="honey" label="Total Kalori"    value={`${fmtNum(totalCal)} kcal`} mobileValue={fmtCompact(totalCal)} sub="kcal" />
-        <ResponsiveStat icon={LayoutTemplate} iconTone="green" label="Konten Landing"  value={`${fmtNum(Number(totLanding.c))} item`} />
+        <ResponsiveStat icon={LayoutTemplate} iconTone="green" label="Konten Landing"  value={`${fmtNum(totLanding)} item`} />
         <ResponsiveStat icon={Camera}         iconTone="sand"  label="Limit Global"    value={`${globalLimit} foto/hari`} mobileValue={globalLimit} sub="foto/hari" />
       </div>
 
