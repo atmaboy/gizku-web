@@ -131,6 +131,20 @@
   --shadow-xs: 0px 1px 2px 0px rgba(36,30,25,0.05);
   --shadow-sm: 0px 1px 3px 0px rgba(36,30,25,0.08);
   --shadow-md: 0px 4px 16px 0px rgba(36,30,25,0.10);
+
+  /* --- Admin additions (derived from Gizku accents) --- */
+  --honey-50:  #fbf1e0;  /* alert warning bg */
+  --honey-100: #f7e8cf;  /* info-box icon tint, "honeysoft" badge */
+  --honey-300: #ecc98f;  /* alert warning border */
+  --rose-50:   #f8e7e6;  /* alert danger bg */
+  --rose-300:  #e3b1af;  /* alert danger border */
+  --rose-600:  #b04f4c;  /* danger text & danger button — 5.16:1 on white */
+  --tg-50:     #dff1fa;  /* Telegram user avatar */
+  --tg-700:    #1b6f99;
+  --android:   #3ddc84;  /* "Android" source dot in the history timeline */
+  --shadow-card: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10);
+  --sidebar-w: 250px;
+  --navbar-h:  57px;
 }
 
 @layer base {
@@ -176,9 +190,9 @@
 }
 
 /* Admin — Legal Document rich-text editor (components/admin/RichTextEditor.tsx) */
-.gz-rte:empty:before { content: attr(data-placeholder); color: #9CA3AF; }
+.gz-rte:empty:before { content: attr(data-placeholder); color: var(--color-text-tertiary); }
 .gz-rte:focus { outline: none; }
-.gz-rte h3 { font-size: 15px; margin: 14px 0 6px; font-weight: 700; color: #111827; }
+.gz-rte h3 { font-size: 15px; margin: 14px 0 6px; font-weight: 700; color: var(--color-text-primary); }
 .gz-rte p { margin: 0 0 9px; }
 .gz-rte ul, .gz-rte ol { margin: 0 0 9px; padding-left: 18px; }
 .gz-rte li { margin-bottom: 3px; }

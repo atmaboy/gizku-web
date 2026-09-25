@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
+import { Lock, LogIn } from 'lucide-react'
 import GizkuLogo from '@/components/GizkuLogo'
+import { Button, Card, FormField, Input, InputGroup } from '@/components/admin/ui'
 
 export default function AdminLogin() {
   const [pwd, setPwd] = useState('')
@@ -11,55 +13,63 @@ export default function AdminLogin() {
     e.preventDefault()
     setLoading(true)
     setMsg('')
-    const r = await fetch('/api/admin?action=login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pwd }),
-    })
-    const d = await r.json()
-    if (r.ok) {
-      document.cookie = `nl_admin_token=${d.token}; path=/; max-age=14400; samesite=strict`
-      window.location.href = '/admin'
-    } else {
-      setMsg(d.error || 'Login gagal')
+    try {
+      const r = await fetch('/api/admin?action=login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwd }),
+      })
+      const d = await r.json()
+      if (r.ok) {
+        document.cookie = `nl_admin_token=${d.token}; path=/; max-age=14400; samesite=strict`
+        window.location.href = '/admin'
+      } else {
+        setMsg(d.error || 'Login gagal')
+        setLoading(false)
+      }
+    } catch {
+      setMsg('Gagal menghubungi server')
       setLoading(false)
     }
   }
 
+  const year = new Date().getFullYear()
+
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-white ring-1 ring-[#E5E7EB] rounded-2xl shadow-[0_8px_24px_rgba(16,24,40,0.06)] p-8">
-        <div className="mb-8 text-center">
-          <div className="flex justify-center mb-3">
-            <GizkuLogo size={52} />
-          </div>
-          <h1 className="text-[22px] font-semibold text-[#111827] tracking-[-0.02em]">Gizku Admin</h1>
-          <p className="text-sm text-[#6B7280] mt-1">Masuk ke panel backoffice</p>
+    <div className="min-h-screen bg-sunken flex items-center justify-center px-5 py-10">
+      <div className="w-full max-w-[400px]">
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <GizkuLogo size={48} className="max-lg:w-11 max-lg:h-11" />
+          <h1 className="text-[34px] max-lg:text-[28px] text-primary tracking-[-0.02em] leading-none">
+            <strong className="font-bold">Gizku</strong> <span className="font-light">Admin</span>
+          </h1>
         </div>
-        <form onSubmit={login} className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-[#111827] block mb-1.5">Password</label>
-            <input
-              type="password"
-              value={pwd}
-              onChange={e => setPwd(e.target.value)}
-              placeholder="••••••••"
-              autoFocus
-              required
-              className="w-full border border-[#E5E7EB] rounded-xl px-4 py-2.5 text-sm bg-white text-[#111827]
-                placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#2DBD74] focus:border-transparent transition"
-            />
-          </div>
-          {msg && <p className="text-sm text-red-500">{msg}</p>}
-          <button
-            type="submit"
-            disabled={loading || !pwd}
-            className="w-full bg-[#2DBD74] text-white py-2.5 rounded-xl text-sm font-semibold
-              hover:bg-[#25A865] transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Masuk…' : 'Masuk'}
-          </button>
-        </form>
+
+        <Card outline="brand" bodyClassName="p-6">
+          <p className="text-center text-[15px] text-secondary mb-5">Masuk ke panel backoffice</p>
+          <form onSubmit={login} className="flex flex-col gap-4" noValidate>
+            <FormField label="Password" htmlFor="admin-pwd" error={msg || undefined}>
+              <InputGroup append={<span className="px-3 flex items-center"><Lock size={16} aria-hidden /></span>}>
+                <Input
+                  id="admin-pwd"
+                  type="password"
+                  value={pwd}
+                  onChange={e => setPwd(e.target.value)}
+                  placeholder="••••••••"
+                  autoFocus
+                  required
+                  autoComplete="current-password"
+                  invalid={!!msg}
+                />
+              </InputGroup>
+            </FormField>
+            <Button type="submit" icon={LogIn} fullWidth loading={loading} disabled={loading || !pwd}>
+              {loading ? 'Masuk…' : 'Masuk'}
+            </Button>
+          </form>
+        </Card>
+
+        <p className="text-center text-sm text-secondary mt-5">© {year} Gizku · AI Nutrition Companion</p>
       </div>
     </div>
   )

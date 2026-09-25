@@ -4,6 +4,7 @@ import { hashPassword } from '@/lib/auth'
 import { eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { err } from '@/lib/utils'
 
 const SALT = 'nutrilog_admin_2024'
 
@@ -25,6 +26,17 @@ export async function verifyAdminPwd(pwd: string): Promise<boolean> {
     return hash === defHash
   }
   return hash === stored
+}
+
+/**
+ * Re-authentication gate for sensitive admin actions (Pengaturan). Returns an
+ * error Response when the password is missing (400) or wrong (401), or null
+ * when it checks out. Call it before writing anything.
+ */
+export async function assertAdminPassword(pwd: unknown): Promise<Response | null> {
+  if (typeof pwd !== 'string' || !pwd) return err('Password admin diperlukan')
+  if (!(await verifyAdminPwd(pwd))) return err('Password admin salah', 401)
+  return null
 }
 
 export async function setAdminPwd(pwd: string) {

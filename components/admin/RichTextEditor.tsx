@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { Bold, Heading3, Italic, List, ListOrdered, type LucideIcon } from 'lucide-react'
 
 /**
  * Minimal rich-text editor for legal document bodies. Uses `contentEditable`
@@ -17,11 +18,13 @@ export default function RichTextEditor({
   onChange,
   placeholder,
   resetKey,
+  ariaLabel,
 }: {
   value: string
   onChange: (html: string) => void
   placeholder: string
   resetKey: string
+  ariaLabel?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const lastResetKey = useRef<string | null>(null)
@@ -50,32 +53,41 @@ export default function RichTextEditor({
     }
   }
 
-  const toolBtn: React.CSSProperties = {
-    background: '#fff', border: '1.5px solid #E5E7EB', borderRadius: 6,
-    padding: '6px 10px', fontSize: 12.5, cursor: 'pointer', minWidth: 30,
-  }
+  const tools: { icon: LucideIcon; label: string; cmd: string; arg?: string }[] = [
+    { icon: Bold, label: 'Tebal', cmd: 'bold' },
+    { icon: Italic, label: 'Miring', cmd: 'italic' },
+    { icon: Heading3, label: 'Judul (H3)', cmd: 'formatBlock', arg: '<h3>' },
+    { icon: List, label: 'Daftar berpoin', cmd: 'insertUnorderedList' },
+    { icon: ListOrdered, label: 'Daftar bernomor', cmd: 'insertOrderedList' },
+  ]
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 4, padding: 8, background: '#F9FAFB', border: '1.5px solid #E5E7EB', borderRadius: '10px 10px 0 0', borderBottom: 'none' }}>
-        <button type="button" onMouseDown={exec('bold')} style={toolBtn}><b>B</b></button>
-        <button type="button" onMouseDown={exec('italic')} style={toolBtn}><i>I</i></button>
-        <button type="button" onMouseDown={exec('formatBlock', '<h3>')} style={{ ...toolBtn, fontWeight: 700 }}>H</button>
-        <button type="button" onMouseDown={exec('insertUnorderedList')} style={toolBtn}>&bull; List</button>
-        <button type="button" onMouseDown={exec('insertOrderedList')} style={toolBtn}>1. List</button>
+    <div className="rounded-sm border border-border-strong focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
+      <div role="toolbar" aria-label="Format teks" className="flex gap-1 p-1.5 bg-sunken border-b border-border-strong rounded-t-sm">
+        {tools.map(t => (
+          <button
+            key={t.label}
+            type="button"
+            onMouseDown={exec(t.cmd, t.arg)}
+            aria-label={t.label}
+            title={t.label}
+            className="inline-flex items-center justify-center w-8 h-8 max-lg:w-10 max-lg:h-10 rounded-sm border border-border-strong bg-surface text-bark-800 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+          >
+            <t.icon size={16} aria-hidden />
+          </button>
+        ))}
       </div>
       <div
         ref={ref}
         contentEditable
+        role="textbox"
+        aria-multiline="true"
+        aria-label={ariaLabel ?? placeholder}
         data-placeholder={placeholder}
         onFocus={handleFocus}
         onInput={() => onChange(ref.current?.innerHTML ?? '')}
         onBlur={() => onChange(ref.current?.innerHTML ?? '')}
-        className="gz-rte"
-        style={{
-          minHeight: 220, border: '1.5px solid #E5E7EB', borderRadius: '0 0 10px 10px',
-          borderTop: 'none', padding: '14px 16px', fontSize: 14, background: '#fff', color: '#111827', lineHeight: 1.6,
-        }}
+        className="gz-rte min-h-[260px] px-4 py-3.5 text-base max-lg:text-md bg-surface text-primary leading-relaxed rounded-b-sm"
       />
     </div>
   )

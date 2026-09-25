@@ -1,6 +1,14 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
+import {
+  CalendarRange, CalendarX, ChevronDown, ChevronUp, Clock, Download, Flame, Globe, ImageOff, Send, Smartphone, Trash2, X,
+  type LucideIcon,
+} from 'lucide-react'
+import {
+  Button, Card, DataTable, EmptyState, Input, Modal, Pagination, Skeleton, Timeline, TimelineEnd, TimelineItem, TimelineLabel,
+} from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 
 type MenuItem = {
   name?: string
@@ -37,11 +45,11 @@ type AdminMealsResponse = { meals?: Meal[]; total?: number; page?: number; total
 const DAY_MS = 24 * 60 * 60 * 1000
 const PER_PAGE = 10
 
-const SOURCE_META: Record<string, { label: string; dot: string }> = {
-  'app-android': { label: 'Android',  dot: '#3DDC84' },
-  'app-ios':     { label: 'iOS',      dot: '#111827' },
-  telegram:      { label: 'Telegram', dot: '#229ED9' },
-  web:           { label: 'Web',      dot: '#6B7280' },
+const SOURCE_META: Record<string, { label: string; dot: string; icon: LucideIcon }> = {
+  'app-android': { label: 'Android',  dot: 'bg-android',  icon: Smartphone },
+  'app-ios':     { label: 'iOS',      dot: 'bg-bark-900', icon: Smartphone },
+  telegram:      { label: 'Telegram', dot: 'bg-tg',       icon: Send },
+  web:           { label: 'Web',      dot: 'bg-clay-500', icon: Globe },
 }
 
 function isoDaysAgo(n: number) {
@@ -51,51 +59,56 @@ function todayStr() {
   return new Date().toISOString().split('T')[0]
 }
 
-function FlameIcon({ size = 12 }: { size?: number }) {
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+}
+function fmtDayLabel(iso: string) {
+  return new Date(iso).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+function fmtDateStr(dateStr: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+function Macro({ value, label, className, dotClass }: { value: string; label: string; className: string; dotClass?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="#f97316">
-      <path d="M12 2C9 7 6 9.5 6 14a6 6 0 0 0 12 0c0-3-1.5-5.5-3-7.5C14.5 8.5 13 11 13 13a1 1 0 0 1-2 0c0-3 1-5.5 1-11z" />
-    </svg>
+    <span className="inline-flex items-center gap-1 text-sm text-secondary">
+      {dotClass
+        ? <span aria-hidden className={cn('w-2 h-2 rounded-full', dotClass)} />
+        : <Flame size={14} className={className} aria-hidden />}
+      <strong className={cn('font-bold', dotClass ? 'text-primary' : className)}>{value}</strong>{label}
+    </span>
   )
 }
-function DumbbellIcon({ size = 12, color = '#22c55e' }: { size?: number; color?: string }) {
+
+function MacroChip({ value, label, className }: { value: string; label: string; className: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <rect x="2" y="10" width="3" height="4" rx="1" /><rect x="19" y="10" width="3" height="4" rx="1" />
-      <rect x="4" y="8" width="3" height="8" rx="1.5" /><rect x="17" y="8" width="3" height="8" rx="1.5" />
-      <rect x="7" y="11" width="10" height="2" rx="1" />
-    </svg>
+    <div className="bg-sunken rounded-sm py-1.5 px-1 text-center min-w-0">
+      <p className={cn('text-base font-bold tabular-nums leading-tight truncate', className)}>{value}</p>
+      <p className="text-[11px] text-secondary">{label}</p>
+    </div>
   )
 }
-function GrainIcon({ size = 12, color = '#3b82f6' }: { size?: number; color?: string }) {
+
+function Thumb({ meal, label, onOpen, className }: { meal: Meal; label: string; onOpen: () => void; className: string }) {
+  const [broken, setBroken] = useState(false)
+  if (!meal.imageUrl || broken) {
+    return (
+      <div className={cn('shrink-0 rounded-sm bg-muted border border-border flex flex-col items-center justify-center text-secondary gap-1', className)}>
+        <ImageOff size={20} aria-hidden /><span className="text-[11px]">No foto</span>
+      </div>
+    )
+  }
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <ellipse cx="12" cy="6" rx="3" ry="2.5" /><ellipse cx="8" cy="9" rx="2.5" ry="2" /><ellipse cx="16" cy="9" rx="2.5" ry="2" />
-      <ellipse cx="8.5" cy="13" rx="2.5" ry="2" /><ellipse cx="15.5" cy="13" rx="2.5" ry="2" />
-      <line x1="12" y1="21" x2="12" y2="9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  )
-}
-function DropletIcon({ size = 12, color = '#a855f7' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <path d="M12 3C12 3 6 10 6 15a6 6 0 0 0 12 0C18 10 12 3 12 3z" />
-    </svg>
-  )
-}
-function TrashIcon({ size = 14, color = '#f87171' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
-    </svg>
-  )
-}
-function CalendarIcon({ size = 32, color = '#9CA3AF' }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
+    <button
+      type="button"
+      onClick={onOpen}
+      title="Klik untuk perbesar"
+      aria-label={`Perbesar foto ${label}`}
+      className={cn('shrink-0 rounded-sm overflow-hidden bg-muted border border-border group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2', className)}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={meal.imageUrl} alt={label} loading="lazy" onError={() => setBroken(true)} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+    </button>
   )
 }
 
@@ -108,9 +121,9 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
   const [dateTo, setDateTo]     = useState(todayStr())
   const [expanded, setExpanded] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Meal | null>(null)
   const [lightbox, setLightbox] = useState<{ url: string; name: string } | null>(null)
-  const fromInputRef = useRef<HTMLInputElement>(null)
-  const toInputRef   = useRef<HTMLInputElement>(null)
+  const lightboxClose = useRef<HTMLButtonElement>(null)
 
   const load = useCallback(async (p: number, isPaging: boolean, from: string, to: string) => {
     if (isPaging) setPaging(true); else setLoading(true)
@@ -132,6 +145,7 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!lightbox) return
+    lightboxClose.current?.focus()
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(null) }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -165,17 +179,21 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
   }
 
   async function deleteMeal(mealId: string) {
-    if (!confirm('Hapus riwayat analisa ini?')) return
     setDeleting(mealId)
-    const r = await fetch(`/api/admin?action=delete_meal`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: mealId }),
-    })
-    const d = await r.json() as { error?: string }
-    if (r.ok) { toast.success('Riwayat dihapus'); load(page, false, dateFrom, dateTo) }
-    else toast.error(d.error)
-    setDeleting(null)
+    try {
+      const r = await fetch(`/api/admin?action=delete_meal`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: mealId }),
+      })
+      const d = await r.json() as { error?: string }
+      if (r.ok) { toast.success('Riwayat dihapus'); setPendingDelete(null); load(page, false, dateFrom, dateTo) }
+      else toast.error(d.error)
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setDeleting(null)
+    }
   }
 
   function getMenuItems(meal: Meal): MenuItem[] {
@@ -184,309 +202,262 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
   function getDescription(meal: Meal): string {
     return meal.rawAnalysis?.notes ?? ''
   }
-  function fmtDate(iso: string) {
-    return new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  }
-  function fmtDateStr(dateStr: string) {
-    return new Date(dateStr + 'T12:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  }
 
   const meals       = data?.meals ?? []
   const totalPages  = data?.totalPages ?? 1
   const total       = data?.total ?? 0
   const isFiltering = !!(dateFrom || dateTo)
+  const busy        = loading || paging
+
+  // Group meals by local calendar day (already sorted newest first by the API).
+  const groups: { day: string; meals: Meal[] }[] = []
+  for (const m of meals) {
+    const day = fmtDayLabel(m.loggedAt)
+    const last = groups[groups.length - 1]
+    if (last && last.day === day) last.meals.push(m)
+    else groups.push({ day, meals: [m] })
+  }
 
   return (
-    <div className="space-y-4">
-      {/* ── LIGHTBOX ── */}
+    <>
+      {/* ── Lightbox ── */}
       {lightbox && (
-        <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4" onClick={() => setLightbox(null)}>
-          <div className="w-full max-w-2xl flex items-center justify-between mb-3" onClick={e => e.stopPropagation()}>
-            <p className="text-white/80 text-sm font-medium truncate max-w-xs">{lightbox.name}</p>
-            <div className="flex items-center gap-2">
+        <div role="dialog" aria-modal="true" aria-label={lightbox.name} className="fixed inset-0 z-[120] bg-black/90 flex flex-col items-center justify-center p-4" onClick={() => setLightbox(null)}>
+          <div className="w-full max-w-2xl flex items-center justify-between gap-3 mb-3" onClick={e => e.stopPropagation()}>
+            <p className="text-white/80 text-base font-medium truncate">{lightbox.name}</p>
+            <div className="flex items-center gap-2 shrink-0">
               <a
                 href={lightbox.url} download target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs transition min-h-[44px]"
-                onClick={e => e.stopPropagation()}
+                className="flex items-center gap-1.5 px-3 rounded-sm bg-white/10 hover:bg-white/20 text-white text-sm min-h-11"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Download
+                <Download size={14} aria-hidden />Download
               </a>
               <button
+                ref={lightboxClose}
+                type="button"
                 onClick={() => setLightbox(null)}
-                className="flex items-center gap-1 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs transition min-h-[44px]"
+                className="flex items-center gap-1.5 px-3 rounded-sm bg-white/10 hover:bg-white/20 text-white text-sm min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-                Tutup
+                <X size={14} aria-hidden />Tutup
               </button>
             </div>
           </div>
           <div className="w-full max-w-2xl flex items-center justify-center" onClick={e => e.stopPropagation()}>
-            <img src={lightbox.url} alt={lightbox.name} className="max-h-[70vh] w-full object-contain rounded-xl shadow-2xl ring-1 ring-white/10" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox.url} alt={lightbox.name} className="max-h-[70vh] w-full object-contain rounded-md shadow-2xl" />
           </div>
-          <p className="text-white/40 text-xs mt-3 text-center">Klik di luar foto atau tekan Esc untuk menutup</p>
+          <p className="text-white/60 text-sm mt-3 text-center">Klik di luar foto atau tekan Esc untuk menutup</p>
         </div>
       )}
 
       {/* ── Date range filter ── */}
-      <div className="bg-white ring-1 ring-[#E5E7EB] rounded-[18px] p-4 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[130px] max-w-[170px]">
-            <input
-              ref={fromInputRef}
-              type="date"
-              value={dateFrom}
-              max={dateTo || todayStr()}
-              onChange={handleFromChange}
-              className="w-full px-3 py-2.5 text-base rounded-xl border transition outline-none min-h-[44px]"
-              style={{
-                borderColor: dateFrom ? '#BBF7D0' : '#E5E7EB',
-                background:  dateFrom ? '#F0FDF4' : '#F9FAFB',
-                color:       dateFrom ? '#111827' : '#6B7280',
-                colorScheme: 'light',
-                fontSize: '16px',
-              }}
-            />
+      <Card outline="brand" icon={CalendarRange} title="Filter Rentang Tanggal">
+        <div className="flex items-end gap-3 flex-wrap max-lg:grid max-lg:grid-cols-2 max-lg:gap-2">
+          <div className="lg:w-[180px]">
+            <label htmlFor="riwayat-from" className="block mb-1.5 text-base font-semibold text-primary">Dari</label>
+            <Input id="riwayat-from" type="date" value={dateFrom} max={dateTo || todayStr()} onChange={handleFromChange} style={{ colorScheme: 'light' }} />
           </div>
-          <span className="text-xs text-[#9CA3AF] shrink-0">s/d</span>
-          <div className="relative flex-1 min-w-[130px] max-w-[170px]">
-            <input
-              ref={toInputRef}
-              type="date"
-              value={dateTo}
-              max={todayStr()}
-              onChange={handleToChange}
-              className="w-full px-3 py-2.5 text-base rounded-xl border transition outline-none min-h-[44px]"
-              style={{
-                borderColor: dateTo ? '#BBF7D0' : '#E5E7EB',
-                background:  dateTo ? '#F0FDF4' : '#F9FAFB',
-                color:       dateTo ? '#111827' : '#6B7280',
-                colorScheme: 'light',
-                fontSize: '16px',
-              }}
-            />
+          <span className="text-base text-secondary pb-2.5 max-lg:hidden" aria-hidden>s/d</span>
+          <div className="lg:w-[180px]">
+            <label htmlFor="riwayat-to" className="block mb-1.5 text-base font-semibold text-primary">Sampai</label>
+            <Input id="riwayat-to" type="date" value={dateTo} max={todayStr()} onChange={handleToChange} style={{ colorScheme: 'light' }} />
           </div>
           {isFiltering && (
-            <button
-              onClick={handleResetFilter}
-              className="flex items-center gap-1.5 px-3 py-2.5 text-xs rounded-xl border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition whitespace-nowrap min-h-[44px]"
-            >
-              ✕ Reset
-            </button>
+            <Button variant="outline" icon={X} onClick={handleResetFilter} className="max-lg:hidden">Reset</Button>
           )}
-        </div>
-        <p className="text-[11px] text-[#9CA3AF]">Rentang maksimal 30 hari</p>
-      </div>
-
-      {/* ── Meal list ── */}
-      <div className="space-y-3">
-        {(loading || paging) && (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="border border-[#E5E7EB] rounded-xl p-3 flex gap-3 animate-pulse bg-white">
-                <div className="w-16 h-16 rounded-lg bg-[#F3F4F6] shrink-0" />
-                <div className="flex-1 space-y-2 pt-1">
-                  <div className="h-3.5 bg-[#F3F4F6] rounded w-3/4" />
-                  <div className="h-3 bg-[#F3F4F6] rounded w-1/3" />
-                  <div className="h-3 bg-[#F3F4F6] rounded w-full" />
-                  <div className="flex gap-3 mt-1">
-                    <div className="h-3 bg-[#F3F4F6] rounded w-16" />
-                    <div className="h-3 bg-[#F3F4F6] rounded w-16" />
-                    <div className="h-3 bg-[#F3F4F6] rounded w-16" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!loading && !paging && meals.length === 0 && isFiltering && (
-          <div className="py-10 text-center bg-white ring-1 ring-[#E5E7EB] rounded-[18px]">
-            <div className="flex justify-center mb-3"><CalendarIcon size={36} color="#D1D5DB" /></div>
-            <p className="text-sm font-semibold text-[#111827] mb-1">Tidak ada riwayat makanan</p>
-            <p className="text-xs text-[#6B7280] mb-4">
-              Tidak ditemukan catatan pada rentang <strong className="text-[#111827]">
-                {dateFrom ? fmtDateStr(dateFrom) : '…'} s/d {dateTo ? fmtDateStr(dateTo) : '…'}
-              </strong>
+          <div className="lg:ml-auto lg:text-right max-lg:col-span-2 max-lg:flex max-lg:items-center max-lg:justify-between max-lg:gap-2">
+            <p className="text-base text-primary">
+              <span className="lg:hidden text-sm text-secondary">Rentang maks. 30 hari · </span>
+              <span className="max-lg:text-sm">Menampilkan <strong>{busy ? '…' : total} entri</strong></span>
             </p>
-            <button
-              onClick={handleResetFilter}
-              className="text-xs px-4 py-2.5 rounded-xl border border-[#BBF7D0] bg-[#F0FDF4] text-[#166534] hover:bg-[#D4F5E4] transition min-h-[44px]"
-            >
-              Lihat Semua Riwayat
-            </button>
-          </div>
-        )}
-
-        {!loading && !paging && meals.length === 0 && !isFiltering && (
-          <div className="py-10 text-center text-[#6B7280] text-sm bg-white ring-1 ring-[#E5E7EB] rounded-[18px]">
-            Belum ada riwayat analisa untuk user ini.
-          </div>
-        )}
-
-        {!loading && !paging && meals.map(meal => {
-          const menuItems  = getMenuItems(meal)
-          const desc       = getDescription(meal)
-          const isExpanded = expanded === meal.id
-          const dishLabel  = meal.dishNames.length > 0 ? meal.dishNames.join(', ') : 'Tidak terdeteksi'
-          const sm = SOURCE_META[meal.source] ?? SOURCE_META.web
-
-          return (
-            <div key={meal.id} className="border border-[#E5E7EB] rounded-xl overflow-hidden bg-white">
-              <div className="flex items-start gap-3 p-3">
-                {meal.imageUrl ? (
-                  <button
-                    onClick={() => setLightbox({ url: meal.imageUrl!, name: dishLabel })}
-                    title="Klik untuk perbesar"
-                    aria-label={`Perbesar foto ${dishLabel}`}
-                    className="shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-[#F3F4F6] group relative border border-[#E5E7EB]"
-                  >
-                    <img
-                      src={meal.imageUrl} alt={dishLabel}
-                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
-                      loading="lazy"
-                      onError={e => {
-                        const t = e.target as HTMLImageElement
-                        t.style.display = 'none'
-                        const sibling = t.nextElementSibling as HTMLElement | null
-                        sibling?.classList.remove('hidden')
-                      }}
-                    />
-                    <div className="hidden absolute inset-0 flex flex-col items-center justify-center text-[#9CA3AF] gap-0.5">
-                      <span className="text-lg">🖼️</span><span className="text-[9px]">No image</span>
-                    </div>
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" className="opacity-0 group-hover:opacity-100 transition-opacity drop-shadow">
-                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
-                      </svg>
-                    </div>
-                  </button>
-                ) : (
-                  <div className="shrink-0 w-16 h-16 rounded-lg bg-[#F9FAFB] border border-[#E5E7EB] flex flex-col items-center justify-center text-[#D1D5DB] gap-0.5">
-                    <span className="text-xl">🍽️</span><span className="text-[9px] text-[#9CA3AF]">No foto</span>
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-[#111827] truncate">
-                    {meal.dishNames.length > 0 ? meal.dishNames.join(', ') : <span className="italic text-[#9CA3AF]">Tidak terdeteksi</span>}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    <p className="text-xs text-[#6B7280]">{fmtDate(meal.loggedAt)}</p>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#6B7280]">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: sm.dot }} />
-                      {sm.label}
-                    </span>
-                  </div>
-
-                  {desc && (
-                    <p className="text-xs text-[#6B7280] mt-1 line-clamp-2 italic leading-relaxed">&ldquo;{desc}&rdquo;</p>
-                  )}
-
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-orange-500">
-                      <FlameIcon size={11} />{meal.totalCalories} kkal
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]">
-                      <DumbbellIcon size={11} color="#22c55e" /><strong className="text-[#111827]">{Number(meal.totalProtein).toFixed(1)}g</strong><span>protein</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]">
-                      <GrainIcon size={11} color="#3b82f6" /><strong className="text-[#111827]">{Number(meal.totalCarbs).toFixed(1)}g</strong><span>karbo</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]">
-                      <DropletIcon size={11} color="#a855f7" /><strong className="text-[#111827]">{Number(meal.totalFat).toFixed(1)}g</strong><span>lemak</span>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2 items-end shrink-0">
-                  {(menuItems.length > 0 || desc) && (
-                    <button
-                      onClick={() => setExpanded(isExpanded ? null : meal.id)}
-                      className="text-xs px-3 py-2 rounded-xl border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition min-h-[44px] min-w-[44px]"
-                    >
-                      {isExpanded ? '▲' : menuItems.length > 0 ? `▼ ${menuItems.length}` : '▼'}
-                      <span className="hidden sm:inline">{isExpanded ? ' Tutup' : menuItems.length > 0 ? ' menu' : ' Detail'}</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => deleteMeal(meal.id)}
-                    disabled={deleting === meal.id}
-                    aria-label="Hapus riwayat makanan"
-                    className="flex items-center justify-center gap-1 px-3 py-2 rounded-xl border border-red-200 text-red-400 hover:bg-red-50 transition disabled:opacity-50 min-h-[44px] min-w-[44px]"
-                  >
-                    {deleting === meal.id
-                      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin .7s linear infinite' }}><path d="M12 2 a10 10 0 0 1 10 10" /></svg>
-                      : <TrashIcon size={14} />}
-                  </button>
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div className="border-t border-[#E5E7EB] px-3 sm:px-4 py-3 space-y-3 bg-[#F9FAFB]">
-                  {desc && (
-                    <div className="bg-white border border-[#E5E7EB] rounded-lg p-3 space-y-1">
-                      <p className="text-[10px] font-semibold text-[#6B7280] uppercase tracking-widest">Deskripsi Analisa AI</p>
-                      <p className="text-xs text-[#374151] leading-relaxed">{desc}</p>
-                    </div>
-                  )}
-                  {menuItems.length > 0 && (
-                    <>
-                      <p className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Detail Menu Terdeteksi</p>
-                      {menuItems.map((item, idx) => (
-                        <div key={idx} className="border border-[#E5E7EB] rounded-lg p-3 bg-white space-y-1">
-                          <p className="text-sm font-medium text-[#111827]">{item.name ?? `Menu ${idx + 1}`}</p>
-                          {item.portion && <p className="text-xs text-[#6B7280] leading-relaxed">{item.portion}</p>}
-                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                            {item.calories !== undefined && <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-500"><FlameIcon size={10} /> {item.calories} kkal</span>}
-                            {item.protein !== undefined && <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]"><DumbbellIcon size={10} color="#22c55e" /> {item.protein}g protein</span>}
-                            {item.carbs !== undefined && <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]"><GrainIcon size={10} color="#3b82f6" /> {item.carbs}g karbo</span>}
-                            {item.fat !== undefined && <span className="inline-flex items-center gap-1 text-xs text-[#6B7280]"><DropletIcon size={10} color="#a855f7" /> {item.fat}g lemak</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {/* ── Pagination ── */}
-      {!loading && total > 0 && (
-        <div className="bg-white ring-1 ring-[#E5E7EB] rounded-[18px] px-4 py-3 flex items-center justify-between gap-3">
-          <span className="text-xs text-[#6B7280] tabular-nums">
-            {paging ? 'Memuat…' : `Hal. ${page} / ${totalPages} · ${total} entri`}
-          </span>
-          <div className="flex items-center gap-2">
-            {page > 1 && (
-              <button
-                disabled={paging}
-                onClick={() => load(1, true, dateFrom, dateTo)}
-                className="px-2.5 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-50"
-              >Pertama</button>
+            <p className="text-sm text-secondary max-lg:hidden">Rentang maksimal 30 hari.</p>
+            {isFiltering && (
+              <Button variant="outline" size="sm" icon={X} onClick={handleResetFilter} className="lg:hidden">Reset</Button>
             )}
-            <button
-              disabled={page <= 1 || paging}
-              onClick={() => load(page - 1, true, dateFrom, dateTo)}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >← Sebelumnya</button>
-            <button
-              disabled={page >= totalPages || paging}
-              onClick={() => load(page + 1, true, dateFrom, dateTo)}
-              className="px-3 py-1.5 text-xs rounded-lg border border-[#E5E7EB] text-[#6B7280] hover:bg-[#F3F4F6] transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >Berikutnya →</button>
           </div>
+        </div>
+      </Card>
+
+      {/* ── Timeline ── */}
+      {busy && (
+        <div className="flex flex-col gap-4" aria-busy="true" aria-label="Memuat riwayat">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-[160px] rounded-md lg:ml-16 ml-10" />)}
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+      {!busy && meals.length === 0 && isFiltering && (
+        <Card>
+          <EmptyState
+            icon={CalendarX}
+            title="Tidak ada riwayat makanan"
+            description={<>Tidak ditemukan catatan pada rentang <strong className="text-primary">{dateFrom ? fmtDateStr(dateFrom) : '…'} s/d {dateTo ? fmtDateStr(dateTo) : '…'}</strong></>}
+            action={<Button variant="outline-primary" onClick={handleResetFilter}>Lihat Semua Riwayat</Button>}
+          />
+        </Card>
+      )}
+
+      {!busy && meals.length === 0 && !isFiltering && (
+        <Card><EmptyState icon={CalendarX} title="Belum ada riwayat analisa untuk user ini." /></Card>
+      )}
+
+      {!busy && meals.length > 0 && (
+        <Timeline>
+          {groups.map(g => (
+            <GroupItems key={g.day} day={g.day}>
+              {g.meals.map(meal => {
+                const menuItems  = getMenuItems(meal)
+                const desc       = getDescription(meal)
+                const isExpanded = expanded === meal.id
+                const dishLabel  = meal.dishNames.length > 0 ? meal.dishNames.join(', ') : 'Tidak terdeteksi'
+                const sm = SOURCE_META[meal.source] ?? SOURCE_META.web
+                const kcal = `${meal.totalCalories}`
+                const p = `${Number(meal.totalProtein).toFixed(1)}g`
+                const c = `${Number(meal.totalCarbs).toFixed(1)}g`
+                const f = `${Number(meal.totalFat).toFixed(1)}g`
+                const openLightbox = () => setLightbox({ url: meal.imageUrl!, name: dishLabel })
+                const canExpand = menuItems.length > 0 || !!desc
+                const expandLabel = isExpanded ? 'Tutup menu' : menuItems.length > 0 ? `Lihat ${menuItems.length} menu` : 'Detail'
+
+                return (
+                  <TimelineItem key={meal.id} icon={sm.icon}>
+                    {/* Header */}
+                    <div className="px-4 py-3 border-b border-border flex items-start gap-3 max-lg:px-3">
+                      <Thumb meal={meal} label={dishLabel} onOpen={openLightbox} className="w-[76px] h-[76px] lg:hidden" />
+                      <div className="min-w-0 flex-1 flex items-start gap-3 max-lg:flex-col max-lg:gap-1">
+                        <h3 className={cn('text-[15px] font-semibold flex-1 min-w-0 leading-snug', meal.dishNames.length ? 'text-primary' : 'text-secondary italic')}>
+                          {dishLabel}
+                        </h3>
+                        <div className="flex items-center gap-3 text-sm text-secondary shrink-0">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span aria-hidden className={cn('w-2 h-2 rounded-full', sm.dot)} />{sm.label}
+                          </span>
+                          <span className="inline-flex items-center gap-1"><Clock size={13} aria-hidden />{fmtTime(meal.loggedAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-4 max-lg:p-3 flex gap-4">
+                      <Thumb meal={meal} label={dishLabel} onOpen={openLightbox} className="w-28 h-28 max-lg:hidden" />
+                      <div className="min-w-0 flex-1">
+                        {desc && <p className="text-base text-bark-700 italic leading-normal line-clamp-3">“{desc}”</p>}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2.5 max-lg:hidden">
+                          <Macro value={kcal} label="kcal" className="text-kcal" />
+                          <Macro value={p} label="protein" className="text-protein" dotClass="bg-protein" />
+                          <Macro value={c} label="karbo" className="text-carbs" dotClass="bg-carbs" />
+                          <Macro value={f} label="lemak" className="text-fat" dotClass="bg-fat" />
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5 mt-2.5 lg:hidden">
+                          <MacroChip value={kcal} label="kcal" className="text-kcal" />
+                          <MacroChip value={p} label="protein" className="text-protein" />
+                          <MacroChip value={c} label="karbo" className="text-carbs" />
+                          <MacroChip value={f} label="lemak" className="text-fat" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded menu */}
+                    {isExpanded && menuItems.length > 0 && (
+                      <div className="border-t border-border" id={`meal-menu-${meal.id}`}>
+                        <div className="max-lg:hidden">
+                          <DataTable
+                            compact
+                            rows={menuItems}
+                            rowKey={(_, i) => String(i)}
+                            columns={[
+                              { key: 'n', header: 'Menu', render: (it, i) => <span className="font-medium">{it.name ?? `Menu ${i + 1}`}</span> },
+                              { key: 'p', header: 'Porsi', className: 'text-secondary', render: it => it.portion ?? '—' },
+                              { key: 'k', header: 'Kalori', align: 'right', render: it => it.calories ?? '—' },
+                              { key: 'pr', header: 'Protein', align: 'right', render: it => it.protein !== undefined ? `${it.protein}g` : '—' },
+                              { key: 'c', header: 'Karbo', align: 'right', render: it => it.carbs !== undefined ? `${it.carbs}g` : '—' },
+                              { key: 'f', header: 'Lemak', align: 'right', render: it => it.fat !== undefined ? `${it.fat}g` : '—' },
+                            ]}
+                          />
+                        </div>
+                        <ul className="lg:hidden list-none m-0 p-0">
+                          {menuItems.map((it, i) => (
+                            <li key={i} className="flex items-start justify-between gap-3 px-3 py-2.5 border-t border-border first:border-t-0">
+                              <div className="min-w-0">
+                                <p className="text-base font-medium text-primary">{it.name ?? `Menu ${i + 1}`}</p>
+                                {it.portion && <p className="text-sm text-secondary">{it.portion}</p>}
+                              </div>
+                              {it.calories !== undefined && <span className="text-sm font-semibold text-kcal shrink-0 tabular-nums">{it.calories} kkal</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {isExpanded && menuItems.length === 0 && desc && (
+                      <div className="border-t border-border px-4 py-3 text-base text-bark-700 leading-normal">{desc}</div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="px-4 py-2.5 max-lg:px-3 bg-sunken border-t border-border flex items-center gap-2">
+                      {canExpand && (
+                        <Button
+                          variant="outline-primary" size="sm"
+                          icon={isExpanded ? ChevronUp : ChevronDown}
+                          aria-expanded={isExpanded}
+                          aria-controls={menuItems.length > 0 ? `meal-menu-${meal.id}` : undefined}
+                          onClick={() => setExpanded(isExpanded ? null : meal.id)}
+                          className="max-lg:flex-1"
+                        >
+                          {expandLabel}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline-danger" size="sm" icon={Trash2}
+                        loading={deleting === meal.id}
+                        onClick={() => setPendingDelete(meal)}
+                        aria-label="Hapus riwayat makanan"
+                        className="lg:ml-0 max-lg:ml-auto max-lg:px-3"
+                      >
+                        <span className="max-lg:hidden">Hapus</span>
+                      </Button>
+                    </div>
+                  </TimelineItem>
+                )
+              })}
+            </GroupItems>
+          ))}
+          <TimelineEnd icon={Clock} />
+        </Timeline>
+      )}
+
+      {!loading && total > 0 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPage={p => !paging && load(p, true, dateFrom, dateTo)}
+          label={paging ? 'Memuat…' : `Hal. ${page} / ${totalPages} · ${total} entri`}
+        />
+      )}
+
+      <Modal
+        open={!!pendingDelete}
+        onClose={() => { if (!deleting) setPendingDelete(null) }}
+        title="Hapus riwayat analisa ini?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPendingDelete(null)} disabled={!!deleting}>Batal</Button>
+            <Button variant="danger" icon={Trash2} loading={!!deleting} onClick={() => pendingDelete && deleteMeal(pendingDelete.id)}>Hapus</Button>
+          </>
+        }
+      >
+        <p className="text-base text-bark-700 leading-normal">
+          <strong className="text-primary">{pendingDelete?.dishNames.length ? pendingDelete.dishNames.join(', ') : 'Entri ini'}</strong> akan dihapus permanen dari riwayat user. Tindakan ini tidak dapat dibatalkan.
+        </p>
+      </Modal>
+    </>
+  )
+}
+
+function GroupItems({ day, children }: { day: string; children: React.ReactNode }) {
+  return (
+    <>
+      <TimelineLabel>{day}</TimelineLabel>
+      {children}
+    </>
   )
 }

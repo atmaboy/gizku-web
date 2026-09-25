@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { users, meals, reports, reportMessages, reportAttachments, dailyUsage, maintenanceConfig } from '@/drizzle/schema'
-import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMaintenance, requireAdmin } from '@/lib/admin'
+import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMaintenance, requireAdmin, assertAdminPassword } from '@/lib/admin'
 import { signAdminToken } from '@/lib/auth'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { invalidateMaintenanceCache } from '@/lib/maintenance'
@@ -9,6 +9,7 @@ import { sendVerificationEmailInBackground, clampExpiryHours, getVerificationExp
 import { sendReportReplyEmail } from '@/lib/reportReplyEmail'
 import { buildReplySubject } from '@/lib/reportTicket'
 import { eq, desc, count, and, gte, lte, inArray, sql } from 'drizzle-orm'
+import { getAdminNavCounts } from '@/lib/adminCounts'
 
 const REPORT_STATUSES = ['open', 'replied', 'waiting', 'done'] as const
 
@@ -57,14 +58,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'update_password') {
-      const { newPassword } = await req.json()
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+      const { currentPassword, newPassword } = await req.json()
+      const pwdError = await assertAdminPassword(currentPassword)
+      if (pwdError) return pwdError
       if (!newPassword || newPassword.length < 8) return err('Password minimal 8 karakter')
       await setAdminPwd(newPassword)
       return ok({ message: 'Password berhasil diubah' })
     }
 
     if (action === 'update_config') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
       const body = await req.json()
+      const pwdError = await assertAdminPassword(body.adminPassword)
+      if (pwdError) return pwdError
       if (body.dailyLimit !== undefined)      await setCfg('default_daily_limit', String(body.dailyLimit))
       if (body.anthropicApiKey !== undefined) await setCfg('anthropic_api_key', body.anthropicApiKey)
       if (body.anthropicModel !== undefined)  await setCfg('anthropic_model', body.anthropicModel)
@@ -76,7 +85,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'update_maintenance') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
       const body = await req.json()
+      const pwdError = await assertAdminPassword(body.adminPassword)
+      if (pwdError) return pwdError
       const { enabled, title, description } = body
       const existing = await db.select({ id: maintenanceConfig.id })
         .from(maintenanceConfig).limit(1)
@@ -424,6 +437,13 @@ export async function GET(req: NextRequest) {
       const maintenance    = await getMaintenance()
       const emailVerificationExpiryHours = await getVerificationExpiryHours()
       return ok({ globalLimit, apiKey: apiKey ? '••••••••' : '', anthropicModel, maintenance, emailVerificationExpiryHours })
+    }
+
+    // ── sidebar/bell badge counts (AdminShell refreshes these on navigation) ──
+    if (action === 'nav_counts') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+      return ok(await getAdminNavCounts())
     }
 
     // ── list all reports (for client-side fetching) ─────────────────────────────────────────────────

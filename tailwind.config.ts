@@ -48,6 +48,13 @@ const config: Config = {
         carbs: 'var(--color-carbs)',
         fat: 'var(--color-fat)',
         tg: 'var(--tg-blue)',
+        // Admin additions
+        honey:  { 50: 'var(--honey-50)', 100: 'var(--honey-100)', 300: 'var(--honey-300)', 500: 'var(--accent-honey)' },
+        rose:   { 50: 'var(--rose-50)', 300: 'var(--rose-300)', 500: 'var(--accent-rose)', 600: 'var(--rose-600)' },
+        tomato: { 500: 'var(--accent-tomato)' },
+        sage:   { 500: 'var(--accent-sage)' },
+        tgc:    { 50: 'var(--tg-50)', 500: 'var(--tg-blue)', 700: 'var(--tg-700)' },
+        android: 'var(--android)',
       },
       fontSize: {
         '2xs': 'var(--text-2xs)',
@@ -75,7 +82,10 @@ const config: Config = {
         xs: 'var(--shadow-xs)',
         sm: 'var(--shadow-sm)',
         md: 'var(--shadow-md)',
+        card: 'var(--shadow-card)',
       },
+      width: { sidebar: 'var(--sidebar-w)' },
+      height: { navbar: 'var(--navbar-h)' },
       fontFamily: {
         sans: ['var(--font-inter)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },

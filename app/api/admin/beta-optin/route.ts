@@ -6,7 +6,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { betaOptinConfig } from '@/drizzle/schema'
-import { requireAdmin } from '@/lib/admin'
+import { requireAdmin, assertAdminPassword } from '@/lib/admin'
 import { invalidateBetaOptinConfigCache } from '@/lib/betaOptinConfig'
 import { ok, err, setCors } from '@/lib/utils'
 import { eq } from 'drizzle-orm'
@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
   const action = req.nextUrl.searchParams.get('action')
 
   if (action === 'update_enabled') {
-    const { enabled } = await req.json()
+    const { enabled, adminPassword } = await req.json()
+    const pwdError = await assertAdminPassword(adminPassword)
+    if (pwdError) return pwdError
     const existing = await db.select({ id: betaOptinConfig.id }).from(betaOptinConfig).limit(1)
     if (existing.length > 0) {
       await db.update(betaOptinConfig).set({ enabled: !!enabled, updatedAt: new Date() }).where(eq(betaOptinConfig.id, existing[0].id))
@@ -52,6 +54,8 @@ export async function POST(req: NextRequest) {
 
   if (action === 'update_content') {
     const body = await req.json()
+    const pwdError = await assertAdminPassword(body?.adminPassword)
+    if (pwdError) return pwdError
     const langs = ['id', 'en'] as const
     for (const lang of langs) {
       const content = body?.[lang]
