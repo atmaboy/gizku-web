@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { getGlobalLimit, getCfg, getMaintenance } from '@/lib/admin'
 import { getAdminNavCounts } from '@/lib/adminCounts'
-import { fmtNum, fmtDateTime, todayISO } from '@/lib/utils'
+import { fmtNum, fmtDateTime, todayISO, cn } from '@/lib/utils'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import {
   Alert, Avatar, Badge, Button, Card, Code, DataTable, KeyValue, ListRow, ResponsiveStat, SmallBox, TrackedLink,
@@ -143,9 +143,11 @@ export default async function AdminDashboard() {
               striped
               emptyState={<p className="p-6 text-center text-base text-secondary">Belum ada meal log.</p>}
               columns={[
-                { key: 'm', header: 'Nama Menu', render: m => <span className={m.dishNames?.length ? 'font-semibold' : 'italic text-secondary'}>{menuLabel(m.dishNames)}</span> },
+                { key: 'm', header: 'Nama Menu', className: 'w-full max-w-0', render: m => (
+                  <span title={menuLabel(m.dishNames)} className={cn('block truncate', m.dishNames?.length ? 'font-semibold' : 'italic text-secondary')}>{menuLabel(m.dishNames)}</span>
+                ) },
                 { key: 'u', header: 'Username', render: m => m.userId
-                  ? <TrackedLink href={`/admin/riwayat/${m.userId}`} className="flex items-center gap-2.5 font-semibold text-link hover:text-green-800"><Avatar name={m.username} size={30} />{m.username}</TrackedLink>
+                  ? <TrackedLink href={`/admin/riwayat/${m.userId}`} className="flex items-center gap-2.5 font-semibold text-link hover:text-green-800 whitespace-nowrap"><Avatar name={m.username} size={30} />{m.username}</TrackedLink>
                   : <span className="text-secondary">—</span> },
                 { key: 't', header: 'Tanggal Log', className: 'text-secondary whitespace-nowrap', render: m => fmtDateTime(m.loggedAt) },
                 { key: 'k', header: 'Total Kalori', align: 'right', className: 'font-semibold whitespace-nowrap', render: m => `${fmtNum(m.totalCalories)} kcal` },
