@@ -39,7 +39,7 @@ function EnvStatus() {
 
 function BellLink({ n, size }: { n: number; size: 'desktop' | 'mobile' }) {
   return (
-    <Link
+    <Link prefetch={false}
       href="/admin/reports"
       aria-label={n > 0 ? `${n} laporan perlu dibalas` : 'Laporan & Helpdesk'}
       className={cn(iconBtn, 'relative', size === 'desktop' ? 'w-10 h-10' : 'w-11 h-11')}
@@ -99,10 +99,10 @@ function Drawer({ open, onClose, counts, onLogout }: { open: boolean; onClose: (
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '1.2.0'
 
-export default function AdminShell({ counts: initialCounts, children }: { counts: AdminNavCounts; children: React.ReactNode }) {
+export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [counts, setCounts] = useState(initialCounts)
+  const [counts, setCounts] = useState<AdminNavCounts>({ openReports: 0, pendingLimit: 0 })
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [sidebarHidden, setSidebarHidden] = useState(false)
 
@@ -114,11 +114,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
       if (r.ok) setCounts(await r.json())
     } catch { /* keep last known counts */ }
   }, [])
-  const first = useRef(true)
-  useEffect(() => {
-    if (first.current) { first.current = false; return }
-    refreshCounts()
-  }, [pathname, refreshCounts])
+  useEffect(() => { refreshCounts() }, [pathname, refreshCounts])
   useEffect(() => {
     const h = () => refreshCounts()
     document.addEventListener('admin:counts', h)
@@ -147,7 +143,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
         aria-label="Navigasi admin"
         className={cn('hidden w-sidebar shrink-0 bg-surface border-r border-border flex-col sticky top-[var(--staging-banner-h,0px)] h-[calc(100vh-var(--staging-banner-h,0px))]', !sidebarHidden && 'lg:flex')}
       >
-        <Link href="/admin" className="h-navbar px-[18px] border-b border-border flex items-center gap-2.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500">
+        <Link prefetch={false} href="/admin" className="h-navbar px-[18px] border-b border-border flex items-center gap-2.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-500">
           <Brand />
         </Link>
         <nav aria-label="Menu admin" className="flex-1 overflow-y-auto px-2.5 pt-2.5 pb-4">
@@ -168,7 +164,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
           >
             <Menu size={20} aria-hidden />
           </button>
-          <Link href="/admin" className="text-base text-bark-700 px-3 py-2 rounded-sm hover:bg-muted">Beranda</Link>
+          <Link prefetch={false} href="/admin" className="text-base text-bark-700 px-3 py-2 rounded-sm hover:bg-muted">Beranda</Link>
           <a href="https://gizku.com" target="_blank" rel="noopener" className="text-base text-bark-700 px-3 py-2 rounded-sm hover:bg-muted inline-flex items-center gap-1.5">
             Lihat Situs <ExternalLink size={13} aria-hidden />
           </a>
@@ -188,7 +184,7 @@ export default function AdminShell({ counts: initialCounts, children }: { counts
           >
             <Menu size={22} aria-hidden />
           </button>
-          <Link href="/admin" className="flex items-center gap-2 min-w-0 px-1">
+          <Link prefetch={false} href="/admin" className="flex items-center gap-2 min-w-0 px-1">
             <Brand size={28} textClass="text-lg" />
           </Link>
           <div className="flex-1" />

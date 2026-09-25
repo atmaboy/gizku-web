@@ -30,7 +30,7 @@ export default function NavLink({ href, className, children, onNavigate }: NavLi
   }
 
   return (
-    <Link href={href} onClick={handleClick} aria-current={active ? 'page' : undefined} className={className(active)}>
+    <Link prefetch={false} href={href} onClick={handleClick} aria-current={active ? 'page' : undefined} className={className(active)}>
       {children(active)}
     </Link>
   )
