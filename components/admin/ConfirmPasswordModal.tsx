@@ -116,12 +116,8 @@ export default function ConfirmPasswordModal({
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Konfirmasi dengan password admin"
-                  aria-describedby={`${inputId}-help`}
                   className="w-full min-h-[38px] max-lg:min-h-11 px-3 py-[7px] rounded-sm border border-border-strong bg-surface text-base max-lg:text-md text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
-                <p id={`${inputId}-help`} className="mt-1.5 text-xs text-secondary">
-                  Password diverifikasi di server dan langsung dikosongkan setelah dikirim.
-                </p>
               </div>
 
               <div className="px-5 py-3 bg-sunken border-t border-border flex justify-end gap-2 max-lg:flex-col-reverse">

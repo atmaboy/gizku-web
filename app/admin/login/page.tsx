@@ -66,9 +66,6 @@ export default function AdminLogin() {
             <Button type="submit" icon={LogIn} fullWidth loading={loading} disabled={loading || !pwd}>
               {loading ? 'Masuk…' : 'Masuk'}
             </Button>
-            <p className="text-sm text-secondary text-center leading-normal">
-              Sesi admin berlaku 4 jam. Setelah itu kamu akan diminta masuk kembali.
-            </p>
           </form>
         </Card>
 
