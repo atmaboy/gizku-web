@@ -45,7 +45,14 @@ export default async function AdminDashboard() {
   // Same fallback as app/api/analyze/route.ts
   const aiModel = modelCfg || 'claude-sonnet-5'
 
-  const recentUsers = await db.select().from(users).orderBy(desc(users.createdAt)).limit(5)
+  const [recentUsers, recentMeals] = await Promise.all([
+    db.select().from(users).orderBy(desc(users.createdAt)).limit(5),
+    db.select({
+      id: meals.id, dishNames: meals.dishNames, totalCalories: meals.totalCalories, loggedAt: meals.loggedAt,
+      userId: users.id, username: users.username,
+    }).from(meals).leftJoin(users, eq(meals.userId, users.id)).orderBy(desc(meals.loggedAt)).limit(5),
+  ])
+  const menuLabel = (names: string[] | null) => names && names.length ? names.join(', ') : 'Tidak terdeteksi'
   const totalCal = Number(totMeals.cal ?? 0)
 
   const statusBadge = (active: boolean) => active
@@ -121,7 +128,46 @@ export default async function AdminDashboard() {
           </div>
         </Card>
 
-        <div className="xl:col-span-4 flex flex-col gap-5 max-lg:gap-4">
+        <Card
+          outline="brand"
+          icon={UtensilsCrossed}
+          title="Meal Log Terbaru"
+          className="xl:col-span-8 xl:row-start-2"
+          noPadding
+          tools={<Button variant="link" size="sm" iconRight={ChevronRight} href="/admin/riwayat">Riwayat Analisa</Button>}
+        >
+          <div className="max-md:hidden">
+            <DataTable
+              rows={recentMeals}
+              rowKey={m => m.id}
+              striped
+              emptyState={<p className="p-6 text-center text-base text-secondary">Belum ada meal log.</p>}
+              columns={[
+                { key: 'm', header: 'Nama Menu', render: m => <span className={m.dishNames?.length ? 'font-semibold' : 'italic text-secondary'}>{menuLabel(m.dishNames)}</span> },
+                { key: 'u', header: 'Username', render: m => m.userId
+                  ? <TrackedLink href={`/admin/riwayat/${m.userId}`} className="flex items-center gap-2.5 font-semibold text-link hover:text-green-800"><Avatar name={m.username} size={30} />{m.username}</TrackedLink>
+                  : <span className="text-secondary">—</span> },
+                { key: 't', header: 'Tanggal Log', className: 'text-secondary whitespace-nowrap', render: m => fmtDateTime(m.loggedAt) },
+                { key: 'k', header: 'Total Kalori', align: 'right', className: 'font-semibold whitespace-nowrap', render: m => `${fmtNum(m.totalCalories)} kcal` },
+              ]}
+            />
+          </div>
+          <div className="md:hidden">
+            {recentMeals.length === 0 && <p className="p-6 text-center text-base text-secondary">Belum ada meal log.</p>}
+            {recentMeals.map(m => (
+              <ListRow
+                key={m.id}
+                href={m.userId ? `/admin/riwayat/${m.userId}` : undefined}
+                leading={<Avatar name={m.username} size={36} />}
+                title={menuLabel(m.dishNames)}
+                meta={`${m.username ?? '—'} · ${fmtDateTime(m.loggedAt)}`}
+                trailing={<span className="text-sm font-semibold tabular-nums whitespace-nowrap">{fmtNum(m.totalCalories)} kcal</span>}
+              />
+            ))}
+          </div>
+        </Card>
+
+        <div className="xl:col-span-4 xl:row-start-1 xl:row-span-2 xl:col-start-9 flex flex-col gap-5 max-lg:gap-4">
           <Card title="Akses Cepat" noPadding>
             <ul className="list-none m-0 p-0">
               {QUICK_LINKS.map(l => (

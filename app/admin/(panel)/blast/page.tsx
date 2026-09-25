@@ -89,7 +89,7 @@ export default function BlastHistoryPage() {
       action={<Button variant="outline" size="sm" icon={RotateCcw} onClick={() => load(page)}>Coba lagi</Button>}
     />
   )
-  const emptyState = <EmptyState icon={History} title="Belum ada batch notifikasi." action={<Button icon={Plus} href="/admin/blast/new">Kirim Baru</Button>} />
+  const emptyState = <EmptyState icon={History} title="Belum ada batch notifikasi." />
   const pagination = !loading && blasts.length > 0 && (
     <Pagination page={page} totalPages={totalPages} onPage={load} label={`Hal. ${page} / ${totalPages} · ${fmtNum(total)} batch`} />
   )
@@ -97,7 +97,7 @@ export default function BlastHistoryPage() {
   return (
     <AdminPage title="Blast Notifikasi" breadcrumb={[{ label: 'Blast Notifikasi' }]}>
       <Alert variant="info" icon={Bell} action={<Button icon={Plus} href="/admin/blast/new" className="max-md:hidden">Kirim Baru</Button>}>
-        Kirim notifikasi push, Telegram, atau email ke seluruh atau sebagian user Gizku, langsung atau terjadwal. Blast terjadwal dikirim oleh cron harian pukul 00.00 WIB.
+        Kirim notifikasi push, Telegram, atau email ke seluruh atau sebagian user Gizku, langsung atau terjadwal. Blast terjadwal dikirim oleh cron tiap jam sesuai jadwal.
       </Alert>
 
       {/* Desktop / tablet */}
@@ -108,7 +108,6 @@ export default function BlastHistoryPage() {
         subtitle={`${fmtNum(total)} batch`}
         className="max-md:hidden"
         noPadding
-        tools={<Button size="sm" icon={Plus} href="/admin/blast/new">Kirim Baru</Button>}
         footer={pagination || undefined}
       >
         {loadError ? errorState : (

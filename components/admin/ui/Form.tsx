@@ -68,11 +68,11 @@ export function InputGroup({ prepend, append, children, className, 'aria-describ
 }) {
   const addon = 'flex items-center px-3 bg-sunken border border-border-strong text-secondary shrink-0'
   const child = cloneElement(children as React.ReactElement<{ className?: string; 'aria-describedby'?: string }>, {
-    className: cn((children.props as { className?: string }).className, 'min-w-0 flex-1', prepend && 'rounded-l-none', append && 'rounded-r-none'),
+    className: cn((children.props as { className?: string }).className, 'min-w-0 flex-1 focus:ring-0 focus:border-border-strong', prepend && 'rounded-l-none', append && 'rounded-r-none'),
     ...(describedBy ? { 'aria-describedby': describedBy } : {}),
   })
   return (
-    <div className={cn('flex items-stretch w-full', className)}>
+    <div className={cn('flex items-stretch w-full rounded-sm focus-within:ring-2 focus-within:ring-green-500', className)}>
       {prepend && <div className={cn(addon, 'rounded-l-sm border-r-0')}>{prepend}</div>}
       {child}
       {append && <div className={cn(addon, 'rounded-r-sm border-l-0 px-0 [&>*]:h-full')}>{append}</div>}
