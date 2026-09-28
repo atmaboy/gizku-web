@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Backoffice — Pengaturan Global Landing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fdfbf7;color:#241e19}
+a{color:#305f29;text-decoration:none}a:hover{color:#254a20}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1120px; display: flex; background: #faf6ef; font-family: Inter, sans-serif; color: #241e19; overflow: hidden">
+
+<!-- SIDEBAR -->
+<aside style="width: 250px; flex-shrink: 0; background: #ffffff; border-right: 1px solid #e7dcc7; display: flex; flex-direction: column">
+<div style="height: 57px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e7dcc7">
+<svg width="30" height="30" viewBox="20 20 160 160" aria-hidden="true"><rect x="20" y="20" width="160" height="160" rx="36" fill="#3d7833"></rect><path d="M136.8,130.9 A48,48 0 1,1 147.3,91.6" stroke="#ffffff" stroke-width="16" stroke-linecap="round" fill="none"></path><path d="M100,100 L100,76 A24,24 0 0,1 120.78,112 Z" fill="#c1603f"></path><path d="M100,100 L120.78,112 A24,24 0 0,1 79.22,112 Z" fill="#d99b3f"></path><path d="M100,100 L79.22,112 A24,24 0 0,1 100,76 Z" fill="#6f9b7c"></path></svg>
+<span style="font-size: 17px"><strong style="font-weight: 700">Gizku</strong> <span style="font-weight: 300">Admin</span></span>
+</div>
+<nav aria-label="Menu admin" style="flex-grow: 1; padding: 10px; display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dashboard</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Pengguna</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Manajemen User</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Riwayat Analisa</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Request Limit</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Komunikasi</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Laporan &amp; Helpdesk</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Blast Notifikasi</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Telegram Bot</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Konten Website</span>
+<span style="height: 38px; padding: 0 12px; display: flex; align-items: center; font-weight: 600">Halaman Publik</span>
+<a href="Admin-Builder-Hero.dc.html" aria-current="page" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; background: #f2f7f0; color: #254a20; font-weight: 600; box-shadow: inset 3px 0 0 #3d7833">Landing Page</a>
+<a href="#" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dokumen Legal</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Sistem</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Pengaturan</a>
+</nav>
+</aside>
+
+<!-- MAIN -->
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div style="height: 57px; flex-shrink: 0; box-sizing: border-box; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e7dcc7; display: flex; align-items: center; justify-content: flex-end; gap: 12px"><span style="width: 34px; height: 34px; border-radius: 50%; background: #3d7833; color: #ffffff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">A</span><span style="font-size: 14px; font-weight: 600">admin</span></div>
+<div style="flex-shrink: 0; padding: 18px 24px 14px; display: flex; align-items: center; justify-content: space-between">
+<div><nav aria-label="breadcrumb" style="font-size: 13px; color: #6b5c4a"><a href="#" style="color: #305f29">Beranda</a> / Halaman Publik / <a href="Admin-Builder-Hero.dc.html" style="color: #305f29">Landing Page</a> / Pengaturan global</nav><h1 style="margin: 4px 0 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em">Pengaturan Global Landing</h1></div>
+<div style="display: flex; align-items: center; gap: 10px">
+<a href="Admin-Builder-Hero.dc.html" style="height: 38px; padding: 0 14px; border-radius: 8px; border: 1px solid #d5c5a8; background: #ffffff; color: #241e19; font-size: 14px; font-weight: 600; display: flex; align-items: center">← Kembali ke builder</a>
+<button type="button" style="height: 38px; padding: 0 16px; border-radius: 8px; border: 0; background: #3d7833; color: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer">Simpan ke draf</button>
+</div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; padding: 0 24px 24px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-content: start">
+
+<!-- LEFT COLUMN -->
+<div style="display: flex; flex-direction: column; gap: 20px">
+<div role="note" style="padding: 14px 16px; border-radius: 12px; background: #f2f7f0; border: 1px solid #c3dbba; display: flex; align-items: center; gap: 12px"><span style="flex-grow: 1; font-size: 13px; line-height: 1.5; color: #254a20">Halaman ini hanya untuk setelan yang dipakai lintas section. Menu navigasi &amp; tombol header diatur di section <strong>Header &amp; Navigasi</strong>.</span><a href="Admin-Builder-Header.dc.html" style="flex-shrink: 0; height: 36px; padding: 0 12px; border-radius: 8px; background: #ffffff; border: 1px solid #9fc494; color: #305f29; font-size: 13px; font-weight: 600; display: flex; align-items: center">Buka Header →</a></div>
+
+<section style="background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10)">
+<div style="padding: 14px 20px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Tujuan tombol “otomatis”</h2><p style="margin: 4px 0 0; font-size: 12px; color: #6b5c4a">Dipakai semua tombol CTA (hero, CTA bawah, header). Sebelumnya diisi ulang per section.</p></div>
+<div style="padding: 16px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="g-guest" style="font-size: 13px; font-weight: 600">Pengunjung (belum login)</label><input id="g-guest" value="/login" style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: ui-monospace, monospace; font-size: 13px"></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="g-auth" style="font-size: 13px; font-weight: 600">User sudah login</label><input id="g-auth" value="/main/riwayat" style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: ui-monospace, monospace; font-size: 13px"></div>
+</div>
+</section>
+</div>
+
+<!-- RIGHT COLUMN -->
+<div style="display: flex; flex-direction: column; gap: 20px">
+<section style="background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10)">
+<div style="padding: 14px 20px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 16px; font-weight: 700">Tautan download &amp; kanal</h2><p style="margin: 4px 0 0; font-size: 12px; color: #6b5c4a">Badge tampil di hero dan CTA bawah hanya jika aktif dan tautannya terisi.</p></div>
+<div style="padding: 8px 20px 16px; display: flex; flex-direction: column">
+<div style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e7dcc7"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; background: #241e19; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"></rect><path d="M11 18h2"></path></svg></span><div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px"><label for="g-ios" style="font-size: 13px; font-weight: 600">App Store</label><input id="g-ios" value="https://apps.apple.com/app/[id-aplikasi]" style="height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: ui-monospace, monospace; font-size: 12px"></div><span role="switch" aria-checked="true" aria-label="Tampilkan App Store" style="width: 36px; height: 20px; flex-shrink: 0; border-radius: 20px; background: #3d7833; position: relative; margin-top: 20px"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></div>
+<div style="padding: 12px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #e7dcc7"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; background: #241e19; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 9-14 9z"></path></svg></span><div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px"><label for="g-play" style="font-size: 13px; font-weight: 600">Google Play</label><input id="g-play" value="https://play.google.com/store/apps/details?id=[package]" style="height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: ui-monospace, monospace; font-size: 12px"></div><span role="switch" aria-checked="true" aria-label="Tampilkan Google Play" style="width: 36px; height: 20px; flex-shrink: 0; border-radius: 20px; background: #3d7833; position: relative; margin-top: 20px"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></div>
+<div style="padding: 12px 0; display: flex; align-items: center; gap: 12px"><span style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 10px; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg></span><div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px"><label for="g-tg" style="font-size: 13px; font-weight: 600">Telegram bot</label><input id="g-tg" value="https://t.me/[username_bot]" style="height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: ui-monospace, monospace; font-size: 12px"></div><span role="switch" aria-checked="true" aria-label="Tampilkan Telegram" style="width: 36px; height: 20px; flex-shrink: 0; border-radius: 20px; background: #3d7833; position: relative; margin-top: 20px"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></div>
+<p style="margin: 4px 0 0; font-size: 12px; color: #6b5c4a">Tip: username bot bisa diambil otomatis dari menu Telegram Bot.</p>
+</div>
+</section>
+
+<section style="background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10)">
+<div style="padding: 14px 20px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 16px; font-weight: 700">SEO &amp; berbagi</h2><p style="margin: 4px 0 0; font-size: 12px; color: #6b5c4a">Sebelumnya hardcoded di kode (app/page.tsx).</p></div>
+<div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between"><label for="g-seo-t" style="font-size: 13px; font-weight: 600">Judul halaman</label><span style="font-size: 12px; color: #6b5c4a">41/60</span></div><input id="g-seo-t" value="Gizku — Analisa Nutrisi Makanan dengan AI" style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between"><label for="g-seo-d" style="font-size: 13px; font-weight: 600">Deskripsi</label><span style="font-size: 12px; color: #a3403d">178/160</span></div><textarea id="g-seo-d" rows="2" aria-describedby="g-seo-d-err" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid #c25b58; font-family: inherit; font-size: 13px; line-height: 1.5; resize: none">Cukup foto makananmu — Gizku langsung kenali isinya dan hitung kalori, protein, lemak, dan karbohidrat secara otomatis. Gratis, tanpa perlu mencatat manual.</textarea><span id="g-seo-d-err" style="font-size: 12px; color: #a3403d">Terlalu panjang — Google memotong setelah ±160 karakter.</span></div>
+<div style="display: flex; gap: 14px; align-items: flex-start">
+<div style="width: 150px; height: 79px; flex-shrink: 0; border-radius: 8px; background: #3d7833; color: #ffffff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px; box-sizing: border-box">Gambar share (OG) 1200×630</div>
+<div style="flex-grow: 1; padding: 10px 12px; border-radius: 8px; box-shadow: inset 0 0 0 1px #e7dcc7"><div style="font-size: 11px; color: #4a4038">gizku.com</div><div style="font-size: 15px; color: #1a4fb0; margin-top: 2px">Gizku — Analisa Nutrisi Makanan dengan AI</div><div style="font-size: 12px; color: #4a4038; margin-top: 2px; line-height: 1.4">Cukup foto makananmu — Gizku langsung kenali isinya dan hitung kalori, protein, lemak…</div></div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

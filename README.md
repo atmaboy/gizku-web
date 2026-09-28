@@ -31,8 +31,7 @@ Backend ini juga menjadi **satu-satunya API** untuk [gizku-mobile](https://githu
 - 🧭 **Tampilan AdminLTE × Gizku Design System** — sidebar + navbar + breadcrumb, kartu/small-box/info-box/timeline/mailbox, memakai token warna Gizku (tanpa hex hardcoded), responsif (drawer + kartu di mobile). UI kit ada di `components/admin/ui`, shell di `components/admin/shell`
 - 📊 **Dashboard admin** — statistik ringkasan, status sistem & recent users; badge jumlah laporan open & request limit menunggu di sidebar/navbar
 - 👥 **Manajemen user** — CRUD, aktif/nonaktif, ubah daily limit, reset password (dengan audit trail siapa & kapan)
-- 🖼️ **Landing Page CMS** — seluruh konten landing page (hero, how it works, features, stats, CTA) dikonfigurasi tanpa deploy ulang, termasuk upload hero image ke Supabase Storage
-- 🦶 **Footer CMS** — kelola grup & link footer, urutan tampil, aktif/nonaktif per item
+- 🧱 **Landing Builder** (`/admin/landing`) — 9 section landing (Header, Hero, Statistik, Cara Kerja, Fitur, Testimoni, FAQ, CTA & Download, Footer) + Pengaturan global (tujuan tombol, tautan App Store/Google Play/Telegram, SEO) diatur tanpa deploy. Urutkan (drag) & sembunyikan section, pratinjau langsung desktop/mobile, alur **Draf → Terbitkan** (autosave 800 ms dengan optimistic lock, Buang draf, Pratinjau draf di `/`), statistik otomatis dihitung saat terbit, riwayat terbitan. Upload gambar (hero, logo, OG, foto testimoni) ke Supabase Storage
 - 📜 **Legal Document Configuration** — rich text editor (bold/italic/heading/list) dwibahasa untuk Syarat & Ketentuan, Kebijakan Privasi, dan tipe dokumen custom; output disanitasi (allowlist tag) sebelum disimpan
 - 💳 **Review Request Kenaikan Limit** — approve/reject pengajuan user (dengan alasan reject terstruktur), konfigurasi tier paket & rekening bank tujuan transfer
 - 📣 **Notification Blast** — kirim broadcast lewat **push notification** (Expo → FCM/APNs) atau **Telegram**, ke seluruh user atau user tertentu (maks. 10 username), bisa dijadwalkan; tracking terkirim/diklik/dibaca/gagal per penerima
@@ -56,7 +55,8 @@ gizku-web/
 │
 ├── app/                              # Next.js App Router
 │   ├── layout.tsx                    # Root layout — font, Toaster, Vercel Analytics/Speed Insights
-│   ├── page.tsx                      # Landing page publik (hero, features, how it works, CTA)
+│   ├── (landing)/page.tsx            # Landing page publik — render dokumen Landing Builder yang tayang (+ mode pratinjau draf)
+│   ├── (landing)/loading.tsx         # Skeleton shimmer landing
 │   ├── globals.css                   # CSS variables (dark/light theme tokens)
 │   ├── legal/[slug]/page.tsx         # Halaman legal publik (Syarat & Ketentuan, Privasi, dokumen custom)
 │   │
@@ -93,8 +93,7 @@ gizku-web/
 │   │   ├── reports/page.tsx          # Laporan & Helpdesk — inbox (mailbox)
 │   │   ├── reports/[id]/page.tsx     # Detail laporan — thread, balas, ubah status (deep-link)
 │   │   ├── config/page.tsx           # Konfigurasi global (daily limit, maintenance, API key)
-│   │   ├── landing/page.tsx          # Editor landing page CMS
-│   │   ├── footer/page.tsx           # Editor footer CMS
+│   │   ├── landing/                  # Landing Builder: layout (3 kolom + status bar), [section]/page.tsx, settings/page.tsx
 │   │   ├── legal/page.tsx            # Legal Document Configuration (RTE dwibahasa)
 │   │   ├── limit/page.tsx            # Review pengajuan limit, konfigurasi tier & rekening
 │   │   ├── telegram/page.tsx         # Konfigurasi & statistik bot Telegram
@@ -115,8 +114,8 @@ gizku-web/
 │       ├── report/route.ts           # POST kirim laporan; GET laporan milik user
 │       ├── maintenance/route.ts      # GET status maintenance mode (publik)
 │       ├── announcement/route.ts     # GET/POST status BrandAnnouncement (dismiss tracking)
-│       ├── landing-content/route.ts  # GET konten landing page (publik)
-│       ├── footer-content/route.ts   # GET konten footer (publik)
+│       ├── landing-content/route.ts  # GET konten landing (publik, bentuk lama — adapter dari dokumen tayang)
+│       ├── footer-content/route.ts   # GET konten footer (publik, bentuk lama — adapter dari dokumen tayang)
 │       ├── legal-content/route.ts    # GET seluruh dokumen legal + about content (publik)
 │       ├── limit/route.ts            # GET config/summary/requests/ledger; POST reserve_code, submit_request
 │       ├── push/route.ts             # POST register/unregister push token, ack notifikasi
@@ -132,8 +131,7 @@ gizku-web/
 │           ├── upload-image/route.ts # POST upload hero image ke Supabase Storage
 │           ├── delete-image/route.ts # POST hapus hero image
 │           ├── migrate/route.ts      # POST migrasi data lama dari Supabase KV → PostgreSQL
-│           ├── landing/route.ts      # CRUD konten landing page
-│           ├── footer/route.ts       # CRUD konten footer
+│           ├── landing-builder/      # Landing Builder: GET, draft (PATCH), publish, discard, preview, history, rollback, seed
 │           ├── legal/route.ts        # CRUD dokumen & tipe dokumen legal, about content
 │           ├── limit/route.ts        # Review pengajuan limit, konfigurasi tier & bank
 │           ├── blast/route.ts        # CRUD notification blast, estimasi target, cek delivery receipt
@@ -387,8 +385,8 @@ Endpoint publik (tanpa autentikasi), sumber konten CMS untuk halaman publik:
 
 | Endpoint | Method | Keterangan |
 |---|---|---|
-| `/api/landing-content` | `GET` | Seluruh konten landing page (hero, how_it_works, features, stats, CTA) |
-| `/api/footer-content` | `GET` | Grup & link footer aktif, terurut |
+| `/api/landing-content` | `GET` | Konten landing yang tayang dalam bentuk lama `{ data: { hero, how_it_works, features, stats, cta, footer } }` (adapter dari dokumen Landing Builder — dipertahankan untuk klien lain) |
+| `/api/footer-content` | `GET` | Footer yang tayang dalam bentuk lama `{ data, bySlug }` |
 | `/api/legal-content` | `GET` | Semua dokumen legal (dwibahasa) + konten halaman About |
 | `/api/announcement` | `GET`/`POST` | Status banner pengumuman rebrand (`GET` cek tampil, `POST` catat dismiss) |
 | `/api/maintenance` | `GET` | Status mode maintenance saat ini |
@@ -420,11 +418,16 @@ Semua endpoint admin memerlukan cookie/header `Authorization: Bearer <nl_admin_t
 | `/api/admin` | `GET` | `user_meals`, `users` (pagination), `stats`, `config`, `reports`, `report_thread`, `nav_counts` (badge sidebar) |
 | `/api/admin` | `DELETE` | `delete_meal`, `delete_report` |
 | `/api/admin/users/[userId]/meals` | `GET` | Riwayat meal satu user (untuk modal riwayat di halaman Users) |
-| `/api/admin/upload-image` | `POST` | Upload hero image landing page (multipart, maks. 5MB) → Supabase Storage |
+| `/api/admin/upload-image` | `POST` | Upload gambar → Supabase Storage (multipart). Field `folder` opsional: `landing/hero` (PNG/WebP ≤2MB), `landing/og` (≤5MB), `landing/logo` (SVG/PNG/WebP ≤1MB), `landing/testimonials`, `landing/features` (≤2MB) |
 | `/api/admin/delete-image` | `POST` | Hapus hero image dari Supabase Storage |
 | `/api/admin/migrate` | `POST` | Migrasi data lama dari Supabase KV Store → PostgreSQL |
-| `/api/admin/landing` | `GET`/`POST` | CRUD konten landing page CMS |
-| `/api/admin/footer` | `GET`/`POST`/`DELETE` | CRUD grup/link footer, `toggle_active` |
+| `/api/admin/landing-builder` | `GET` | Draf + versi tayang, `revision`, `changes` per section, metrik statistik, dokumen legal, hasil cek aturan terbit. Otomatis *seed* dari `landing_content` saat pertama dibuka |
+| `/api/admin/landing-builder/draft` | `PATCH` | Autosave `{ revision, path, value }` → `{ revision }`; `409` bila revision beda |
+| `/api/admin/landing-builder/publish` | `POST` | `{ revision }` → validasi penuh + aturan terbit (`422` per section), hitung statistik otomatis, salin draf → tayang + riwayat, purge cache |
+| `/api/admin/landing-builder/discard` | `POST` | `{ revision }` — draf = versi tayang |
+| `/api/admin/landing-builder/preview` | `GET` | Aktifkan `draftMode()` lalu redirect ke `/` (`?exit=1` mematikan) |
+| `/api/admin/landing-builder/history` · `rollback` | `GET` · `POST` | 10 terbitan terakhir · salin versi lama ke **draf** |
+| `/api/admin/landing-builder/seed` | `POST` | Bangun ulang dokumen dari `landing_content` (`?force=1` menimpa draf & tayang) |
 | `/api/admin/legal` | `GET`/`POST` | `upsert_document`, `delete_document`, `create_type`, `delete_type`, `upsert_about` |
 | `/api/admin/limit` | `GET`/`POST` | `stats`, `requests`, `request`, `search_users`, `user_ledger`, `config` (GET); `approve`, `reject`, `update_config` (POST) |
 | `/api/admin/blast` | `GET`/`POST` | `list`, `detail`, `recipients`, `estimate`, `lookup_username`, `resolve_username` (GET); `create`, `cancel`, `check_receipts` (POST) |
@@ -494,11 +497,35 @@ npm run dev
 npx drizzle-kit push   # sync schema
 npm run lint
 npm run typecheck
+npm test               # unit test (Vitest) — lib/**/*.test.ts
 ```
+
+### 🧱 Landing Builder — model data
+
+Seluruh konfigurasi landing disimpan sebagai **satu dokumen JSON** tervalidasi Zod (`lib/landing/schema.ts`) di tabel `landing_page` (migrasi `sql/018_create_landing_builder.sql`) dengan dua baris: `draft` (ditulis backoffice) dan `published` (dibaca pengunjung, di-cache dengan tag `landing`). Terbitkan menyalin draf → tayang dalam satu transaksi + menambah baris `landing_page_history`. Tabel lama `landing_content` tidak dihapus (cadangan read-only) — saat builder pertama kali dibuka, isinya dipetakan otomatis ke dokumen baru (`lib/landing/legacy.ts`).
+
+| File | Isi |
+|---|---|
+| `lib/landing/schema.ts` | Skema Zod dokumen + sub-skema per section, `SECTION_*` konstanta |
+| `lib/landing/publish-rules.ts` | Batas karakter & aturan terbit (dipakai server dan builder) |
+| `lib/landing/repo.ts` · `publish.ts` | Baca (cache/fallback) · autosave, terbit, buang draf, rollback |
+| `lib/landing/render.ts` | Aturan tampil: section kosong/tersembunyi, badge store, sinkron Dokumen Legal |
+| `components/landing/sections/*` | Komponen landing (server-first; client island: menu mobile, carousel, accordion, tombol auth-aware) |
+| `components/admin/landing/*` | Landing Builder (state + autosave, daftar section drag, form per section, pratinjau iframe) |
 
 ---
 
 ## 📋 Changelog
+
+### v1.7.0 — 2026-09-28
+
+#### 🧱 Redesign Landing Page + Landing Builder
+- Landing `/` baru bergaya Nova (9 section): Header, Hero (2 tombol + badge download), band Statistik, Cara Kerja, Fitur 2 baris dengan mockup, **Testimoni** (carousel), **FAQ** (accordion + JSON-LD `FAQPage`), CTA & Download, Footer. SEO (title/description/OG) kini diatur dari backoffice
+- `/admin/landing` diganti **Landing Builder**: 9 halaman section + Pengaturan global, drag urutan, switch tampil, pratinjau langsung desktop/mobile, alur Draf → Terbitkan (autosave, Buang draf, Pratinjau draf), statistik otomatis (jumlah user / makanan) dihitung saat terbit
+- Dihapus: menu & halaman `/admin/footer`, section `blog_post`, field `body`, textarea Meta JSON, input slug/sort order manual, `/api/admin/landing` & `/api/admin/footer`
+- Migrasi DB baru: `sql/018_create_landing_builder.sql` (jalankan sebelum deploy)
+- Semua loading state memakai skeleton **shimmer** (landing, backoffice, pratinjau)
+- Sosial media di footer tampil sebagai **logo** (Telegram, Instagram, Facebook, Twitter/X, Threads, YouTube, WhatsApp, TikTok), bukan teks
 
 ### v1.6.0 — 2026-08-06
 

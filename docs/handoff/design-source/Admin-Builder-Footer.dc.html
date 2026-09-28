@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Backoffice — Builder, Footer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fdfbf7;color:#241e19}
+a{color:#305f29;text-decoration:none}a:hover{color:#254a20}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1120px; display: flex; background: #faf6ef; font-family: Inter, sans-serif; color: #241e19; overflow: hidden">
+
+<aside style="width: 250px; flex-shrink: 0; background: #ffffff; border-right: 1px solid #e7dcc7; display: flex; flex-direction: column">
+<div style="height: 57px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e7dcc7"><svg width="30" height="30" viewBox="20 20 160 160" aria-hidden="true"><rect x="20" y="20" width="160" height="160" rx="36" fill="#3d7833"></rect><path d="M136.8,130.9 A48,48 0 1,1 147.3,91.6" stroke="#ffffff" stroke-width="16" stroke-linecap="round" fill="none"></path><path d="M100,100 L100,76 A24,24 0 0,1 120.78,112 Z" fill="#c1603f"></path><path d="M100,100 L120.78,112 A24,24 0 0,1 79.22,112 Z" fill="#d99b3f"></path><path d="M100,100 L79.22,112 A24,24 0 0,1 100,76 Z" fill="#6f9b7c"></path></svg><span style="font-size: 17px"><strong style="font-weight: 700">Gizku</strong> <span style="font-weight: 300">Admin</span></span></div>
+<nav aria-label="Menu admin" style="flex-grow: 1; padding: 10px; display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dashboard</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Pengguna</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Manajemen User</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Riwayat Analisa</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Request Limit</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Komunikasi</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Laporan &amp; Helpdesk</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Blast Notifikasi</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Telegram Bot</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Konten Website</span>
+<span style="height: 38px; padding: 0 12px; display: flex; align-items: center; font-weight: 600">Halaman Publik</span>
+<a href="Admin-Builder-Hero.dc.html" aria-current="page" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; background: #f2f7f0; color: #254a20; font-weight: 600; box-shadow: inset 3px 0 0 #3d7833">Landing Page</a>
+<a href="#" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dokumen Legal</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Sistem</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Pengaturan</a>
+</nav>
+</aside>
+
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div style="height: 57px; flex-shrink: 0; box-sizing: border-box; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e7dcc7; display: flex; align-items: center; justify-content: flex-end; gap: 12px"><span style="width: 34px; height: 34px; border-radius: 50%; background: #3d7833; color: #ffffff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">A</span><span style="font-size: 14px; font-weight: 600">admin</span></div>
+<div style="flex-shrink: 0; padding: 18px 24px 14px; display: flex; align-items: center; justify-content: space-between">
+<div><nav aria-label="breadcrumb" style="font-size: 13px; color: #6b5c4a"><a href="#" style="color: #305f29">Beranda</a> / Halaman Publik / Landing Page</nav><h1 style="margin: 4px 0 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em">Landing Page</h1></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="height: 32px; padding: 0 12px; border-radius: 1000px; background: #fbf1e1; color: #7a531a; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #d99b3f"></span>Draf · 2 perubahan belum diterbitkan</span><a href="#" style="height: 38px; padding: 0 14px; border-radius: 8px; border: 1px solid #d5c5a8; background: #ffffff; color: #241e19; font-size: 14px; font-weight: 600; display: flex; align-items: center">Pratinjau</a><button type="button" style="height: 38px; padding: 0 16px; border-radius: 8px; border: 0; background: #3d7833; color: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer">Terbitkan</button></div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; padding: 0 24px 24px; display: flex; gap: 20px">
+
+<nav aria-label="Susunan halaman" style="width: 280px; flex-shrink: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 16px 16px 12px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 15px; font-weight: 700">Susunan Halaman</h2><p style="margin: 4px 0 0; font-size: 12px; color: #6b5c4a">Seret untuk mengubah urutan. Klik untuk mengedit.</p></div>
+<ol style="margin: 0; padding: 8px; list-style: none; display: flex; flex-direction: column; gap: 4px">
+<li><a href="Admin-Builder-Header.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 11px">▲</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Header &amp; Navigasi</span></a></li>
+<li><a href="Admin-Builder-Hero.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Hero</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Statistik.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Statistik</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-CaraKerja.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Cara Kerja</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Fitur.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Fitur</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Testimoni.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #6b5c4a"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Testimoni</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #d5c5a8; position: relative"><span style="position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-FAQ.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">FAQ</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-CTA.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">CTA &amp; Download</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Footer.dc.html" aria-current="page" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; background: #f2f7f0; box-shadow: inset 0 0 0 1.5px #4f9142; color: #254a20"><span style="width: 14px; color: #8a7862; font-size: 11px">▼</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Footer</span><span style="font-size: 11px; color: #6b5c4a">Terkunci di bawah</span></span></a></li>
+</ol>
+<a href="Admin-Pengaturan-Global.dc.html" style="margin: auto 8px 8px; padding: 12px; border-radius: 8px; background: #faf6ef; display: flex; flex-direction: column; color: #241e19"><span style="font-size: 13px; font-weight: 600">Pengaturan global →</span><span style="font-size: 11px; color: #6b5c4a">Tujuan tombol, tautan download, SEO</span></a>
+</nav>
+
+<section aria-label="Edit Footer" style="width: 500px; flex-shrink: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 14px 20px; border-bottom: 1px solid #e7dcc7; display: flex; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 16px; font-weight: 700; flex-grow: 1">Footer</h2><span style="padding: 3px 8px; border-radius: 6px; background: #f3ecdf; color: #6b5c4a; font-size: 12px; font-weight: 600">Selalu tampil</span></div>
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="fo-tag" style="font-size: 13px; font-weight: 600">Tagline di bawah logo</label><input id="fo-tag" value="AI Nutrition Companion · Analisa nutrisi dari foto makananmu" style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"></div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h3 style="margin: 0; font-size: 14px; font-weight: 700">Sosial media</h3><button type="button" style="height: 28px; padding: 0 10px; border-radius: 8px; border: 1px dashed #9fc494; background: #ffffff; color: #305f29; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer">+ Tambah</button></div>
+<div style="display: grid; grid-template-columns: 18px 130px minmax(0, 1fr) 28px; gap: 8px; align-items: center"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><select aria-label="Platform 1" style="height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px; background: #ffffff"><option>Instagram</option></select><input aria-label="URL Instagram" value="https://instagram.com/[akun]" style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: ui-monospace, monospace; font-size: 12px"><button type="button" aria-label="Hapus Instagram" style="width: 28px; height: 28px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+<div style="display: grid; grid-template-columns: 18px 130px minmax(0, 1fr) 28px; gap: 8px; align-items: center"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><select aria-label="Platform 2" style="height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px; background: #ffffff"><option>TikTok</option></select><input aria-label="URL TikTok" value="https://tiktok.com/@[akun]" style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: ui-monospace, monospace; font-size: 12px"><button type="button" aria-label="Hapus TikTok" style="width: 28px; height: 28px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+<div style="display: grid; grid-template-columns: 18px 130px minmax(0, 1fr) 28px; gap: 8px; align-items: center"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><select aria-label="Platform 3" style="height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px; background: #ffffff"><option>Telegram</option></select><input aria-label="URL Telegram" value="Ikut tautan bot (Pengaturan global)" disabled style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #e7dcc7; background: #faf6ef; color: #6b5c4a; font-family: inherit; font-size: 12px"><button type="button" aria-label="Hapus Telegram" style="width: 28px; height: 28px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><h3 style="margin: 0; font-size: 14px; font-weight: 700">Grup link <span style="font-weight: 500; color: #6b5c4a">(3 dari maks. 4)</span></h3><button type="button" style="height: 28px; padding: 0 10px; border-radius: 8px; border: 1px dashed #9fc494; background: #ffffff; color: #305f29; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer">+ Tambah grup</button></div>
+<div style="border-radius: 10px; box-shadow: inset 0 0 0 1.5px #4f9142; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><input aria-label="Nama grup" value="Produk" style="flex-grow: 1; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px; font-weight: 700"><button type="button" aria-label="Tutup grup Produk" style="width: 28px; height: 28px; border: 0; background: transparent; color: #4a4038; cursor: pointer">▴</button></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 28px; gap: 8px; align-items: center"><input aria-label="Label link 1" value="Fitur" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px"><select aria-label="Tujuan link 1" style="height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 12px; background: #ffffff"><option>Section: Fitur</option></select><button type="button" aria-label="Hapus link Fitur" style="width: 28px; height: 28px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 28px; gap: 8px; align-items: center"><input aria-label="Label link 2" value="Cara Kerja" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px"><select aria-label="Tujuan link 2" style="height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 12px; background: #ffffff"><option>Section: Cara Kerja</option></select><button type="button" aria-label="Hapus link Cara Kerja" style="width: 28px; height: 28px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 28px; gap: 8px; align-items: center"><input aria-label="Label link 3" value="FAQ" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px"><select aria-label="Tujuan link 3" style="height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 12px; background: #ffffff"><option>Section: FAQ</option></select><button type="button" aria-label="Hapus link FAQ" style="width: 28px; height: 28px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+<button type="button" style="align-self: flex-start; height: 28px; padding: 0 8px; border: 0; background: transparent; color: #305f29; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer">+ Tambah link</button>
+</div>
+<div style="border-radius: 10px; box-shadow: inset 0 0 0 1px #e7dcc7; padding: 11px 12px; display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 600">Bantuan</span><span style="font-size: 12px; color: #6b5c4a">Hubungi Support · Masuk / Daftar</span></span><span style="color: #8a7862">▾</span></div>
+<div style="border-radius: 10px; box-shadow: inset 0 0 0 1px #e7dcc7; padding: 11px 12px; display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 13px; font-weight: 600">Legal</span><span style="font-size: 12px; color: #305f29">Sinkron otomatis dari menu Dokumen Legal</span></span><span role="switch" aria-checked="true" aria-label="Sinkron otomatis dari Dokumen Legal" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="fo-copy" style="font-size: 13px; font-weight: 600">Teks copyright</label><input id="fo-copy" value="© {tahun} Gizku. Dibuat untuk hidup lebih sehat." style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"><span style="font-size: 12px; color: #6b5c4a">{tahun} otomatis diganti tahun berjalan.</span></div>
+</div>
+<div style="padding: 12px 20px; border-top: 1px solid #e7dcc7; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b5c4a"><span style="width: 8px; height: 8px; border-radius: 50%; background: #4f9142"></span>Draf tersimpan otomatis · 09.25</div>
+</section>
+
+<section aria-label="Pratinjau" style="flex-grow: 1; min-width: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 12px 16px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 14px; font-weight: 700">Pratinjau · Mobile</h2></div>
+<div style="flex-grow: 1; background: #f3ecdf; padding: 20px 0; display: flex; justify-content: center; overflow: hidden">
+<div style="width: 270px; height: 600px; border-radius: 26px; background: #fdfbf7; box-shadow: 0px 4px 16px 0px rgba(36,30,25,0.10), inset 0 0 0 1px #e7dcc7; overflow: hidden; display: flex; flex-direction: column">
+<div style="height: 150px; flex-shrink: 0; margin: 14px 10px; border-radius: 14px; background: #3d7833; opacity: 0.35"></div>
+<div style="flex-grow: 1; background: #241e19; padding: 22px 16px 16px; display: flex; flex-direction: column; outline: 2px dashed #9fc494; outline-offset: -4px">
+<div style="display: flex; align-items: center; gap: 6px"><span style="width: 20px; height: 20px; border-radius: 5px; background: #3d7833"></span><span style="font-size: 13px; font-weight: 700; color: #ffffff">Gizku</span></div>
+<div style="margin-top: 8px; font-size: 9px; line-height: 1.5; color: #d5c5a8">AI Nutrition Companion · Analisa nutrisi dari foto makananmu</div>
+<div style="margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px">
+<div><div style="font-size: 7px; font-weight: 700; letter-spacing: 0.06em; color: #b7a382">PRODUK</div><div style="margin-top: 6px; display: flex; flex-direction: column; gap: 5px; font-size: 9px; color: #e7dcc7"><span>Fitur</span><span>Cara Kerja</span><span>FAQ</span></div></div>
+<div><div style="font-size: 7px; font-weight: 700; letter-spacing: 0.06em; color: #b7a382">BANTUAN</div><div style="margin-top: 6px; display: flex; flex-direction: column; gap: 5px; font-size: 9px; color: #e7dcc7"><span>Hubungi Support</span><span>Masuk / Daftar</span></div></div>
+<div><div style="font-size: 7px; font-weight: 700; letter-spacing: 0.06em; color: #b7a382">LEGAL</div><div style="margin-top: 6px; display: flex; flex-direction: column; gap: 5px; font-size: 9px; color: #e7dcc7"><span>Syarat &amp; Ketentuan</span><span>Kebijakan Privasi</span></div></div>
+<div><div style="font-size: 7px; font-weight: 700; letter-spacing: 0.06em; color: #b7a382">SOSIAL</div><div style="margin-top: 6px; display: flex; flex-direction: column; gap: 5px; font-size: 9px; color: #e7dcc7"><span>Instagram</span><span>TikTok</span><span>Telegram</span></div></div>
+</div>
+<div style="margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); text-align: center; font-size: 8px; color: #b7a382">© 2026 Gizku. Dibuat untuk hidup lebih sehat.</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

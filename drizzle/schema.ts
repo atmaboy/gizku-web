@@ -142,6 +142,32 @@ export const landingContent = pgTable('landing_content', {
   activeIdx:  index('idx_landing_active').on(t.isActive, t.section, t.sortOrder),
 }))
 
+// ── Landing Builder (sql/018) ────────────────────────────────────────────────
+// Whole landing page config as one Zod-validated JSON document
+// (lib/landing/schema.ts). Two rows: 'draft' (backoffice autosave, optimistic
+// lock on `revision`) and 'published' (what visitors see). Publishing copies
+// draft → published in one transaction and appends a history snapshot.
+export const landingPage = pgTable('landing_page', {
+  state:         text('state').primaryKey(),              // 'draft' | 'published'
+  content:       jsonb('content').notNull(),
+  schemaVersion: integer('schema_version').notNull().default(1),
+  revision:      integer('revision').notNull().default(1),
+  updatedBy:     text('updated_by'),
+  updatedAt:     timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  publishedAt:   timestamp('published_at', { withTimezone: true }),
+})
+
+export const landingPageHistory = pgTable('landing_page_history', {
+  id:            serial('id').primaryKey(),
+  content:       jsonb('content').notNull(),
+  schemaVersion: integer('schema_version').notNull(),
+  publishedBy:   text('published_by'),
+  publishedAt:   timestamp('published_at', { withTimezone: true }).defaultNow().notNull(),
+  changeSummary: jsonb('change_summary'),
+}, t => ({
+  publishedIdx: index('idx_landing_history_published_at').on(t.publishedAt),
+}))
+
 // ── Email Verification Tokens ────────────────────────────────────────────────
 // Single-use tokens sent via email on register / email change, consumed by
 // GET /verify?token=XXX. Only the sha256 hash is stored (mirrors passwordHash
@@ -446,6 +472,8 @@ export type ReportAttachment           = typeof reportAttachments.$inferSelect
 export type NewReportAttachment        = typeof reportAttachments.$inferInsert
 export type LandingContent             = typeof landingContent.$inferSelect
 export type NewLandingContent          = typeof landingContent.$inferInsert
+export type LandingPageRow             = typeof landingPage.$inferSelect
+export type LandingPageHistoryRow      = typeof landingPageHistory.$inferSelect
 export type TelegramUser               = typeof telegramUsers.$inferSelect
 export type NewTelegramUser            = typeof telegramUsers.$inferInsert
 export type TelegramLinkToken          = typeof telegramLinkTokens.$inferSelect
