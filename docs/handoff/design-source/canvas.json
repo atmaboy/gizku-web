@@ -1,0 +1,70 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Admin-Builder-Hero.dc.html": {"h": 1120, "title": "Backoffice — Builder: edit Hero", "w": 1440, "x": 0, "y": 6600},
+    "Admin-Builder-Testimoni.dc.html": {"h": 1120, "title": "Backoffice — Builder: Testimoni + drawer item", "w": 1440, "x": 1520, "y": 6600},
+    "Admin-Mobile.dc.html": {"h": 844, "title": "Backoffice — Builder mobile", "w": 390, "x": 4560, "y": 6600},
+    "Admin-Pengaturan-Global.dc.html": {"h": 1120, "title": "Backoffice — Pengaturan global landing", "w": 1440, "x": 3040, "y": 6600, "is_interactive": true},
+    "Admin-Builder-Header.dc.html": {"h": 1120, "title": "Builder — Header & Navigasi", "w": 1440, "x": 0, "y": 8140, "is_interactive": true},
+    "Admin-Builder-Statistik.dc.html": {"h": 1120, "title": "Builder — Statistik", "w": 1440, "x": 1520, "y": 8140, "is_interactive": true},
+    "Admin-Builder-CaraKerja.dc.html": {"h": 1120, "title": "Builder — Cara Kerja", "w": 1440, "x": 3040, "y": 8140, "is_interactive": true},
+    "Admin-Builder-Fitur.dc.html": {"h": 1120, "title": "Builder — Fitur", "w": 1440, "x": 4560, "y": 8140, "is_interactive": true},
+    "Admin-Builder-FAQ.dc.html": {"h": 1120, "title": "Builder — FAQ", "w": 1440, "x": 0, "y": 9380, "is_interactive": true},
+    "Admin-Builder-CTA.dc.html": {"h": 1120, "title": "Builder — CTA & Download", "w": 1440, "x": 1520, "y": 9380, "is_interactive": true},
+    "Admin-Builder-Footer.dc.html": {"h": 1120, "title": "Builder — Footer", "w": 1440, "x": 3040, "y": 9380, "is_interactive": true},
+    "Landing-Mobile.dc.html": {"h": 6100, "title": "Landing — Mobile 390", "w": 390, "x": 1520, "y": 0},
+    "Main.dc.html": {"h": 5800, "title": "Landing — Desktop 1440", "w": 1440, "x": 0, "y": 0}
+  },
+  "createdOnFiles": {"at": "2026-09-25T02:54:30Z", "v": 1},
+  "designSystems": [
+    {"artifact": "https://claude.ai/code/artifact/6733d696-4c6e-4f24-9f48-4e3aa59257cf", "copiedAt": "2026-09-25T02:54:30Z", "namespace": "gizku", "title": "Gizku Design System", "version": "1789610907-52f7"}
+  ],
+  "launch": {"view": "canvas"},
+  "notes": {
+    "n-data": {
+      "fill": "blue",
+      "maxH": 900,
+      "text": "USULAN MODEL DATA\n\nlanding_sections\n  key (header | hero | stats | how_it_works | features | testimonials | faq | cta | footer), sort_order, is_visible, eyebrow, title, subtitle, settings jsonb (mis. nav_items, header_button, band_variant, visual_row1/2, bg_variant, copyright)\n\nlanding_items\n  id, section_key, group (mis. baris fitur / grup link footer), sort_order, is_active, fields jsonb (testimoni: name, city, rating, quote, avatar_url, consent_at · statistik: source manual|auto, metric, format, label · faq: question, answer_html, open_default)\n\nlanding_settings (1 baris)\n  cta_url_guest, cta_url_auth, app_store_url, play_store_url, telegram_url (+ is_enabled masing-masing), seo_title, seo_description, og_image_url\n\nDraf vs tayang: kolom draft_* atau tabel snapshot; 'Terbitkan' menyalin draf → tayang, menghitung ulang statistik otomatis, lalu revalidateTag('landing-content').\n\nMigrasi: baris landing_content lama dipetakan ke tabel baru; footer rows → section footer.",
+      "w": 520, "x": 1990, "y": 1800
+    },
+    "n-hapus": {
+      "fill": "orange",
+      "maxH": 900,
+      "text": "YANG DIHAPUS / DIGABUNG\n\nLanding:\n• Checklist keunggulan ganda (hero + CTA bawah) → hanya di hero\n• Catatan kecil di bawah CTA bawah → digantikan badge download\n• Tautan 'Pelajari lebih lanjut' di kartu fitur (dari template) → tidak dipakai\n\nBackoffice:\n• Section 'Blog Post' → dihapus (tidak pernah tampil di landing)\n• Field 'Body' → dihapus (tidak dipakai section mana pun)\n• Textarea 'Meta (JSON)' mentah → diganti field terstruktur\n• Field 'Slug' & 'Sort Order' manual → otomatis + drag urutan\n• Tabel CRUD + kotak filter per section → diganti daftar section\n• Menu sidebar 'Footer' → digabung ke builder (section Footer)\n• URL CTA 'belum/sudah login' per section → satu setelan global\n• Menu navigasi → pindah dari Pengaturan global ke section Header\n• Kartu dashboard 'Konten Landing: …blog' → teks diperbarui",
+      "w": 520, "x": 1990, "y": 800
+    },
+    "n-urutan": {
+      "fill": "green",
+      "maxH": 700,
+      "text": "URUTAN SECTION (semua bisa diatur di backoffice)\n\n1. Header & navigasi (terkunci di atas)\n2. Hero — + tombol kedua + badge download (baru)\n3. Statistik — band hijau (posisi logo-strip Nova)\n4. Cara Kerja — 3 langkah (gaya benefits Nova)\n5. Fitur — kartu + mockup HP selang-seling (gaya features Nova)\n6. Testimoni — BARU, carousel\n7. FAQ — BARU, accordion\n8. CTA & Download — tombol + App Store / Google Play / Telegram\n9. Footer (terkunci di bawah)\n\nSection 3–8 bisa diurutkan ulang & disembunyikan. Section tanpa item aktif otomatis disembunyikan.",
+      "w": 520, "x": 1990, "y": 0
+    },
+    "t-admin": {"kind": "title1", "maxW": 4950, "text": "Backoffice — Landing Page Builder", "w": 240, "x": 0, "y": 6300},
+    "t-sections": {"kind": "title1", "maxW": 6000, "text": "Builder — halaman konfigurasi per section", "x": 0, "y": 7840},
+    "n-alur": {
+      "fill": "teal",
+      "maxH": 700,
+      "text": "ALUR BUILDER (bisa diklik di mode Play)\n\nSemua halaman memakai pola yang sama:\n[Susunan Halaman] → [Form section] → [Pratinjau]\n\nKlik nama section di kolom kiri untuk pindah halaman. 'Pengaturan global' di bawah daftar berisi setelan lintas section: tujuan tombol otomatis, tautan download, SEO.\n\nSetiap perubahan jadi draf dulu; tombol Terbitkan di kanan atas menayangkan semuanya sekaligus.",
+      "w": 520, "x": 4560, "y": 9380
+    },
+    "t-landing": {"kind": "title1", "maxW": 1910, "text": "Landing Page — Nova layout × Gizku tokens", "w": 240, "x": 0, "y": -300}
+  },
+  "order": [
+    "Main.dc.html",
+    "Landing-Mobile.dc.html",
+    "Admin-Builder-Hero.dc.html",
+    "Admin-Builder-Testimoni.dc.html",
+    "Admin-Pengaturan-Global.dc.html",
+    "Admin-Mobile.dc.html",
+    "Admin-Builder-Header.dc.html",
+    "Admin-Builder-Statistik.dc.html",
+    "Admin-Builder-CaraKerja.dc.html",
+    "Admin-Builder-Fitur.dc.html",
+    "Admin-Builder-FAQ.dc.html",
+    "Admin-Builder-CTA.dc.html",
+    "Admin-Builder-Footer.dc.html"
+  ],
+  "pages": [],
+  "title": "Gizku Landing Page Redesign"
+}

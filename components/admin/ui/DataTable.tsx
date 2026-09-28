@@ -36,7 +36,7 @@ export default function DataTable<R>({ columns, rows, rowKey, striped, compact, 
               <tr key={i}>
                 {columns.map(c => (
                   <td key={c.key} className={cn('px-3 border-t border-border', py)}>
-                    <div className="h-4 bg-muted rounded-sm animate-pulse" />
+                    <div className="h-4 gizku-skeleton rounded-sm" />
                   </td>
                 ))}
               </tr>

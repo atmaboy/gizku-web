@@ -4,11 +4,18 @@ import { useEffect, useRef, useState } from 'react'
 
 export default function StagingBanner() {
   const [dismissed, setDismissed] = useState(false)
+  // Hidden inside iframes (the Landing Builder's live preview) — the parent
+  // admin page already shows it.
+  const [inFrame, setInFrame] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const env = process.env.NEXT_PUBLIC_APP_ENV
   const isStaging = env === 'staging' || env === 'preview'
-  const visible = isStaging && !dismissed
+  const visible = isStaging && !dismissed && !inFrame
+
+  useEffect(() => {
+    try { setInFrame(window.self !== window.top) } catch { setInFrame(true) }
+  }, [])
 
   // Expose the banner height as --staging-banner-h so fixed/sticky chrome
   // (e.g. the admin shell) can offset itself instead of sitting underneath.

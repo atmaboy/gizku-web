@@ -106,3 +106,21 @@ export async function requireAdmin(
 
   return null
 }
+
+/**
+ * True when the current request carries a valid admin JWT cookie. For Server
+ * Components (e.g. the landing page's draft-preview mode) where there's no
+ * NextRequest to hand to requireAdmin().
+ */
+export async function hasAdminCookie(): Promise<boolean> {
+  try {
+    const token = (await cookies()).get('nl_admin_token')?.value
+    if (!token) return false
+    const { jwtVerify } = await import('jose')
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-change-in-production-32ch')
+    const { payload } = await jwtVerify(token, secret)
+    return payload.role === 'admin'
+  } catch {
+    return false
+  }
+}

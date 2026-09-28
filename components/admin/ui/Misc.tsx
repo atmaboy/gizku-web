@@ -36,7 +36,8 @@ export function EmptyState({ icon: Icon, title, description, action, className }
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('animate-pulse bg-muted rounded-sm', className)} />
+  // Shimmer (same animation as the app & landing skeletons), not a pulse.
+  return <div aria-hidden className={cn('gizku-skeleton rounded-sm', className)} />
 }
 
 export function ListRow({ leading, title, meta, trailing, href, onClick, className }: {
