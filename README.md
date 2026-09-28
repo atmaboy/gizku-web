@@ -525,6 +525,7 @@ Seluruh konfigurasi landing disimpan sebagai **satu dokumen JSON** tervalidasi Z
 - Dihapus: menu & halaman `/admin/footer`, section `blog_post`, field `body`, textarea Meta JSON, input slug/sort order manual, `/api/admin/landing` & `/api/admin/footer`
 - Migrasi DB baru: `sql/018_create_landing_builder.sql` (jalankan sebelum deploy)
 - Semua loading state memakai skeleton **shimmer** (landing, backoffice, pratinjau)
+- Sosial media di footer tampil sebagai **logo** (Telegram, Instagram, Facebook, Twitter/X, Threads, YouTube, WhatsApp, TikTok), bukan teks
 
 ### v1.6.0 — 2026-08-06
 

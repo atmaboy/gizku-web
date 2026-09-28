@@ -248,10 +248,13 @@ export const Cta = z.object({
 })
 export type Cta = z.infer<typeof Cta>
 
-export const SOCIAL_PLATFORMS = ['instagram', 'tiktok', 'telegram', 'facebook', 'x', 'youtube', 'linkedin', 'whatsapp'] as const
-export const SOCIAL_LABELS: Record<typeof SOCIAL_PLATFORMS[number], string> = {
-  instagram: 'Instagram', tiktok: 'TikTok', telegram: 'Telegram', facebook: 'Facebook',
-  x: 'X (Twitter)', youtube: 'YouTube', linkedin: 'LinkedIn', whatsapp: 'WhatsApp',
+// Order = the order offered in the builder. `linkedin` is kept only so older
+// drafts still parse; new links use the 8 platforms above it.
+export const SOCIAL_PLATFORMS = ['telegram', 'instagram', 'facebook', 'x', 'threads', 'youtube', 'whatsapp', 'tiktok', 'linkedin'] as const
+export type SocialPlatform = typeof SOCIAL_PLATFORMS[number]
+export const SOCIAL_LABELS: Record<SocialPlatform, string> = {
+  telegram: 'Telegram', instagram: 'Instagram', facebook: 'Facebook', x: 'Twitter / X', threads: 'Threads',
+  youtube: 'YouTube', whatsapp: 'WhatsApp', tiktok: 'TikTok', linkedin: 'LinkedIn',
 }
 export const Social = z.object({
   id: Id,

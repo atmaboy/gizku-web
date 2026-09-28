@@ -1,8 +1,8 @@
 import {
-  Bell, Camera, Clock, Globe, Heart, History, ScanLine, Send, ShieldCheck, Sparkles, Target, TrendingUp,
+  Bell, Linkedin, Camera, Clock, Globe, Heart, History, ScanLine, Send, ShieldCheck, Sparkles, Target, TrendingUp,
   UtensilsCrossed, Zap, type LucideIcon,
 } from 'lucide-react'
-import type { IconKey } from '@/lib/landing/schema'
+import type { IconKey, SocialPlatform } from '@/lib/landing/schema'
 import { BRAND_PATHS, type BrandKey } from './brandPaths'
 
 /** Icon set offered by the builder's IconPicker (key → lucide icon). */
@@ -58,4 +58,15 @@ export function StarIcon({ size = 18, filled = true }: { size?: number; filled?:
       <path d="M12 2.5l2.95 6.1 6.55.9-4.8 4.6 1.2 6.6L12 17.6l-5.9 3.1 1.2-6.6-4.8-4.6 6.55-.9z" />
     </svg>
   )
+}
+
+const SOCIAL_GLYPH: Record<Exclude<SocialPlatform, 'linkedin'>, BrandKey> = {
+  telegram: 'telegram', instagram: 'instagram', facebook: 'facebook', x: 'x', threads: 'threads',
+  youtube: 'youtube', whatsapp: 'whatsapp', tiktok: 'tiktok',
+}
+
+/** Social media logo (brand glyph, currentColor). */
+export function SocialIcon({ platform, size = 20, className }: { platform: SocialPlatform; size?: number; className?: string }) {
+  if (platform === 'linkedin') return <Linkedin size={size} className={className} aria-hidden />
+  return <BrandIcon name={SOCIAL_GLYPH[platform]} size={size} className={className} />
 }
