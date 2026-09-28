@@ -58,6 +58,7 @@ function detectPlatform(label: string, url: string): typeof SOCIAL_PLATFORMS[num
   if (s.includes('youtube') || s.includes('youtu.be')) return 'youtube'
   if (s.includes('linkedin')) return 'linkedin'
   if (s.includes('wa.me') || s.includes('whatsapp')) return 'whatsapp'
+  if (s.includes('threads.net') || s.includes('threads')) return 'threads'
   if (s.includes('twitter') || s.includes('x.com')) return 'x'
   return null
 }

@@ -1,5 +1,6 @@
 'use client'
 import { Input, Select, Switch, TrackedLink } from '@/components/admin/ui'
+import { SocialIcon } from '@/components/landing/sections/icons'
 import { LIMITS } from '@/lib/landing/publish-rules'
 import { SOCIAL_LABELS, SOCIAL_PLATFORMS, newId, type Footer, type FooterLink, type LinkGroup, type Social } from '@/lib/landing/schema'
 import { useBuilder, useDraft } from '../BuilderContext'
@@ -34,8 +35,11 @@ export default function FooterForm() {
           renderItem={(s, handle) => (
             <div className="flex items-center gap-2">
               <DragHandle label={`Urutkan ${SOCIAL_LABELS[s.platform]}`} {...handle} />
+              <span aria-hidden className="w-10 h-10 rounded-full bg-bark-900 text-sand-200 inline-flex items-center justify-center shrink-0">
+                <SocialIcon platform={s.platform} size={18} />
+              </span>
               <Select aria-label="Platform" className="!w-40 shrink-0" value={s.platform} onChange={e => setSocial(s.id, { platform: e.target.value as Social['platform'] })}>
-                {SOCIAL_PLATFORMS.map(p => <option key={p} value={p}>{SOCIAL_LABELS[p]}</option>)}
+                {SOCIAL_PLATFORMS.filter(p => p !== 'linkedin' || s.platform === 'linkedin').map(p => <option key={p} value={p}>{SOCIAL_LABELS[p]}</option>)}
               </Select>
               {s.platform === 'telegram'
                 ? <Input aria-label="URL Telegram" disabled value={tgUrl ? `Ikut tautan bot: ${tgUrl}` : 'Ikut tautan bot (Pengaturan global) — belum diisi'} />

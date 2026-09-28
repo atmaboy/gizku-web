@@ -2,6 +2,7 @@ import { isTargetVisible, resolveTarget } from '@/lib/landing/links'
 import type { RenderModel } from '@/lib/landing/render'
 import { SOCIAL_LABELS, type Social } from '@/lib/landing/schema'
 import { cn } from '@/lib/utils'
+import { SocialIcon } from './icons'
 import { BrandMark } from './SiteHeader'
 import { CONTAINER } from './shared'
 
@@ -41,11 +42,18 @@ export default function SiteFooter({ model }: { model: RenderModel }) {
             </div>
             {footer.tagline.trim() && <p className="mt-3 lg:mt-3.5 text-sm lg:text-[15px] leading-[1.55] text-sand-300">{footer.tagline}</p>}
             {socials.length > 0 && (
-              <ul className="hidden lg:flex list-none p-0 mt-5 gap-2 flex-wrap">
+              <ul aria-label="Sosial media" className="list-none p-0 m-0 mt-5 flex gap-2.5 lg:gap-1.5 flex-wrap">
                 {socials.map(s => (
                   <li key={s.id}>
-                    <a href={s.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-9 px-3.5 rounded-md bg-white/[0.07] text-sand-200 text-[13px] font-semibold no-underline hover:bg-white/[0.12] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400">
-                      {SOCIAL_LABELS[s.platform]}
+                    <a
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${header.brandName} di ${SOCIAL_LABELS[s.platform]}`}
+                      title={SOCIAL_LABELS[s.platform]}
+                      className="inline-flex items-center justify-center w-11 h-11 lg:w-[34px] lg:h-[34px] rounded-full bg-white/[0.07] text-sand-200 no-underline hover:bg-white/[0.14] hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+                    >
+                      <SocialIcon platform={s.platform} size={20} className="lg:w-[17px] lg:h-[17px]" />
                     </a>
                   </li>
                 ))}
@@ -61,14 +69,6 @@ export default function SiteFooter({ model }: { model: RenderModel }) {
                 </ul>
               </nav>
             ))}
-            {socials.length > 0 && (
-              <nav aria-label="Sosial media" className="lg:hidden">
-                <p className={groupTitle}>Sosial</p>
-                <ul className="list-none m-0 p-0 flex flex-col gap-2.5">
-                  {socials.map(s => <li key={s.id}><a href={s.href} target="_blank" rel="noopener noreferrer" className={linkCls}>{SOCIAL_LABELS[s.platform]}</a></li>)}
-                </ul>
-              </nav>
-            )}
           </div>
         </div>
         <p className="mt-9 pt-5 border-t border-white/[0.08] lg:mt-7 lg:pt-0 lg:border-t-0 text-center text-xs lg:text-[13px] text-sand-400">{model.copyright}</p>
