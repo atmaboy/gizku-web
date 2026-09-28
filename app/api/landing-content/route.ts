@@ -1,16 +1,26 @@
 /**
  * GET /api/landing-content
- * Public endpoint — dikonsumsi landing page.
- * Mengembalikan semua konten aktif, dikelompokkan per section.
+ * Public endpoint — kept for other clients (e.g. gizku-mobile).
+ *
+ * Since the Landing Builder (sql/018) the source of truth is the published
+ * landing_page document; toLegacySectionMap() rebuilds the exact old response
+ * shape ({ data: { hero: [...], how_it_works: [...], ... } }) from it, so
+ * existing consumers keep working. Only visible sections are included.
  */
 import { NextResponse } from 'next/server'
-import { getLandingContentGrouped } from '@/lib/landingContent'
+import { getPublishedLanding } from '@/lib/landing/repo'
+import { toLegacySectionMap } from '@/lib/landing/legacy'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const grouped = await getLandingContentGrouped()
+    const { content, publishedAt, legalDocs } = await getPublishedLanding()
+    const grouped = toLegacySectionMap(
+      content,
+      publishedAt ? new Date(publishedAt) : undefined,
+      legalDocs.length ? legalDocs.map(d => ({ label: d.title, url: `/legal/${d.slug}` })) : undefined,
+    )
 
     return NextResponse.json({ data: grouped }, {
       headers: {

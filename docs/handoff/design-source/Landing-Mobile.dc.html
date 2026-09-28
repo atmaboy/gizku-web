@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Gizku — Landing Mobile</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fdfbf7;color:#241e19}
+a{color:#305f29;text-decoration:none}a:hover{color:#254a20}
+</style>
+</helmet>
+<div style="width: 390px; height: 6100px; display: flex; flex-direction: column; background: #fdfbf7; font-family: Inter, sans-serif; color: #241e19; overflow: hidden">
+
+<!-- HEADER -->
+<header style="height: 64px; flex-shrink: 0; box-sizing: border-box; padding: 0 12px 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e7dcc7; background: rgba(253,251,247,0.95)">
+<a href="#top" aria-label="Gizku beranda" style="display: flex; align-items: center; gap: 8px">
+<svg width="30" height="30" viewBox="20 20 160 160" aria-hidden="true"><rect x="20" y="20" width="160" height="160" rx="36" fill="#3d7833"></rect><path d="M136.8,130.9 A48,48 0 1,1 147.3,91.6" stroke="#ffffff" stroke-width="16" stroke-linecap="round" fill="none"></path><line x1="132.8" y1="108.8" x2="146.4" y2="112.42" stroke="#ffffff" stroke-width="10" stroke-linecap="round"></line><path d="M100,100 L100,76 A24,24 0 0,1 120.78,112 Z" fill="#c1603f"></path><path d="M100,100 L120.78,112 A24,24 0 0,1 79.22,112 Z" fill="#d99b3f"></path><path d="M100,100 L79.22,112 A24,24 0 0,1 100,76 Z" fill="#6f9b7c"></path></svg>
+<span style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; color: #241e19">Gizku</span>
+</a>
+<div style="display: flex; align-items: center; gap: 4px">
+<a href="/login" style="height: 40px; padding: 0 16px; display: flex; align-items: center; border-radius: 1000px; background: #3d7833; color: #ffffff; font-size: 14px; font-weight: 600">Buka Aplikasi</a>
+<button type="button" aria-label="Buka menu" style="width: 44px; height: 44px; border: 0; background: transparent; color: #241e19; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+</div>
+</header>
+
+<!-- HERO -->
+<section id="top" style="flex-shrink: 0; padding: 36px 20px 48px; display: flex; flex-direction: column; align-items: center; text-align: center">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 1000px; background: #f2f7f0; border: 1px solid #c3dbba; color: #305f29; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase">AI Nutrition Companion</span>
+<h1 style="margin: 20px 0 0; font-size: 36px; line-height: 1.12; font-weight: 800; letter-spacing: -0.03em">Kenali Isi Piringmu, <span style="color: #3d7833">Tanpa Ribet Mencatat</span></h1>
+<p style="margin: 16px 0 0; font-size: 16px; line-height: 1.55; color: #6b5c4a">Cukup foto makananmu — Gizku langsung kenali isinya dan hitung kalori, protein, lemak, dan karbo.</p>
+<div style="margin-top: 24px; width: 100%; display: flex; flex-direction: column; gap: 10px">
+<a href="/login" style="height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 1000px; background: #3d7833; color: #ffffff; font-size: 16px; font-weight: 700; box-shadow: 0px 4px 16px 0px rgba(61,120,51,0.28)">Mulai Sekarang<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+<a href="#cara-kerja" style="height: 54px; display: flex; align-items: center; justify-content: center; border-radius: 1000px; border: 1.5px solid #d5c5a8; background: #ffffff; color: #241e19; font-size: 16px; font-weight: 600">Lihat Cara Kerja</a>
+</div>
+<ul style="margin: 20px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 16px">
+<li style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #4a4038"><span style="width: 18px; height: 18px; border-radius: 50%; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Gratis selamanya</li>
+<li style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #4a4038"><span style="width: 18px; height: 18px; border-radius: 50%; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Tanpa kartu kredit</li>
+<li style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #4a4038"><span style="width: 18px; height: 18px; border-radius: 50%; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></span>Langsung bisa dipakai</li>
+</ul>
+<div style="margin-top: 24px; display: flex; gap: 8px">
+<a href="#" style="height: 46px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-radius: 10px; background: #241e19; color: #ffffff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="3"></rect><path d="M11 18h2"></path></svg><span style="display: flex; flex-direction: column; line-height: 1.1; text-align: left"><span style="font-size: 9px; color: #e7dcc7">Unduh di</span><span style="font-size: 14px; font-weight: 700">App Store</span></span></a>
+<a href="#" style="height: 46px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-radius: 10px; background: #241e19; color: #ffffff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 9-14 9z"></path></svg><span style="display: flex; flex-direction: column; line-height: 1.1; text-align: left"><span style="font-size: 9px; color: #e7dcc7">Dapatkan di</span><span style="font-size: 14px; font-weight: 700">Google Play</span></span></a>
+</div>
+<!-- phone -->
+<div style="margin-top: 36px; width: 350px; height: 500px; position: relative">
+<div style="position: absolute; left: 25px; top: 30px; width: 300px; height: 440px; border-radius: 44px; background: #3d7833; transform: rotate(-6deg)"></div>
+<div style="position: absolute; left: 70px; top: 0; width: 230px; height: 480px; box-sizing: border-box; padding: 10px; border-radius: 38px; background: #241e19; box-shadow: 0px 20px 40px rgba(36,30,25,0.28)">
+<div style="width: 100%; height: 100%; border-radius: 30px; background: #fdfbf7; overflow: hidden; display: flex; flex-direction: column; text-align: left">
+<div style="height: 24px; display: flex; justify-content: center; align-items: flex-end"><span style="width: 64px; height: 5px; border-radius: 5px; background: #241e19"></span></div>
+<div style="padding: 10px 12px 6px; font-size: 13px; font-weight: 600">Hasil Analisa</div>
+<div style="margin: 2px 12px 0; height: 130px; border-radius: 14px; background: #e7dcc7; display: flex; align-items: center; justify-content: center"><div style="width: 100px; height: 100px; border-radius: 50%; background: #ffffff; position: relative"><div style="position: absolute; left: 16px; top: 20px; width: 46px; height: 46px; border-radius: 50%; background: #d99b3f"></div><div style="position: absolute; left: 52px; top: 30px; width: 32px; height: 28px; border-radius: 14px; background: #c1603f"></div><div style="position: absolute; left: 32px; top: 60px; width: 38px; height: 22px; border-radius: 12px; background: #6f9b7c"></div></div></div>
+<div style="margin: 10px 12px 0; padding: 10px; border-radius: 12px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7">
+<div style="display: flex; justify-content: space-between"><span style="font-size: 13px; font-weight: 700">Nasi Goreng Ayam</span><span style="font-size: 18px; font-weight: 800; color: #3d7833">420</span></div>
+<div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px">
+<span style="height: 5px; border-radius: 5px; background: #f3ecdf; position: relative"><span style="position: absolute; left: 0; top: 0; height: 5px; width: 38%; border-radius: 5px; background: #c1603f"></span></span>
+<span style="height: 5px; border-radius: 5px; background: #f3ecdf; position: relative"><span style="position: absolute; left: 0; top: 0; height: 5px; width: 72%; border-radius: 5px; background: #d99b3f"></span></span>
+<span style="height: 5px; border-radius: 5px; background: #f3ecdf; position: relative"><span style="position: absolute; left: 0; top: 0; height: 5px; width: 30%; border-radius: 5px; background: #6f9b7c"></span></span>
+</div>
+</div>
+<div style="margin: auto 12px 14px; height: 36px; border-radius: 1000px; background: #3d7833; color: #ffffff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center">Simpan ke Riwayat</div>
+</div>
+</div>
+<div style="position: absolute; left: 0; top: 330px; padding: 10px 12px; border-radius: 12px; background: #ffffff; box-shadow: 0px 8px 24px rgba(36,30,25,0.14); display: flex; flex-direction: column; text-align: left"><span style="font-size: 10px; color: #6b5c4a">Terdeteksi dalam</span><span style="font-size: 14px; font-weight: 700">3 detik</span></div>
+</div>
+</section>
+
+<!-- STATS -->
+<section aria-label="Statistik" style="flex-shrink: 0; background: #305f29; padding: 32px 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center">
+<div><div style="font-size: 22px; font-weight: 800; color: #ffffff">10.000+</div><div style="font-size: 12px; color: #c3dbba; margin-top: 4px">Pengguna Aktif</div></div>
+<div><div style="font-size: 22px; font-weight: 800; color: #ffffff">500.000+</div><div style="font-size: 12px; color: #c3dbba; margin-top: 4px">Makanan Tercatat</div></div>
+<div><div style="font-size: 22px; font-weight: 800; color: #ffffff">95%</div><div style="font-size: 12px; color: #c3dbba; margin-top: 4px">Akurasi Pengenalan</div></div>
+</section>
+
+<!-- CARA KERJA -->
+<section id="cara-kerja" style="flex-shrink: 0; background: #ffffff; padding: 64px 20px; display: flex; flex-direction: column; align-items: center; text-align: center">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #305f29">Cara Kerja</span>
+<h2 style="margin: 10px 0 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Semudah 3 Langkah</h2>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #6b5c4a">Tidak perlu input manual. Foto, analisa, selesai — sesantai itu.</p>
+<div style="margin-top: 32px; width: 100%; display: flex; flex-direction: column; gap: 14px">
+<div style="padding: 24px; border-radius: 20px; background: #faf6ef; display: flex; gap: 16px; text-align: left; align-items: flex-start">
+<span style="width: 52px; height: 52px; flex-shrink: 0; border-radius: 16px; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
+<div><span style="font-size: 12px; font-weight: 700; color: #8a7862">01</span><h3 style="margin: 2px 0 0; font-size: 17px; font-weight: 700">Foto Makanan</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">Ambil foto makananmu langsung dari kamera atau galeri.</p></div>
+</div>
+<div style="padding: 24px; border-radius: 20px; background: #faf6ef; display: flex; gap: 16px; text-align: left; align-items: flex-start">
+<span style="width: 52px; height: 52px; flex-shrink: 0; border-radius: 16px; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg></span>
+<div><span style="font-size: 12px; font-weight: 700; color: #8a7862">02</span><h3 style="margin: 2px 0 0; font-size: 17px; font-weight: 700">AI Analisa</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">AI kami mengenali makanan dan menghitung nutrisinya secara otomatis.</p></div>
+</div>
+<div style="padding: 24px; border-radius: 20px; background: #faf6ef; display: flex; gap: 16px; text-align: left; align-items: flex-start">
+<span style="width: 52px; height: 52px; flex-shrink: 0; border-radius: 16px; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg></span>
+<div><span style="font-size: 12px; font-weight: 700; color: #8a7862">03</span><h3 style="margin: 2px 0 0; font-size: 17px; font-weight: 700">Pantau Progres</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">Lihat ringkasan harian dan pantau progresmu dari waktu ke waktu.</p></div>
+</div>
+</div>
+</section>
+
+<!-- FITUR -->
+<section id="fitur" style="flex-shrink: 0; background: #faf6ef; padding: 64px 20px; display: flex; flex-direction: column; align-items: center; text-align: center">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #305f29">Fitur Unggulan</span>
+<h2 style="margin: 10px 0 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Semua yang Kamu Butuhkan</h2>
+<p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #6b5c4a">Dirancang supaya mudah memantau asupan nutrisi sehari-hari, tanpa ribet.</p>
+<div style="margin-top: 32px; width: 350px; height: 440px; position: relative">
+<div style="position: absolute; left: 25px; top: 40px; width: 300px; height: 360px; border-radius: 50%; background: #e2edde"></div>
+<div style="position: absolute; left: 70px; top: 0; width: 210px; height: 440px; box-sizing: border-box; padding: 9px; border-radius: 34px; background: #241e19">
+<div style="width: 100%; height: 100%; border-radius: 26px; background: #fdfbf7; overflow: hidden; padding: 0 10px; box-sizing: border-box; text-align: left">
+<div style="height: 22px"></div>
+<div style="font-size: 15px; font-weight: 700; margin: 8px 0">Riwayat</div>
+<div style="padding: 8px; border-radius: 10px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7">
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); text-align: center"><div style="font-size: 11px; font-weight: 700; color: #3d7833">1240</div><div style="font-size: 11px; font-weight: 700; color: #c1603f">48g</div><div style="font-size: 11px; font-weight: 700; color: #b07a2a">132g</div><div style="font-size: 11px; font-weight: 700; color: #4f7a5b">38g</div></div>
+<div style="margin-top: 10px; height: 50px; display: flex; align-items: flex-end; gap: 5px"><span style="flex-grow: 1; height: 30px; border-radius: 3px; background: #c3dbba"></span><span style="flex-grow: 1; height: 42px; border-radius: 3px; background: #c3dbba"></span><span style="flex-grow: 1; height: 26px; border-radius: 3px; background: #c3dbba"></span><span style="flex-grow: 1; height: 46px; border-radius: 3px; background: #c3dbba"></span><span style="flex-grow: 1; height: 36px; border-radius: 3px; background: #c3dbba"></span><span style="flex-grow: 1; height: 28px; border-radius: 3px; background: #c3dbba"></span><span style="flex-grow: 1; height: 40px; border-radius: 3px; background: #3d7833"></span></div>
+</div>
+<div style="margin-top: 8px; border-radius: 10px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7">
+<div style="display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid #e7dcc7; font-size: 10px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #f3ecdf"></span><span style="flex-grow: 1">Nasi Goreng Ayam</span><strong>420</strong></div>
+<div style="display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid #e7dcc7; font-size: 10px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #f3ecdf"></span><span style="flex-grow: 1">Salad Buah</span><strong>180</strong></div>
+<div style="display: flex; gap: 8px; padding: 8px; font-size: 10px"><span style="width: 22px; height: 22px; border-radius: 6px; background: #f3ecdf"></span><span style="flex-grow: 1">Telur Rebus</span><strong>140</strong></div>
+</div>
+</div>
+</div>
+</div>
+<div style="margin-top: 28px; width: 100%; display: flex; flex-direction: column; gap: 14px; text-align: left">
+<article style="padding: 20px; border-radius: 16px; background: #ffffff; box-shadow: 0px 8px 24px rgba(36,30,25,0.07); display: flex; gap: 14px"><span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #f2f7f0; color: #3d7833; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><rect x="7" y="7" width="10" height="10" rx="1"></rect></svg></span><div><h3 style="margin: 0; font-size: 16px; font-weight: 700">Scan &amp; Catat dalam Detik</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">Cukup foto, AI langsung kenali makanan dan hitung nutrisinya otomatis.</p></div></article>
+<article style="padding: 20px; border-radius: 16px; background: #ffffff; box-shadow: 0px 8px 24px rgba(36,30,25,0.07); display: flex; gap: 14px"><span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #f2f7f0; color: #3d7833; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><path d="M12 7v5l4 2"></path></svg></span><div><h3 style="margin: 0; font-size: 16px; font-weight: 700">Riwayat Lengkap</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">Lihat semua catatan makan harianmu dalam tampilan yang rapi.</p></div></article>
+<article style="padding: 20px; border-radius: 16px; background: #ffffff; box-shadow: 0px 8px 24px rgba(36,30,25,0.07); display: flex; gap: 14px"><span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #f2f7f0; color: #3d7833; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span><div><h3 style="margin: 0; font-size: 16px; font-weight: 700">Insight Nutrisi</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">Pahami pola makanmu dengan ringkasan mingguan dan bulanan.</p></div></article>
+<article style="padding: 20px; border-radius: 16px; background: #ffffff; box-shadow: 0px 8px 24px rgba(36,30,25,0.07); display: flex; gap: 14px"><span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #f2f7f0; color: #3d7833; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg></span><div><h3 style="margin: 0; font-size: 16px; font-weight: 700">Kirim Foto lewat Telegram</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">Kirim foto ke bot Gizku — hasilnya otomatis tercatat di riwayat.</p></div></article>
+<article style="padding: 20px; border-radius: 16px; background: #ffffff; box-shadow: 0px 8px 24px rgba(36,30,25,0.07); display: flex; gap: 14px"><span style="width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px; background: #f2f7f0; color: #3d7833; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0-20"></path></svg></span><div><h3 style="margin: 0; font-size: 16px; font-weight: 700">Dua Bahasa</h3><p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: #6b5c4a">Tampilan dan hasil analisa dalam Bahasa Indonesia dan English.</p></div></article>
+</div>
+</section>
+
+<!-- TESTIMONI -->
+<section id="testimoni" style="flex-shrink: 0; background: #ffffff; padding: 64px 0; display: flex; flex-direction: column; align-items: center; text-align: center">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #305f29">Testimoni</span>
+<h2 style="margin: 10px 20px 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Kata Mereka tentang Gizku</h2>
+<div style="margin-top: 28px; width: 390px; box-sizing: border-box; padding-left: 20px; display: flex; gap: 12px; overflow: hidden; text-align: left">
+<figure style="margin: 0; width: 310px; flex-shrink: 0; box-sizing: border-box; padding: 24px; border-radius: 18px; background: #3d7833; color: #ffffff; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; gap: 2px; color: #f3ecdf" aria-label="Rating 5 dari 5"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"></path></svg></div>
+<blockquote style="margin: 0; font-size: 16px; line-height: 1.6">“[Kutipan testimoni asli dari pengguna — diisi dari backoffice.]”</blockquote>
+<figcaption style="display: flex; align-items: center; gap: 10px"><span style="width: 40px; height: 40px; border-radius: 50%; background: #f2f7f0; color: #254a20; display: flex; align-items: center; justify-content: center; font-weight: 700">A</span><span style="display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">[Nama Pengguna]</span><span style="font-size: 12px; color: #e2edde">[Kota / profesi]</span></span></figcaption>
+</figure>
+<figure style="margin: 0; width: 310px; flex-shrink: 0; box-sizing: border-box; padding: 24px; border-radius: 18px; background: #fdfbf7; box-shadow: inset 0 0 0 1px #e7dcc7; display: flex; flex-direction: column; gap: 16px">
+<div style="height: 16px"></div>
+<blockquote style="margin: 0; font-size: 16px; line-height: 1.6; color: #332b25">“[Kutipan testimoni asli dari pengguna.]”</blockquote>
+</figure>
+</div>
+<div style="margin-top: 20px; display: flex; gap: 6px" aria-hidden="true"><span style="width: 24px; height: 8px; border-radius: 8px; background: #3d7833"></span><span style="width: 8px; height: 8px; border-radius: 8px; background: #d5c5a8"></span><span style="width: 8px; height: 8px; border-radius: 8px; background: #d5c5a8"></span></div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="flex-shrink: 0; background: #fdfbf7; padding: 64px 20px; display: flex; flex-direction: column">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #305f29">FAQ</span>
+<h2 style="margin: 10px 0 0; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spacing: -0.02em">Pertanyaan yang Sering Diajukan</h2>
+<div style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="border-radius: 14px; background: #ffffff; border: 1.5px solid #9fc494">
+<button type="button" aria-expanded="true" style="width: 100%; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; font-family: inherit; font-size: 16px; font-weight: 700; color: #241e19; text-align: left">Apakah Gizku gratis?<span style="width: 28px; height: 28px; border-radius: 50%; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transform: rotate(180deg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></span></button>
+<p style="margin: 0; padding: 0 18px 18px; font-size: 15px; line-height: 1.6; color: #6b5c4a">Ya. Kamu bisa menganalisa foto makanan setiap hari tanpa biaya, sesuai kuota harian. Kalau butuh lebih, ajukan kenaikan limit langsung dari aplikasi.</p>
+</div>
+<div style="border-radius: 14px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7"><button type="button" aria-expanded="false" style="width: 100%; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; font-family: inherit; font-size: 15px; font-weight: 600; color: #241e19; text-align: left">Seberapa akurat hasil analisanya?<span style="width: 28px; height: 28px; border-radius: 50%; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></span></button></div>
+<div style="border-radius: 14px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7"><button type="button" aria-expanded="false" style="width: 100%; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; font-family: inherit; font-size: 15px; font-weight: 600; color: #241e19; text-align: left">Bisakah saya memakai Gizku lewat Telegram?<span style="width: 28px; height: 28px; border-radius: 50%; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></span></button></div>
+<div style="border-radius: 14px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7"><button type="button" aria-expanded="false" style="width: 100%; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; font-family: inherit; font-size: 15px; font-weight: 600; color: #241e19; text-align: left">Apakah data makanan saya aman?<span style="width: 28px; height: 28px; border-radius: 50%; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></span></button></div>
+<div style="border-radius: 14px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7"><button type="button" aria-expanded="false" style="width: 100%; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; font-family: inherit; font-size: 15px; font-weight: 600; color: #241e19; text-align: left">Apakah Gizku tersedia dalam Bahasa Inggris?<span style="width: 28px; height: 28px; border-radius: 50%; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></span></button></div>
+</div>
+<p style="margin: 24px 0 0; font-size: 15px; color: #6b5c4a">Belum menemukan jawabanmu? <a href="mailto:support@gizku.com" style="font-weight: 600; color: #305f29">Hubungi kami</a></p>
+</section>
+
+<!-- CTA -->
+<section style="flex-shrink: 0; padding: 0 20px 64px">
+<div style="position: relative; overflow: hidden; border-radius: 24px; background: #3d7833; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; text-align: center">
+<div style="position: absolute; right: -80px; top: -80px; width: 220px; height: 220px; border-radius: 50%; background: #4f9142; opacity: 0.6"></div>
+<h2 style="position: relative; margin: 0; font-size: 28px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; color: #ffffff">Mulai Perjalanan Sehatmu Hari Ini</h2>
+<p style="position: relative; margin: 12px 0 0; font-size: 15px; line-height: 1.55; color: #e2edde">Bergabung sekarang dan mulai pahami apa yang kamu makan setiap hari — dengan tenang.</p>
+<a href="/login" style="position: relative; margin-top: 24px; width: 100%; height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 1000px; background: #ffffff; color: #254a20; font-size: 16px; font-weight: 700">Mulai Sekarang</a>
+<div style="position: relative; margin-top: 14px; display: flex; gap: 8px">
+<a href="#" style="height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 6px; border-radius: 10px; background: #1c3818; color: #ffffff; font-size: 14px; font-weight: 700">App Store</a>
+<a href="#" style="height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 6px; border-radius: 10px; background: #1c3818; color: #ffffff; font-size: 14px; font-weight: 700">Google Play</a>
+</div>
+</div>
+</section>
+
+<!-- FOOTER -->
+<footer style="flex-grow: 1; background: #241e19; padding: 48px 20px 28px; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="28" height="28" viewBox="20 20 160 160" aria-hidden="true"><rect x="20" y="20" width="160" height="160" rx="36" fill="#3d7833"></rect><path d="M136.8,130.9 A48,48 0 1,1 147.3,91.6" stroke="#ffffff" stroke-width="16" stroke-linecap="round" fill="none"></path><path d="M100,100 L100,76 A24,24 0 0,1 120.78,112 Z" fill="#c1603f"></path><path d="M100,100 L120.78,112 A24,24 0 0,1 79.22,112 Z" fill="#d99b3f"></path><path d="M100,100 L79.22,112 A24,24 0 0,1 100,76 Z" fill="#6f9b7c"></path></svg>
+<span style="font-size: 18px; font-weight: 700; color: #ffffff">Gizku</span>
+</div>
+<p style="margin: 12px 0 0; font-size: 14px; line-height: 1.55; color: #d5c5a8">AI Nutrition Companion · Analisa nutrisi dari foto makananmu</p>
+<div style="margin-top: 32px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 16px">
+<div><p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #b7a382">Produk</p><ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px"><li><a href="#fitur" style="font-size: 14px; color: #e7dcc7">Fitur</a></li><li><a href="#cara-kerja" style="font-size: 14px; color: #e7dcc7">Cara Kerja</a></li><li><a href="#faq" style="font-size: 14px; color: #e7dcc7">FAQ</a></li></ul></div>
+<div><p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #b7a382">Bantuan</p><ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px"><li><a href="mailto:support@gizku.com" style="font-size: 14px; color: #e7dcc7">Hubungi Support</a></li><li><a href="/login" style="font-size: 14px; color: #e7dcc7">Masuk / Daftar</a></li></ul></div>
+<div><p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #b7a382">Legal</p><ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px"><li><a href="/legal/syarat-ketentuan" style="font-size: 14px; color: #e7dcc7">Syarat &amp; Ketentuan</a></li><li><a href="/legal/kebijakan-privasi" style="font-size: 14px; color: #e7dcc7">Kebijakan Privasi</a></li></ul></div>
+<div><p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #b7a382">Sosial</p><ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px"><li><a href="#" style="font-size: 14px; color: #e7dcc7">Instagram</a></li><li><a href="#" style="font-size: 14px; color: #e7dcc7">TikTok</a></li><li><a href="#" style="font-size: 14px; color: #e7dcc7">Telegram</a></li></ul></div>
+</div>
+<p style="margin: 36px 0 0; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); text-align: center; font-size: 12px; color: #b7a382">© 2026 Gizku. Dibuat untuk hidup lebih sehat.</p>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":6100}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

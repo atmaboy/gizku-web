@@ -5,6 +5,8 @@ import {
   Camera, ChevronRight, Database, Flame, Gauge, KeyRound, LayoutTemplate, MessageSquare, Settings, UtensilsCrossed, Users,
 } from 'lucide-react'
 import { getMaintenance } from '@/lib/admin'
+import { getPublishedLanding } from '@/lib/landing/repo'
+import { buildRenderModel } from '@/lib/landing/render'
 import { fmtNum, fmtDateTime, todayISO, cn } from '@/lib/utils'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import {
@@ -23,7 +25,7 @@ function fmtCompact(n: number) {
 const QUICK_LINKS = [
   { href: '/admin/users',   icon: Users,          title: 'Kelola User',     sub: 'Aktivasi, limit, reset password' },
   { href: '/admin/reports', icon: MessageSquare,  title: 'Laporan',         sub: 'Balas laporan & helpdesk' },
-  { href: '/admin/landing', icon: LayoutTemplate, title: 'Konten Landing',  sub: 'Hero, fitur, CTA, blog' },
+  { href: '/admin/landing', icon: LayoutTemplate, title: 'Konten Landing',  sub: 'Hero, fitur, FAQ, footer' },
   { href: '/admin/config',  icon: Settings,       title: 'Pengaturan',      sub: 'Limit, API key, maintenance' },
 ]
 
@@ -34,7 +36,7 @@ export default async function AdminDashboard() {
   // ~12-way Promise.all could starve the Supabase pooler under load).
   const [stats] = await db.execute<{
     tot_users: number; tot_meals: number; tot_cal: number; today_meals: number
-    open_reports: number; tot_landing: number; pending_limit: number
+    open_reports: number; pending_limit: number
   }>(sql`
     SELECT
       (SELECT count(*) FROM users)::int                                   AS tot_users,
@@ -43,13 +45,15 @@ export default async function AdminDashboard() {
       (SELECT count(*) FROM meals WHERE logged_at >= ${today}::date
                                     AND logged_at <  ${today}::date + 1)::int AS today_meals,
       (SELECT count(*) FROM reports WHERE status = 'open')::int           AS open_reports,
-      (SELECT count(*) FROM landing_content)::int                         AS tot_landing,
       (SELECT count(*) FROM limit_requests WHERE status = 'pending')::int AS pending_limit
   `)
   const totUsers = Number(stats.tot_users), totMealCount = Number(stats.tot_meals)
   const totalCal = Number(stats.tot_cal), todayMeals = Number(stats.today_meals)
-  const openReports = Number(stats.open_reports), totLanding = Number(stats.tot_landing)
+  const openReports = Number(stats.open_reports)
   const pendingLimit = Number(stats.pending_limit)
+  // Sections visitors actually see (header + footer + visible middle sections
+  // with content) — read from the cached published landing, no extra count.
+  const landingSections = buildRenderModel((await getPublishedLanding()).content).sections.length + 2
 
   const cfgRows = await db.select({ key: adminConfig.key, value: adminConfig.value }).from(adminConfig)
     .where(inArray(adminConfig.key, ['default_daily_limit', 'anthropic_api_key', 'anthropic_model']))
@@ -99,7 +103,7 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-5 max-lg:gap-3">
         <ResponsiveStat icon={Database}       iconTone="brand" label="Total Meal Logs" value={fmtNum(totMealCount)} />
         <ResponsiveStat icon={Flame}          iconTone="honey" label="Total Kalori"    value={`${fmtNum(totalCal)} kcal`} mobileValue={fmtCompact(totalCal)} sub="kcal" />
-        <ResponsiveStat icon={LayoutTemplate} iconTone="green" label="Konten Landing"  value={`${fmtNum(totLanding)} item`} />
+        <ResponsiveStat icon={LayoutTemplate} iconTone="green" label="Konten Landing"  value={`${landingSections} section tampil`} mobileValue={landingSections} sub="section tampil" />
         <ResponsiveStat icon={Camera}         iconTone="sand"  label="Limit Global"    value={`${globalLimit} foto/hari`} mobileValue={globalLimit} sub="foto/hari" />
       </div>
 

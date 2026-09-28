@@ -1,16 +1,25 @@
 /**
  * GET /api/footer-content
- * Public endpoint — dikonsumsi landing page footer.
- * Mengembalikan semua item footer yang aktif.
+ * Public endpoint — kept for other clients (e.g. gizku-mobile).
+ *
+ * Built from the published Landing Builder document (footer section) in the
+ * exact old shape: { data: rows[], bySlug: { 'footer-brand': row, ... } }.
  */
 import { NextResponse } from 'next/server'
-import { getFooterContentBySlug } from '@/lib/landingContent'
+import { getPublishedLanding } from '@/lib/landing/repo'
+import { toLegacyFooter } from '@/lib/landing/legacy'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const bySlug = await getFooterContentBySlug()
+    const { content, publishedAt, legalDocs } = await getPublishedLanding()
+    const bySlug = toLegacyFooter(
+      content,
+      publishedAt ? new Date(publishedAt) : undefined,
+      1000,
+      legalDocs.length ? legalDocs.map(d => ({ label: d.title, url: `/legal/${d.slug}` })) : undefined,
+    )
     const rows = Object.values(bySlug)
 
     return NextResponse.json({ data: rows, bySlug }, {

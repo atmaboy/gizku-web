@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Backoffice — Builder, Fitur</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fdfbf7;color:#241e19}
+a{color:#305f29;text-decoration:none}a:hover{color:#254a20}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1120px; display: flex; background: #faf6ef; font-family: Inter, sans-serif; color: #241e19; overflow: hidden">
+
+<aside style="width: 250px; flex-shrink: 0; background: #ffffff; border-right: 1px solid #e7dcc7; display: flex; flex-direction: column">
+<div style="height: 57px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e7dcc7"><svg width="30" height="30" viewBox="20 20 160 160" aria-hidden="true"><rect x="20" y="20" width="160" height="160" rx="36" fill="#3d7833"></rect><path d="M136.8,130.9 A48,48 0 1,1 147.3,91.6" stroke="#ffffff" stroke-width="16" stroke-linecap="round" fill="none"></path><path d="M100,100 L100,76 A24,24 0 0,1 120.78,112 Z" fill="#c1603f"></path><path d="M100,100 L120.78,112 A24,24 0 0,1 79.22,112 Z" fill="#d99b3f"></path><path d="M100,100 L79.22,112 A24,24 0 0,1 100,76 Z" fill="#6f9b7c"></path></svg><span style="font-size: 17px"><strong style="font-weight: 700">Gizku</strong> <span style="font-weight: 300">Admin</span></span></div>
+<nav aria-label="Menu admin" style="flex-grow: 1; padding: 10px; display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dashboard</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Pengguna</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Manajemen User</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Riwayat Analisa</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Request Limit</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Komunikasi</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Laporan &amp; Helpdesk</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Blast Notifikasi</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Telegram Bot</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Konten Website</span>
+<span style="height: 38px; padding: 0 12px; display: flex; align-items: center; font-weight: 600">Halaman Publik</span>
+<a href="Admin-Builder-Hero.dc.html" aria-current="page" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; background: #f2f7f0; color: #254a20; font-weight: 600; box-shadow: inset 3px 0 0 #3d7833">Landing Page</a>
+<a href="#" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dokumen Legal</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Sistem</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Pengaturan</a>
+</nav>
+</aside>
+
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div style="height: 57px; flex-shrink: 0; box-sizing: border-box; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e7dcc7; display: flex; align-items: center; justify-content: flex-end; gap: 12px"><span style="width: 34px; height: 34px; border-radius: 50%; background: #3d7833; color: #ffffff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">A</span><span style="font-size: 14px; font-weight: 600">admin</span></div>
+<div style="flex-shrink: 0; padding: 18px 24px 14px; display: flex; align-items: center; justify-content: space-between">
+<div><nav aria-label="breadcrumb" style="font-size: 13px; color: #6b5c4a"><a href="#" style="color: #305f29">Beranda</a> / Halaman Publik / Landing Page</nav><h1 style="margin: 4px 0 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em">Landing Page</h1></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="height: 32px; padding: 0 12px; border-radius: 1000px; background: #fbf1e1; color: #7a531a; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #d99b3f"></span>Draf · 2 perubahan belum diterbitkan</span><a href="#" style="height: 38px; padding: 0 14px; border-radius: 8px; border: 1px solid #d5c5a8; background: #ffffff; color: #241e19; font-size: 14px; font-weight: 600; display: flex; align-items: center">Pratinjau</a><button type="button" style="height: 38px; padding: 0 16px; border-radius: 8px; border: 0; background: #3d7833; color: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer">Terbitkan</button></div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; padding: 0 24px 24px; display: flex; gap: 20px">
+
+<nav aria-label="Susunan halaman" style="width: 280px; flex-shrink: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 16px 16px 12px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 15px; font-weight: 700">Susunan Halaman</h2><p style="margin: 4px 0 0; font-size: 12px; color: #6b5c4a">Seret untuk mengubah urutan. Klik untuk mengedit.</p></div>
+<ol style="margin: 0; padding: 8px; list-style: none; display: flex; flex-direction: column; gap: 4px">
+<li><a href="Admin-Builder-Header.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 11px">▲</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Header &amp; Navigasi</span></a></li>
+<li><a href="Admin-Builder-Hero.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Hero</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Statistik.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Statistik</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-CaraKerja.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Cara Kerja</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Fitur.dc.html" aria-current="page" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; background: #f2f7f0; box-shadow: inset 0 0 0 1.5px #4f9142; color: #254a20"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Fitur</span><span style="font-size: 11px; color: #6b5c4a">5 fitur · 2 baris</span></span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Testimoni.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #6b5c4a"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Testimoni</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #d5c5a8; position: relative"><span style="position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-FAQ.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">FAQ</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-CTA.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">CTA &amp; Download</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Footer.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 11px">▼</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Footer</span></a></li>
+</ol>
+<a href="Admin-Pengaturan-Global.dc.html" style="margin: auto 8px 8px; padding: 12px; border-radius: 8px; background: #faf6ef; display: flex; flex-direction: column; color: #241e19"><span style="font-size: 13px; font-weight: 600">Pengaturan global →</span><span style="font-size: 11px; color: #6b5c4a">Tujuan tombol, tautan download, SEO</span></a>
+</nav>
+
+<section aria-label="Edit Fitur" style="width: 500px; flex-shrink: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 14px 20px; border-bottom: 1px solid #e7dcc7; display: flex; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 16px; font-weight: 700; flex-grow: 1">Fitur</h2><span style="padding: 3px 8px; border-radius: 6px; background: #f2f7f0; color: #305f29; font-size: 12px; font-weight: 600">Tampil · anchor #fitur</span></div>
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="ft-eb" style="font-size: 13px; font-weight: 600">Label kecil</label><input id="ft-eb" value="Fitur Unggulan" style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="ft-t" style="font-size: 13px; font-weight: 600">Judul <span style="color: #c25b58">*</span></label><input id="ft-t" value="Semua yang Kamu Butuhkan" style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="ft-s" style="font-size: 13px; font-weight: 600">Deskripsi</label><input id="ft-s" value="Dirancang supaya mudah memantau asupan nutrisi sehari-hari, tanpa ribet." style="height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"></div>
+
+<!-- row 1 -->
+<div style="border-radius: 12px; background: #faf6ef; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 700; flex-grow: 1">Baris 1 · visual di kiri</span><select aria-label="Visual baris 1" style="height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 12px; background: #ffffff"><option>Mockup: layar Riwayat</option></select></div>
+<div style="padding: 10px 12px; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7; display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="width: 28px; height: 28px; border-radius: 8px; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"></rect></svg></span><span style="flex-grow: 1; font-size: 13px; font-weight: 600">Scan &amp; Catat dalam Detik</span><span style="color: #8a7862">▾</span></div>
+<div style="padding: 10px 12px; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7; display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="width: 28px; height: 28px; border-radius: 8px; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path></svg></span><span style="flex-grow: 1; font-size: 13px; font-weight: 600">Riwayat Lengkap</span><span style="color: #8a7862">▾</span></div>
+<div style="padding: 10px 12px; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7; display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="width: 28px; height: 28px; border-radius: 8px; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span><span style="flex-grow: 1; font-size: 13px; font-weight: 600">Insight Nutrisi</span><span style="color: #8a7862">▾</span></div>
+<button type="button" style="height: 32px; border-radius: 8px; border: 1px dashed #9fc494; background: transparent; color: #305f29; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer">+ Tambah fitur ke baris 1 (maks. 4)</button>
+</div>
+
+<!-- row 2 -->
+<div style="border-radius: 12px; background: #faf6ef; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13px; font-weight: 700; flex-grow: 1">Baris 2 · visual di kanan</span><select aria-label="Visual baris 2" style="height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 12px; background: #ffffff"><option>Mockup: chat Telegram</option></select></div>
+<div style="padding: 12px; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1.5px #4f9142; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 13px; font-weight: 700">Kirim Foto lewat Telegram</span><button type="button" aria-label="Hapus fitur" style="width: 28px; height: 28px; border-radius: 8px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+<div style="display: flex; gap: 6px" role="radiogroup" aria-label="Ikon fitur">
+<span role="radio" aria-checked="false" style="width: 34px; height: 34px; border-radius: 8px; box-shadow: inset 0 0 0 1px #e7dcc7; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1"></rect></svg></span>
+<span role="radio" aria-checked="false" style="width: 34px; height: 34px; border-radius: 8px; box-shadow: inset 0 0 0 1px #e7dcc7; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></span>
+<span role="radio" aria-checked="true" style="width: 34px; height: 34px; border-radius: 8px; background: #3d7833; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg></span>
+<span role="radio" aria-checked="false" style="width: 34px; height: 34px; border-radius: 8px; box-shadow: inset 0 0 0 1px #e7dcc7; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path></svg></span>
+<span style="font-size: 12px; color: #6b5c4a; align-self: center; margin-left: 4px">+8 ikon lain</span>
+</div>
+<input aria-label="Judul fitur" value="Kirim Foto lewat Telegram" style="height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px">
+<textarea aria-label="Deskripsi fitur" rows="2" style="padding: 8px 10px; border-radius: 8px; border: 1.5px solid #4f9142; box-shadow: 0 0 0 3px #e2edde; font-family: inherit; font-size: 13px; line-height: 1.5; resize: none">Hubungkan akunmu, lalu kirim foto makanan ke bot Gizku — hasilnya otomatis tercatat di riwayat.</textarea>
+</div>
+<div style="padding: 10px 12px; border-radius: 8px; background: #ffffff; box-shadow: inset 0 0 0 1px #e7dcc7; display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="width: 28px; height: 28px; border-radius: 8px; background: #f2f7f0; color: #305f29; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path></svg></span><span style="flex-grow: 1; font-size: 13px; font-weight: 600">Dua Bahasa</span><span style="color: #8a7862">▾</span></div>
+</div>
+<p style="margin: 0; font-size: 12px; line-height: 1.5; color: #6b5c4a">Baris tanpa fitur disembunyikan. Tautan “Pelajari lebih lanjut” dari template tidak dipakai — kartu fitur tanpa tombol.</p>
+</div>
+<div style="padding: 12px 20px; border-top: 1px solid #e7dcc7; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b5c4a"><span style="width: 8px; height: 8px; border-radius: 50%; background: #4f9142"></span>Draf tersimpan otomatis · 09.16</div>
+</section>
+
+<section aria-label="Pratinjau" style="flex-grow: 1; min-width: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 12px 16px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 14px; font-weight: 700">Pratinjau · Desktop (diperkecil)</h2></div>
+<div style="flex-grow: 1; background: #f3ecdf; padding: 20px 12px; display: flex; flex-direction: column; overflow: hidden">
+<div style="border-radius: 12px; background: #faf6ef; box-shadow: 0px 4px 16px 0px rgba(36,30,25,0.10); padding: 20px 14px; display: flex; flex-direction: column; align-items: center; outline: 2px dashed #4f9142; outline-offset: -2px">
+<span style="font-size: 7px; font-weight: 700; letter-spacing: 0.08em; color: #305f29">FITUR UNGGULAN</span>
+<div style="margin-top: 4px; font-size: 14px; font-weight: 800">Semua yang Kamu Butuhkan</div>
+<div style="margin-top: 16px; width: 100%; display: flex; align-items: center; gap: 12px">
+<div style="width: 90px; height: 150px; flex-shrink: 0; position: relative"><div style="position: absolute; left: 0; top: 15px; width: 90px; height: 120px; border-radius: 50%; background: #e2edde"></div><div style="position: absolute; left: 22px; top: 0; width: 46px; height: 150px; border-radius: 10px; background: #241e19"></div></div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 30px; border-radius: 6px; background: #ffffff; box-shadow: 0px 2px 6px rgba(36,30,25,0.08); font-size: 8px; font-weight: 700; padding: 0 8px; display: flex; align-items: center">Scan &amp; Catat dalam Detik</span><span style="height: 30px; border-radius: 6px; background: #ffffff; box-shadow: 0px 2px 6px rgba(36,30,25,0.08); font-size: 8px; font-weight: 700; padding: 0 8px; display: flex; align-items: center">Riwayat Lengkap</span><span style="height: 30px; border-radius: 6px; background: #ffffff; box-shadow: 0px 2px 6px rgba(36,30,25,0.08); font-size: 8px; font-weight: 700; padding: 0 8px; display: flex; align-items: center">Insight Nutrisi</span></div>
+</div>
+<div style="margin-top: 16px; width: 100%; display: flex; align-items: center; gap: 12px">
+<div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px"><span style="height: 30px; border-radius: 6px; background: #ffffff; box-shadow: 0 0 0 1.5px #4f9142; font-size: 8px; font-weight: 700; padding: 0 8px; display: flex; align-items: center">Kirim Foto lewat Telegram</span><span style="height: 30px; border-radius: 6px; background: #ffffff; box-shadow: 0px 2px 6px rgba(36,30,25,0.08); font-size: 8px; font-weight: 700; padding: 0 8px; display: flex; align-items: center">Dua Bahasa</span></div>
+<div style="width: 90px; height: 90px; flex-shrink: 0; border-radius: 16px; background: #3d7833; transform: rotate(6deg); display: flex; align-items: center; justify-content: center"><span style="width: 64px; height: 50px; border-radius: 8px; background: #ffffff; transform: rotate(-6deg)"></span></div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

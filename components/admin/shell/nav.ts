@@ -21,7 +21,6 @@ export const ADMIN_NAV: NavEntry[] = [
   { type: 'header', label: 'Konten Website' },
   { type: 'tree',   label: 'Halaman Publik',     icon: Globe, children: [
       { label: 'Landing Page',  href: '/admin/landing' },
-      { label: 'Footer',        href: '/admin/footer' },
       { label: 'Dokumen Legal', href: '/admin/legal' } ] },
   { type: 'header', label: 'Sistem' },
   { type: 'item',   label: 'Pengaturan',         icon: Settings,      href: '/admin/config' },

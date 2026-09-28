@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Backoffice — Builder, Statistik</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fdfbf7;color:#241e19}
+a{color:#305f29;text-decoration:none}a:hover{color:#254a20}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1120px; display: flex; background: #faf6ef; font-family: Inter, sans-serif; color: #241e19; overflow: hidden">
+
+<aside style="width: 250px; flex-shrink: 0; background: #ffffff; border-right: 1px solid #e7dcc7; display: flex; flex-direction: column">
+<div style="height: 57px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #e7dcc7"><svg width="30" height="30" viewBox="20 20 160 160" aria-hidden="true"><rect x="20" y="20" width="160" height="160" rx="36" fill="#3d7833"></rect><path d="M136.8,130.9 A48,48 0 1,1 147.3,91.6" stroke="#ffffff" stroke-width="16" stroke-linecap="round" fill="none"></path><path d="M100,100 L100,76 A24,24 0 0,1 120.78,112 Z" fill="#c1603f"></path><path d="M100,100 L120.78,112 A24,24 0 0,1 79.22,112 Z" fill="#d99b3f"></path><path d="M100,100 L79.22,112 A24,24 0 0,1 100,76 Z" fill="#6f9b7c"></path></svg><span style="font-size: 17px"><strong style="font-weight: 700">Gizku</strong> <span style="font-weight: 300">Admin</span></span></div>
+<nav aria-label="Menu admin" style="flex-grow: 1; padding: 10px; display: flex; flex-direction: column; gap: 2px; font-size: 14px">
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dashboard</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Pengguna</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Manajemen User</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Riwayat Analisa</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Request Limit</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Komunikasi</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Laporan &amp; Helpdesk</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Blast Notifikasi</a>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Telegram Bot</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Konten Website</span>
+<span style="height: 38px; padding: 0 12px; display: flex; align-items: center; font-weight: 600">Halaman Publik</span>
+<a href="Admin-Builder-Hero.dc.html" aria-current="page" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; background: #f2f7f0; color: #254a20; font-weight: 600; box-shadow: inset 3px 0 0 #3d7833">Landing Page</a>
+<a href="#" style="height: 36px; margin-left: 12px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Dokumen Legal</a>
+<span style="padding: 14px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8a7862">Sistem</span>
+<a href="#" style="height: 38px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; color: #4a4038">Pengaturan</a>
+</nav>
+</aside>
+
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div style="height: 57px; flex-shrink: 0; box-sizing: border-box; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e7dcc7; display: flex; align-items: center; justify-content: flex-end; gap: 12px"><span style="width: 34px; height: 34px; border-radius: 50%; background: #3d7833; color: #ffffff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center">A</span><span style="font-size: 14px; font-weight: 600">admin</span></div>
+<div style="flex-shrink: 0; padding: 18px 24px 14px; display: flex; align-items: center; justify-content: space-between">
+<div><nav aria-label="breadcrumb" style="font-size: 13px; color: #6b5c4a"><a href="#" style="color: #305f29">Beranda</a> / Halaman Publik / Landing Page</nav><h1 style="margin: 4px 0 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em">Landing Page</h1></div>
+<div style="display: flex; align-items: center; gap: 10px"><span style="height: 32px; padding: 0 12px; border-radius: 1000px; background: #fbf1e1; color: #7a531a; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 50%; background: #d99b3f"></span>Draf · 2 perubahan belum diterbitkan</span><a href="#" style="height: 38px; padding: 0 14px; border-radius: 8px; border: 1px solid #d5c5a8; background: #ffffff; color: #241e19; font-size: 14px; font-weight: 600; display: flex; align-items: center">Pratinjau</a><button type="button" style="height: 38px; padding: 0 16px; border-radius: 8px; border: 0; background: #3d7833; color: #ffffff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer">Terbitkan</button></div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; padding: 0 24px 24px; display: flex; gap: 20px">
+
+<nav aria-label="Susunan halaman" style="width: 280px; flex-shrink: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 16px 16px 12px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 15px; font-weight: 700">Susunan Halaman</h2><p style="margin: 4px 0 0; font-size: 12px; color: #6b5c4a">Seret untuk mengubah urutan. Klik untuk mengedit.</p></div>
+<ol style="margin: 0; padding: 8px; list-style: none; display: flex; flex-direction: column; gap: 4px">
+<li><a href="Admin-Builder-Header.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 11px">▲</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Header &amp; Navigasi</span></a></li>
+<li><a href="Admin-Builder-Hero.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Hero</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Statistik.dc.html" aria-current="page" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; background: #f2f7f0; box-shadow: inset 0 0 0 1.5px #4f9142; color: #254a20"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 700">Statistik</span><span style="font-size: 11px; color: #6b5c4a">3 angka · 2 otomatis</span></span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-CaraKerja.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Cara Kerja</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Fitur.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Fitur</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Testimoni.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #6b5c4a"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Testimoni</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #d5c5a8; position: relative"><span style="position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-FAQ.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">FAQ</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-CTA.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">CTA &amp; Download</span><span aria-hidden="true" style="width: 36px; height: 20px; border-radius: 20px; background: #3d7833; position: relative"><span style="position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff"></span></span></a></li>
+<li><a href="Admin-Builder-Footer.dc.html" style="height: 48px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #241e19"><span style="width: 14px; color: #8a7862; font-size: 11px">▼</span><span style="flex-grow: 1; font-size: 14px; font-weight: 600">Footer</span></a></li>
+</ol>
+<a href="Admin-Pengaturan-Global.dc.html" style="margin: auto 8px 8px; padding: 12px; border-radius: 8px; background: #faf6ef; display: flex; flex-direction: column; color: #241e19"><span style="font-size: 13px; font-weight: 600">Pengaturan global →</span><span style="font-size: 11px; color: #6b5c4a">Tujuan tombol, tautan download, SEO</span></a>
+</nav>
+
+<section aria-label="Edit Statistik" style="width: 500px; flex-shrink: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 14px 20px; border-bottom: 1px solid #e7dcc7; display: flex; align-items: center; gap: 10px"><h2 style="margin: 0; font-size: 16px; font-weight: 700; flex-grow: 1">Statistik</h2><span style="padding: 3px 8px; border-radius: 6px; background: #f2f7f0; color: #305f29; font-size: 12px; font-weight: 600">Tampil</span></div>
+<div style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 18px 20px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; justify-content: space-between"><label for="st-intro" style="font-size: 13px; font-weight: 600">Kalimat pengantar <span style="font-weight: 400; color: #6b5c4a">(opsional)</span></label><span style="font-size: 12px; color: #6b5c4a">46/70</span></div><input id="st-intro" value="Dipakai setiap hari untuk memahami isi piring." style="height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span style="font-size: 13px; font-weight: 600">Warna band</span>
+<div role="radiogroup" aria-label="Warna band" style="display: flex; gap: 8px">
+<span role="radio" aria-checked="true" style="flex-grow: 1; flex-basis: 0; height: 44px; border-radius: 10px; box-shadow: inset 0 0 0 2px #3d7833; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 13px; font-weight: 600"><span style="width: 22px; height: 22px; border-radius: 6px; background: #305f29"></span>Hijau tua</span>
+<span role="radio" aria-checked="false" style="flex-grow: 1; flex-basis: 0; height: 44px; border-radius: 10px; box-shadow: inset 0 0 0 1px #e7dcc7; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 13px; color: #4a4038"><span style="width: 22px; height: 22px; border-radius: 6px; background: #f3ecdf; box-shadow: inset 0 0 0 1px #d5c5a8"></span>Sand</span>
+<span role="radio" aria-checked="false" style="flex-grow: 1; flex-basis: 0; height: 44px; border-radius: 10px; box-shadow: inset 0 0 0 1px #e7dcc7; display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 13px; color: #4a4038"><span style="width: 22px; height: 22px; border-radius: 6px; background: #241e19"></span>Gelap</span>
+</div></div>
+
+<div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 4px"><h3 style="margin: 0; font-size: 14px; font-weight: 700">Angka <span style="font-weight: 500; color: #6b5c4a">(3 dari maks. 4)</span></h3><button type="button" style="height: 30px; padding: 0 10px; border-radius: 8px; border: 1px dashed #9fc494; background: #ffffff; color: #305f29; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer">+ Tambah angka</button></div>
+
+<div style="border-radius: 10px; box-shadow: inset 0 0 0 1.5px #4f9142; padding: 14px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="font-size: 13px; font-weight: 700; flex-grow: 1">Angka 1</span><button type="button" aria-label="Hapus angka 1" style="width: 30px; height: 30px; border-radius: 8px; border: 0; background: transparent; color: #a3403d; cursor: pointer">×</button></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; font-weight: 600">Sumber nilai</span>
+<div role="radiogroup" aria-label="Sumber nilai angka 1" style="display: flex; padding: 3px; border-radius: 8px; background: #f3ecdf"><span role="radio" aria-checked="true" style="flex-grow: 1; height: 30px; border-radius: 6px; background: #ffffff; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center">Otomatis dari data</span><span role="radio" aria-checked="false" style="flex-grow: 1; height: 30px; border-radius: 6px; font-size: 12px; color: #6b5c4a; display: flex; align-items: center; justify-content: center">Isi manual</span></div></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="st1-m" style="font-size: 12px; font-weight: 600">Metrik</label><select id="st1-m" style="height: 36px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px; background: #ffffff"><option>Jumlah user terdaftar</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="st1-f" style="font-size: 12px; font-weight: 600">Format</label><select id="st1-f" style="height: 36px; padding: 0 8px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 13px; background: #ffffff"><option>Bulatkan ke bawah + “+”</option></select></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="st1-l" style="font-size: 12px; font-weight: 600">Label</label><input id="st1-l" value="Pengguna Aktif" style="height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #d5c5a8; font-family: inherit; font-size: 14px"></div>
+<span style="font-size: 12px; color: #6b5c4a">Nilai dihitung ulang setiap kali halaman diterbitkan, jadi angka tidak basi.</span>
+</div>
+
+<div style="border-radius: 10px; box-shadow: inset 0 0 0 1px #e7dcc7; padding: 12px 14px; display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600">Makanan Tercatat</span><span style="font-size: 12px; color: #6b5c4a">Otomatis · total analisa berhasil</span></span><span style="padding: 3px 8px; border-radius: 1000px; background: #e2edde; color: #254a20; font-size: 11px; font-weight: 700">Otomatis</span></div>
+<div style="border-radius: 10px; box-shadow: inset 0 0 0 1px #e7dcc7; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: center; gap: 10px"><span style="color: #8a7862; font-size: 12px">⋮⋮</span><span style="flex-grow: 1; display: flex; flex-direction: column"><span style="font-size: 14px; font-weight: 600">95% · Akurasi Pengenalan</span><span style="font-size: 12px; color: #6b5c4a">Manual</span></span><span style="padding: 3px 8px; border-radius: 1000px; background: #fbf1e1; color: #7a531a; font-size: 11px; font-weight: 700">Manual</span></div><span style="font-size: 12px; line-height: 1.5; color: #7a531a">Angka manual tampil apa adanya. Pastikan ada dasar pengukurannya sebelum terbit.</span></div>
+</div>
+<div style="padding: 12px 20px; border-top: 1px solid #e7dcc7; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b5c4a"><span style="width: 8px; height: 8px; border-radius: 50%; background: #4f9142"></span>Draf tersimpan otomatis · 09.14</div>
+</section>
+
+<section aria-label="Pratinjau" style="flex-grow: 1; min-width: 0; background: #ffffff; border-radius: 12px; box-shadow: 0 0 1px rgba(36,30,25,0.18), 0 1px 3px rgba(36,30,25,0.10); display: flex; flex-direction: column; overflow: hidden">
+<div style="padding: 12px 16px; border-bottom: 1px solid #e7dcc7"><h2 style="margin: 0; font-size: 14px; font-weight: 700">Pratinjau · Mobile</h2></div>
+<div style="flex-grow: 1; background: #f3ecdf; padding: 20px 0; display: flex; justify-content: center; overflow: hidden">
+<div style="width: 270px; height: 640px; border-radius: 26px; background: #fdfbf7; box-shadow: 0px 4px 16px 0px rgba(36,30,25,0.10), inset 0 0 0 1px #e7dcc7; overflow: hidden; display: flex; flex-direction: column">
+<div style="height: 180px; flex-shrink: 0; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0.4"><span style="width: 120px; height: 10px; border-radius: 6px; background: #d5c5a8"></span><span style="width: 200px; height: 18px; border-radius: 6px; background: #d5c5a8"></span><span style="width: 180px; height: 18px; border-radius: 6px; background: #d5c5a8"></span><span style="margin-top: 10px; width: 220px; height: 34px; border-radius: 20px; background: #9fc494"></span></div>
+<div style="margin: 0 6px; padding: 18px 12px; border-radius: 8px; background: #305f29; outline: 2px dashed #9fc494; outline-offset: 2px; position: relative">
+<span style="position: absolute; top: -10px; left: 8px; padding: 2px 8px; border-radius: 6px; background: #3d7833; color: #ffffff; font-size: 8px; font-weight: 700">SEDANG DIEDIT</span>
+<div style="font-size: 10px; font-weight: 600; color: #e2edde; text-align: center">Dipakai setiap hari untuk memahami isi piring.</div>
+<div style="margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; text-align: center">
+<div><div style="font-size: 15px; font-weight: 800; color: #ffffff">[otomatis]</div><div style="font-size: 8px; color: #c3dbba">Pengguna Aktif</div></div>
+<div><div style="font-size: 15px; font-weight: 800; color: #ffffff">[otomatis]</div><div style="font-size: 8px; color: #c3dbba">Makanan Tercatat</div></div>
+<div><div style="font-size: 15px; font-weight: 800; color: #ffffff">95%</div><div style="font-size: 8px; color: #c3dbba">Akurasi Pengenalan</div></div>
+</div>
+</div>
+<div style="flex-grow: 1; padding: 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0.4"><span style="width: 80px; height: 8px; border-radius: 6px; background: #d5c5a8"></span><span style="width: 180px; height: 16px; border-radius: 6px; background: #d5c5a8"></span><span style="margin-top: 10px; width: 230px; height: 90px; border-radius: 14px; background: #efe6d6"></span></div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

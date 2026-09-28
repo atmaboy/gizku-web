@@ -2,9 +2,11 @@
 import { useId } from 'react'
 import { cn } from '@/lib/utils'
 
-export default function Switch({ checked, onChange, label, description, disabled, className, id }: {
+export default function Switch({ checked, onChange, label, description, disabled, className, id, ariaLabel }: {
   checked: boolean; onChange: (v: boolean) => void; label?: React.ReactNode; description?: React.ReactNode
   disabled?: boolean; className?: string; id?: string
+  /** Accessible name when there's no visible `label`. */
+  ariaLabel?: string
 }) {
   const auto = useId()
   const sid = id ?? auto
@@ -16,6 +18,7 @@ export default function Switch({ checked, onChange, label, description, disabled
         role="switch"
         aria-checked={checked}
         aria-labelledby={label ? `${sid}-l` : undefined}
+        aria-label={!label ? ariaLabel : undefined}
         aria-describedby={description ? `${sid}-d` : undefined}
         disabled={disabled}
         onClick={() => onChange(!checked)}

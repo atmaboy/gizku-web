@@ -11,6 +11,7 @@
  * POST ?action=upsert_about      body: AboutPayload
  */
 import { NextRequest } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { db } from '@/lib/db'
 import { legalDocumentTypes, legalDocuments, aboutContent } from '@/drizzle/schema'
 import { eq, asc } from 'drizzle-orm'
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
         }).where(eq(legalDocuments.id, id))
 
         const [saved] = await db.select().from(legalDocuments).where(eq(legalDocuments.id, id)).limit(1)
+        revalidateTag('landing') // footer Legal group can mirror these docs
         return ok({ message: 'Dokumen tersimpan', document: shapeDocument(saved) })
       }
 
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
         typeKey, slug, titleId, bodyHtmlId, titleEn, bodyHtmlEn,
       }).returning()
 
+      revalidateTag('landing') // footer Legal group can mirror these docs
       return ok({ message: 'Dokumen tersimpan', document: shapeDocument(saved) })
     }
 
@@ -129,6 +132,7 @@ export async function POST(req: NextRequest) {
       const { id } = await req.json()
       if (!id) return err('id diperlukan', 400)
       await db.delete(legalDocuments).where(eq(legalDocuments.id, id))
+      revalidateTag('landing') // footer Legal group can mirror these docs
       return ok({ message: 'Dokumen dihapus' })
     }
 
