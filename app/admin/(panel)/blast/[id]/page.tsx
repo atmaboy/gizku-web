@@ -74,7 +74,7 @@ const PROVIDER_LABEL: Record<string, string> = {
 }
 const SENDER_LABEL: Record<string, string> = {
   support: 'Gizku Support <support@gizku.com>',
-  marketing: 'Halo Gizku <halo@gizku.com>',
+  marketing: 'Gizku Connect <connect@gizku.com>',
 }
 
 function pct(a: number, b: number) {

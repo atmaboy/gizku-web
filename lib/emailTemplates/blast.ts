@@ -6,8 +6,11 @@ import { parseBlastBody } from '@/lib/blastContent'
 // (table-based inline-styled, Outlook/Gmail/dark-mode safe).
 const SENDER_META: Record<BlastSenderKey, { displayName: string; address: string }> = {
   support: { displayName: 'Gizku Support', address: 'support@gizku.com' },
-  marketing: { displayName: 'Halo Gizku', address: 'halo@gizku.com' },
+  marketing: { displayName: 'Gizku Connect', address: 'connect@gizku.com' },
 }
+// The only inbox that receives email (lib/emailInbound.ts) — connect@ is
+// send-only, so the "hubungi kami" link always points here.
+const CONTACT_ADDRESS = 'support@gizku.com'
 
 export function buildBlastEmailHtml(opts: {
   subject: string
@@ -102,7 +105,7 @@ export function buildBlastEmailHtml(opts: {
 
           <tr>
             <td style="padding:20px 40px 36px 40px; font-family: Arial, Helvetica, sans-serif; font-size:13px; line-height:1.6; color:#b7a382;">
-              Butuh bantuan atau tidak ingin menerima email seperti ini lagi? Hubungi kami di <a href="mailto:${address}" class="plain-link" style="color:#305f29; text-decoration:underline;">${address}</a>.
+              Butuh bantuan atau tidak ingin menerima email seperti ini lagi? Hubungi kami di <a href="mailto:${CONTACT_ADDRESS}" class="plain-link" style="color:#305f29; text-decoration:underline;">${CONTACT_ADDRESS}</a>.
             </td>
           </tr>
         </table>
@@ -110,7 +113,7 @@ export function buildBlastEmailHtml(opts: {
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
           <tr>
             <td align="center" style="padding:24px 24px 0 24px; font-family: Arial, Helvetica, sans-serif; font-size:12px; line-height:1.6; color:#b7a382;">
-              ${escapeHtml(displayName)} · <a href="mailto:${address}" class="plain-link" style="color:#8a7862; text-decoration:underline;">${address}</a>
+              ${escapeHtml(displayName)} · ${address}
             </td>
           </tr>
           <tr>
