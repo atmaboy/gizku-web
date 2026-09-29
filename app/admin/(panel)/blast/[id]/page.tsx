@@ -1,4 +1,5 @@
 'use client'
+import { EmailBodyPreview, TelegramBodyPreview } from '@/components/admin/blast/BlastBodyPreview'
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -73,7 +74,7 @@ const PROVIDER_LABEL: Record<string, string> = {
 }
 const SENDER_LABEL: Record<string, string> = {
   support: 'Gizku Support <support@gizku.com>',
-  marketing: 'Gizku Marketing <marketing@gizku.com>',
+  marketing: 'Gizku Connect <connect@gizku.com>',
 }
 
 function pct(a: number, b: number) {
@@ -241,7 +242,13 @@ export default function BlastDetailPage() {
             </>
           )}
           <p className="text-sm text-secondary">{isChannelPush ? 'Isi Pesan' : isChannelEmail ? 'Isi Email' : 'Isi Chat Telegram'}</p>
-          <p className="text-base text-bark-700 leading-normal whitespace-pre-wrap break-words">{blast.body}</p>
+          {isChannelEmail ? (
+            <div className="text-base text-bark-700 leading-normal"><EmailBodyPreview text={blast.body} /></div>
+          ) : isChannelPush ? (
+            <p className="text-base text-bark-700 leading-normal whitespace-pre-wrap break-words">{blast.body}</p>
+          ) : (
+            <div className="text-base leading-normal max-w-[420px] rounded-lg bg-surface border border-border px-3 py-2.5 overflow-hidden"><TelegramBodyPreview text={blast.body} dark={false} /></div>
+          )}
         </div>
         {checkBtn && <div className="lg:hidden mt-4">{checkBtn}</div>}
       </Card>
