@@ -33,7 +33,7 @@ type FromAddress = 'support' | 'marketing'
 
 const SENDER_OPTIONS: { value: FromAddress; label: string; address: string; hint: string }[] = [
   { value: 'support', label: 'Gizku Support', address: 'support@gizku.com', hint: 'Reachout informasi penting ke user (mis. pengumuman, insiden, verifikasi).' },
-  { value: 'marketing', label: 'Halo Gizku', address: 'halo@gizku.com', hint: 'Keperluan promosional (mis. fitur baru, promo, campaign).' },
+  { value: 'marketing', label: 'Gizku Connect', address: 'connect@gizku.com', hint: 'Keperluan promosional (mis. fitur baru, promo, campaign).' },
 ]
 export default function BlastComposePage() {
   const router = useRouter()

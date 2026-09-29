@@ -44,12 +44,14 @@ describe('email template', () => {
     expect(html).toContain('Teks &lt;b&gt;x&lt;/b&gt;')
   })
 
-  it('marketing sender is Halo Gizku <halo@gizku.com>', () => {
-    expect(BLAST_SENDERS.marketing).toBe('Halo Gizku <halo@gizku.com>')
+  it('marketing sender is Gizku Connect <connect@gizku.com>, contact goes to support@', () => {
+    expect(BLAST_SENDERS.marketing).toBe('Gizku Connect <connect@gizku.com>')
     const html = buildBlastEmailHtml({ subject: 'S', sender: 'marketing', bodyText: 'x' })
-    expect(html).toContain('Halo Gizku')
-    expect(html).toContain('halo@gizku.com')
-    expect(html).not.toMatch(/Gizku Marketing|marketing@gizku\.com/)
+    expect(html).toContain('Gizku Connect')
+    expect(html).toContain('connect@gizku.com')
+    expect(html).toContain('href="mailto:support@gizku.com"')
+    expect(html).not.toContain('mailto:connect@gizku.com')
+    expect(html).not.toMatch(/Gizku Marketing|marketing@gizku\.com|Halo Gizku|halo@gizku/)
   })
 })
 
