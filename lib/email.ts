@@ -2,10 +2,14 @@ import { Resend } from 'resend'
 
 const FROM = 'Gizku <no-reply@gizku.com>'
 
-/** Sender identities available for the admin backoffice email blast (app/admin/blast). */
+/**
+ * Sender identities available for the admin backoffice email blast (app/admin/blast).
+ * The `marketing` key is what's stored in notification_blasts.from_address —
+ * only its display name/address changed (was "Gizku Marketing <marketing@…>").
+ */
 export const BLAST_SENDERS = {
   support: 'Gizku Support <support@gizku.com>',
-  marketing: 'Gizku Marketing <marketing@gizku.com>',
+  marketing: 'Halo Gizku <halo@gizku.com>',
 } as const
 export type BlastSenderKey = keyof typeof BLAST_SENDERS
 

@@ -18,6 +18,7 @@ import { requireAdmin } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
 import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel, checkPushReceipts } from '@/lib/blast'
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
+import { TELEGRAM_MAX_IMAGES, splitTelegramBody } from '@/lib/blastContent'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -26,6 +27,8 @@ const MAX_SPECIFIC_TARGETS = 10
 const MAX_SPECIFIC_EMAIL_TARGETS = 100
 const MAX_BODY_LENGTH = 300
 const MAX_EMAIL_BODY_LENGTH = 5000
+// Telegram text becomes a photo caption when the blast has images (Telegram caps captions at 1024).
+const MAX_TELEGRAM_BODY_LENGTH = 1024
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function jsonErr(msg: string, status = 500) {
@@ -192,7 +195,7 @@ async function handlePost(req: NextRequest) {
     const messageBody = String(body.body ?? '').trim()
     const targetType = body.targetType === 'specific' ? 'specific' : 'all'
     const scheduledAtRaw = body.scheduledAt ? new Date(body.scheduledAt) : null
-    const maxBodyLength = channel === 'email' ? MAX_EMAIL_BODY_LENGTH : MAX_BODY_LENGTH
+    const maxBodyLength = channel === 'email' ? MAX_EMAIL_BODY_LENGTH : channel === 'telegram' ? MAX_TELEGRAM_BODY_LENGTH : MAX_BODY_LENGTH
 
     const fromAddress = channel === 'email' ? (body.fromAddress === 'marketing' ? 'marketing' : 'support') : null
 
@@ -201,6 +204,11 @@ async function handlePost(req: NextRequest) {
     if (channel === 'email' && !title) return err('Subjek email diperlukan')
     if (!messageBody) return err(channel === 'telegram' ? 'Isi chat Telegram diperlukan' : channel === 'email' ? 'Isi email diperlukan' : 'Isi pesan diperlukan')
     if (messageBody.length > maxBodyLength) return err(`Isi pesan maksimum ${maxBodyLength} karakter`)
+    if (channel === 'telegram') {
+      const { images, text } = splitTelegramBody(messageBody)
+      if (images.length > TELEGRAM_MAX_IMAGES) return err(`Maksimal ${TELEGRAM_MAX_IMAGES} gambar per pesan Telegram`)
+      if (images.length === 0 && !text) return err('Isi chat Telegram diperlukan')
+    }
     if (scheduledAtRaw && isNaN(scheduledAtRaw.getTime())) return err('Waktu pengiriman tidak valid')
     if (scheduledAtRaw && scheduledAtRaw.getTime() < Date.now() - 60_000) return err('Waktu pengiriman tidak boleh di masa lalu')
 

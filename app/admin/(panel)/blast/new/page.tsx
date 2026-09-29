@@ -3,39 +3,29 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  AtSign, Bell, Check, ChevronDown, ImagePlus, Mail, RotateCcw, Send, Users, X, type LucideIcon,
+  AtSign, Bell, Check, ChevronDown, ImagePlus, Link2, Mail, RotateCcw, Send, Users, X, type LucideIcon,
 } from 'lucide-react'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import {
   Button, Card, FormField, Input, Modal, Progress, SectionNumber, SegmentedControl, Select, Textarea,
 } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
+import { EmailBodyPreview, TelegramBodyPreview } from '@/components/admin/blast/BlastBodyPreview'
+import { TELEGRAM_MAX_IMAGES, buildImageLine, isHttpUrl, splitTelegramBody } from '@/lib/blastContent'
 
 const MAX_TARGETS = 10
 const MAX_EMAIL_TARGETS = 100
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const EMAIL_BODY_MAX = 5000
-const IMAGE_LINE_RE = /^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/
+// Telegram: teks jadi caption foto (maks 1024 karakter di Telegram), jadi
+// batasnya lebih longgar dari push (300) tapi tidak sepanjang email.
+const TELEGRAM_BODY_MAX = 1024
+const PUSH_BODY_MAX = 300
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+// Telegram sendPhoto tidak menerima GIF animasi sebagai foto.
+const TELEGRAM_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_IMAGE_MB = 5
-
-/** Baris `![](url)` yang disisipkan tombol "Sisipkan Gambar" dirender sebagai <img>, mengikuti lib/emailTemplates/blast.ts. */
-function EmailBodyPreview({ text }: { text: string }) {
-  if (!text) return <>Isi email akan tampil di sini seperti yang dilihat penerima.</>
-  return (
-    <>
-      {text.split('\n').map((line, i) => {
-        const match = line.match(IMAGE_LINE_RE)
-        if (match) {
-          // eslint-disable-next-line @next/next/no-img-element
-          return <img key={i} src={match[1]} alt="" className="max-w-full rounded-sm my-2" />
-        }
-        return <p key={i} className="whitespace-pre-wrap m-0">{line || ' '}</p>
-      })}
-    </>
-  )
-}
 
 type Estimate = { targeted: number; reachable: number; platforms: { ios: number; android: number } }
 type Channel = 'push' | 'telegram' | 'email'
@@ -43,7 +33,7 @@ type FromAddress = 'support' | 'marketing'
 
 const SENDER_OPTIONS: { value: FromAddress; label: string; address: string; hint: string }[] = [
   { value: 'support', label: 'Gizku Support', address: 'support@gizku.com', hint: 'Reachout informasi penting ke user (mis. pengumuman, insiden, verifikasi).' },
-  { value: 'marketing', label: 'Gizku Marketing', address: 'marketing@gizku.com', hint: 'Keperluan promosional (mis. fitur baru, promo, campaign).' },
+  { value: 'marketing', label: 'Halo Gizku', address: 'halo@gizku.com', hint: 'Keperluan promosional (mis. fitur baru, promo, campaign).' },
 ]
 export default function BlastComposePage() {
   const router = useRouter()
@@ -64,12 +54,17 @@ export default function BlastComposePage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  // Gambar email yang baru diupload, menunggu URL tujuan (opsional) sebelum disisipkan.
+  const [pendingImage, setPendingImage] = useState<{ src: string; href: string } | null>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   const isEmail = channel === 'email'
   const maxTargets = isEmail ? MAX_EMAIL_TARGETS : MAX_TARGETS
-  const bodyMax = isEmail ? EMAIL_BODY_MAX : 300
+  const isTelegram = channel === 'telegram'
+  const bodyMax = isEmail ? EMAIL_BODY_MAX : isTelegram ? TELEGRAM_BODY_MAX : PUSH_BODY_MAX
+  const imageTypes = isTelegram ? TELEGRAM_IMAGE_TYPES : ACCEPTED_IMAGE_TYPES
+  const telegramImageCount = isTelegram ? splitTelegramBody(body).images.length : 0
 
   useEffect(() => {
     if (isEmail) return // email channel: input alamat langsung, tidak ada lookup server
@@ -168,8 +163,12 @@ export default function BlastComposePage() {
   }
 
   async function handleImageFile(file: File) {
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      toast.error(`Format tidak didukung: ${file.type}. Gunakan JPEG, PNG, WebP, atau GIF.`)
+    if (!imageTypes.includes(file.type)) {
+      toast.error(`Format tidak didukung: ${file.type || 'tidak diketahui'}. Gunakan ${isTelegram ? 'JPEG, PNG, atau WebP' : 'JPEG, PNG, WebP, atau GIF'}.`)
+      return
+    }
+    if (isTelegram && telegramImageCount >= TELEGRAM_MAX_IMAGES) {
+      toast.error(`Maksimal ${TELEGRAM_MAX_IMAGES} gambar per pesan Telegram`)
       return
     }
     if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
@@ -183,12 +182,21 @@ export default function BlastComposePage() {
       const res = await fetch('/api/admin/blast/upload-image', { method: 'POST', body: fd })
       const d = await res.json()
       if (!res.ok) { toast.error(d.error ?? 'Upload gambar gagal'); return }
-      insertAtCursor(`\n![](${d.url})\n`)
+      // Email: tanya URL tujuan dulu (gambar bisa diklik). Telegram: langsung sisipkan.
+      if (isEmail) setPendingImage({ src: d.url, href: '' })
+      else insertAtCursor(`\n${buildImageLine(d.url)}\n`)
     } catch {
       toast.error('Gagal upload gambar, coba lagi')
     } finally {
       setUploadingImage(false)
     }
+  }
+
+  const pendingHrefInvalid = !!pendingImage?.href.trim() && !isHttpUrl(pendingImage.href)
+  function confirmPendingImage() {
+    if (!pendingImage || pendingHrefInvalid) return
+    insertAtCursor(`\n${buildImageLine(pendingImage.src, pendingImage.href)}\n`)
+    setPendingImage(null)
   }
 
   function resetForm() {
@@ -356,22 +364,30 @@ export default function BlastComposePage() {
           rows={isEmail ? 10 : 4}
           placeholder={
             channel === 'push' ? 'Tuliskan isi notifikasi di sini...'
-            : channel === 'telegram' ? 'Tuliskan isi pesan chat Telegram di sini...'
-            : 'Tuliskan isi email di sini. Setiap baris baru akan menjadi paragraf terpisah. Gunakan tombol "Sisipkan Gambar" untuk menambahkan gambar.'
+            : channel === 'telegram' ? 'Tuliskan isi pesan chat Telegram di sini... Gunakan tombol "Sisipkan Gambar" untuk mengirim foto.'
+            : 'Tuliskan isi email di sini. Setiap baris baru akan menjadi paragraf terpisah. Gunakan tombol "Sisipkan Gambar" untuk menambahkan gambar (bisa diberi tautan).'
           }
         />
       </FormField>
       <div className="flex items-center gap-3 flex-wrap -mt-2">
-        {isEmail && (
+        {(isEmail || isTelegram) && (
           <>
-            <Button variant="outline" size="sm" icon={ImagePlus} loading={uploadingImage} disabled={uploadingImage} onClick={() => imageInputRef.current?.click()}>
+            <Button
+              variant="outline" size="sm" icon={ImagePlus} loading={uploadingImage}
+              disabled={uploadingImage || (isTelegram && telegramImageCount >= TELEGRAM_MAX_IMAGES)}
+              onClick={() => imageInputRef.current?.click()}
+            >
               {uploadingImage ? 'Mengupload…' : 'Sisipkan Gambar'}
             </Button>
-            <span className="text-sm text-secondary">JPEG/PNG/WebP/GIF, maks {MAX_IMAGE_MB}MB</span>
+            <span className="text-sm text-secondary">
+              {isTelegram
+                ? `JPEG/PNG/WebP, maks ${MAX_IMAGE_MB}MB · ${telegramImageCount}/${TELEGRAM_MAX_IMAGES} gambar`
+                : `JPEG/PNG/WebP/GIF, maks ${MAX_IMAGE_MB}MB · bisa diberi tautan`}
+            </span>
             <input
               ref={imageInputRef}
               type="file"
-              accept={ACCEPTED_IMAGE_TYPES.join(',')}
+              accept={imageTypes.join(',')}
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); e.target.value = '' }}
             />
@@ -379,6 +395,16 @@ export default function BlastComposePage() {
         )}
         <span className="ml-auto text-sm text-secondary tabular-nums">{body.length} / {bodyMax}</span>
       </div>
+      {isTelegram && telegramImageCount > 0 && (
+        <p className="text-sm text-secondary -mt-2 leading-normal">
+          Gambar dikirim sebagai foto{telegramImageCount > 1 ? ' (album)' : ''}; teks lainnya jadi caption di bawahnya.
+        </p>
+      )}
+      {isEmail && (
+        <p className="text-sm text-secondary -mt-2 leading-normal">
+          Baris gambar: <code className="text-[12px]">![](url-gambar)</code>, atau <code className="text-[12px]">[![](url-gambar)](url-tujuan)</code> supaya gambar bisa diklik.
+        </p>
+      )}
     </div>
   )
 
@@ -505,9 +531,9 @@ export default function BlastComposePage() {
               <div className="text-[11px] text-white/60">bot</div>
             </div>
           </div>
-          <div className="flex-1 p-3 flex flex-col justify-end">
-            <div className="max-w-[85%] rounded-tl-lg rounded-tr-lg rounded-br-lg rounded-bl-xs px-3 py-2.5 bg-bark-700 shadow-sm">
-              <div className="text-[13.5px] text-white leading-relaxed whitespace-pre-wrap break-words">{body || 'Isi pesan chat Telegram akan tampil di sini seperti yang dilihat user.'}</div>
+          <div className="flex-1 p-3 flex flex-col justify-end overflow-y-auto">
+            <div className="max-w-[85%] rounded-tl-lg rounded-tr-lg rounded-br-lg rounded-bl-xs px-3 py-2.5 bg-bark-700 shadow-sm overflow-hidden">
+              <div className="text-[13.5px] text-white leading-relaxed"><TelegramBodyPreview text={body} /></div>
               <div className="text-[11px] text-white/55 text-right mt-1">14:32</div>
             </div>
           </div>
@@ -622,6 +648,44 @@ export default function BlastComposePage() {
 
         <div className="lg:hidden">{actions}</div>
       </div>
+
+      <Modal
+        open={!!pendingImage}
+        onClose={() => setPendingImage(null)}
+        title="Sisipkan Gambar"
+        size="sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPendingImage(null)}>Batal</Button>
+            <Button icon={ImagePlus} onClick={confirmPendingImage} disabled={pendingHrefInvalid}>Sisipkan</Button>
+          </>
+        }
+      >
+        {pendingImage && (
+          <div className="flex flex-col gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={pendingImage.src} alt="" className="max-h-56 w-auto max-w-full mx-auto rounded-sm border border-border" />
+            <FormField
+              label="URL tujuan saat gambar diklik (opsional)"
+              htmlFor="blast-image-href"
+              help="Kosongkan kalau gambar tidak perlu bisa diklik. Contoh: https://play.google.com/store/apps/details?id=…"
+              error={pendingHrefInvalid ? 'URL harus diawali https:// (atau http://)' : undefined}
+            >
+              <Input
+                id="blast-image-href"
+                autoFocus
+                inputMode="url"
+                value={pendingImage.href}
+                invalid={pendingHrefInvalid}
+                placeholder="https://"
+                onChange={e => setPendingImage({ ...pendingImage, href: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmPendingImage() } }}
+              />
+            </FormField>
+            <p className="flex items-center gap-1.5 text-sm text-secondary"><Link2 size={14} aria-hidden />Tautan juga bisa diubah langsung di baris gambar pada isi email.</p>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={showConfirm}

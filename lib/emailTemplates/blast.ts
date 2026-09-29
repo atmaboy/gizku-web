@@ -1,11 +1,12 @@
 import { BlastSenderKey } from '@/lib/email'
+import { parseBlastBody } from '@/lib/blastContent'
 
 // Email blast sent from the admin backoffice (app/admin/blast) via one of the
 // two BLAST_SENDERS identities. Structure mirrors reportReply.ts/verification.ts
 // (table-based inline-styled, Outlook/Gmail/dark-mode safe).
 const SENDER_META: Record<BlastSenderKey, { displayName: string; address: string }> = {
   support: { displayName: 'Gizku Support', address: 'support@gizku.com' },
-  marketing: { displayName: 'Gizku Marketing', address: 'marketing@gizku.com' },
+  marketing: { displayName: 'Halo Gizku', address: 'halo@gizku.com' },
 }
 
 export function buildBlastEmailHtml(opts: {
@@ -130,19 +131,20 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 }
 
-// Compose page (app/admin/blast/new) lets admins insert an uploaded image as
-// a `![](https://...)` line via a toolbar button — not full markdown, just
-// this one pattern. Any such line renders as an <img>; everything else is an
-// escaped paragraph, same as before. Restricted to http(s) so a manually
-// typed line can't turn into a javascript:/data: URI in the sent HTML.
-const IMAGE_LINE_RE = /^!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)$/
-
+// Compose page (app/admin/blast/new) inserts uploaded images as
+// `![](https://…)` lines, or `[![](https://…)](https://tujuan)` when the admin
+// gave the image a click-through URL — see lib/blastContent.ts. Image lines
+// render as <img> (wrapped in <a> when linked); everything else is an escaped
+// paragraph. Only http(s) URLs match, so a typed line can't become a
+// javascript:/data: URI in the sent HTML.
 function renderBodyHtml(bodyText: string): string {
-  return bodyText.split('\n').map(line => {
-    const match = line.match(IMAGE_LINE_RE)
-    if (match) {
-      return `<img src="${escapeHtml(match[1])}" alt="" style="max-width:100%; height:auto; border-radius:8px; display:block; margin:0 0 12px 0;">`
+  return parseBlastBody(bodyText).map(block => {
+    if (block.type === 'image') {
+      const img = `<img src="${escapeHtml(block.src)}" alt="" style="max-width:100%; height:auto; border-radius:8px; display:block; margin:0 0 12px 0; border:0;">`
+      return block.href
+        ? `<a href="${escapeHtml(block.href)}" target="_blank" rel="noopener" style="display:block; text-decoration:none;">${img}</a>`
+        : img
     }
-    return `<p style="margin:0 0 12px 0;">${escapeHtml(line) || '&nbsp;'}</p>`
+    return `<p style="margin:0 0 12px 0;">${escapeHtml(block.text) || '&nbsp;'}</p>`
   }).join('')
 }

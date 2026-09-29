@@ -244,7 +244,8 @@ export const notificationBlasts = pgTable('notification_blasts', {
   targetType:      text('target_type').notNull(), // 'all' | 'specific'
   // push/telegram: up to 10 usernames. email: up to 100 raw email addresses. null when targetType = 'all'.
   targetUsernames: text('target_usernames').array(),
-  // Sender identity for the 'email' channel only — 'support' | 'marketing' (see lib/email.ts BLAST_SENDERS). Null for push/telegram.
+  // Sender identity for the 'email' channel only — 'support' | 'marketing' (see lib/email.ts BLAST_SENDERS;
+  // 'marketing' is sent as "Halo Gizku <halo@gizku.com>"). Null for push/telegram.
   fromAddress:     text('from_address'),
   status:          text('status').notNull().default('scheduled'), // scheduled|sending|completed|cancelled|failed
   scheduledAt:     timestamp('scheduled_at', { withTimezone: true }),
