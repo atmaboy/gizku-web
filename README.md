@@ -517,6 +517,13 @@ Seluruh konfigurasi landing disimpan sebagai **satu dokumen JSON** tervalidasi Z
 
 ## 📋 Changelog
 
+### v1.7.1 — 2026-09-29
+
+#### 📣 Blast Notifikasi
+- Pengirim email promosional kini **Halo Gizku `<halo@gizku.com>`** (sebelumnya Gizku Marketing `<marketing@gizku.com>`), termasuk nama & alamat di template email. Nilai `from_address` di DB tetap `marketing`, jadi riwayat blast lama tidak berubah
+- Email blast: gambar yang disisipkan bisa diberi **URL tujuan** — diklik penerima → membuka URL tersebut (format baris `[![](url-gambar)](url-tujuan)`)
+- Telegram blast: bisa **kirim gambar** (maks. 10, JPEG/PNG/WebP) lewat tombol "Sisipkan Gambar"; 1 gambar dikirim sebagai foto, 2+ sebagai album, teks jadi caption (batas isi Telegram naik ke 1.024 karakter). Tanpa migrasi DB
+
 ### v1.7.0 — 2026-09-28
 
 #### 🧱 Redesign Landing Page + Landing Builder

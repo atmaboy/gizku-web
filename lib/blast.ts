@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { users, pushTokens, telegramUsers, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
 import { eq, and, inArray, ilike, sql, count, isNotNull } from 'drizzle-orm'
+import { TELEGRAM_CAPTION_MAX, splitTelegramBody } from '@/lib/blastContent'
 import { Api, GrammyError } from 'grammy'
 import { sendEmail, BLAST_SENDERS, BlastSenderKey } from '@/lib/email'
 import { buildBlastEmailHtml } from '@/lib/emailTemplates/blast'
@@ -289,17 +290,57 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
   return perUser
 }
 
+/**
+ * Send one Telegram blast message. Image lines in the body (see
+ * lib/blastContent.ts) become a photo — or an album for 2+ images — with the
+ * remaining text as caption; a text-only body is a plain message.
+ *
+ * `fileIds` caches Telegram's file_id for each image after the first
+ * successful send, so the photo is uploaded/downloaded once per blast instead
+ * of once per recipient.
+ */
+export async function sendTelegramBlastMessage(
+  api: Api,
+  chatId: string,
+  content: ReturnType<typeof splitTelegramBody>,
+  fileIds: (string | null)[],
+): Promise<{ message_id: number } & Record<string, unknown>> {
+  const { images, text } = content
+  const caption = text ? text.slice(0, TELEGRAM_CAPTION_MAX) : undefined
+  const media = (i: number) => fileIds[i] ?? images[i].src
+  const largest = (m: { photo?: { file_id: string }[] }) => m.photo?.[m.photo.length - 1]?.file_id ?? null
+
+  if (images.length === 0) {
+    return await api.sendMessage(chatId, text) as unknown as { message_id: number } & Record<string, unknown>
+  }
+  if (images.length === 1) {
+    const msg = await api.sendPhoto(chatId, media(0), caption ? { caption } : undefined)
+    fileIds[0] ??= largest(msg)
+    return msg as unknown as { message_id: number } & Record<string, unknown>
+  }
+  const msgs = await api.sendMediaGroup(chatId, images.map((_, i) => ({
+    type: 'photo' as const,
+    media: media(i),
+    ...(i === 0 && caption ? { caption } : {}),
+  })))
+  msgs.forEach((m, i) => { fileIds[i] ??= largest(m as { photo?: { file_id: string }[] }) })
+  // Album = several messages; the first carries the caption and is the one we track.
+  return { ...(msgs[0] as unknown as Record<string, unknown>), message_id: msgs[0].message_id, album_message_ids: msgs.map(m => m.message_id) }
+}
+
 async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSelect, targets: TelegramTarget[]) {
   const token = process.env.TELEGRAM_BOT_TOKEN
   const perTarget = new Map<string, RecipientResult>()
   if (!token) throw new Error('TELEGRAM_BOT_TOKEN belum dikonfigurasi')
 
   const api = new Api(token)
+  const content = splitTelegramBody(blast.body)
+  const fileIds: (string | null)[] = content.images.map(() => null)
 
   for (const t of targets) {
     const key = t.telegramId.toString()
     try {
-      const message = await api.sendMessage(key, blast.body)
+      const message = await sendTelegramBlastMessage(api, key, content, fileIds)
       perTarget.set(key, {
         status: 'sent',
         pushTokenId: null,
