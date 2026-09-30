@@ -517,6 +517,11 @@ Seluruh konfigurasi landing disimpan sebagai **satu dokumen JSON** tervalidasi Z
 
 ## 📋 Changelog
 
+### v1.7.3 — 2026-09-30
+
+#### 🔐 Registrasi
+- Pendaftaran dan **ganti email** menolak alamat email palsu/sementara: domain contoh (`example.com/.net/.org`, `test.com`, `testing.com`, `email.com` beserta subdomainnya), TLD cadangan (`.test`, `.example`, `.invalid`, `.localhost`, `.local`), dan ±120 ribu penyedia email sekali pakai (mailinator, yopmail, 10minutemail, …) dari paket `disposable-email-domains`. Daftar besar hanya dicek di server (`lib/emailDomain.server.ts`), jadi tidak menambah ukuran halaman; form memberi pesan langsung untuk domain contoh (`lib/emailDomain.ts`). API mengembalikan `code: "email_not_allowed"` supaya pesan tampil sesuai bahasa. Update daftar: `npm update disposable-email-domains`. Akun lama tidak diubah
+
 ### v1.7.2 — 2026-09-30
 
 #### 📣 Blast Notifikasi
