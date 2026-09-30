@@ -430,7 +430,7 @@ Semua endpoint admin memerlukan cookie/header `Authorization: Bearer <nl_admin_t
 | `/api/admin/landing-builder/seed` | `POST` | Bangun ulang dokumen dari `landing_content` (`?force=1` menimpa draf & tayang) |
 | `/api/admin/legal` | `GET`/`POST` | `upsert_document`, `delete_document`, `create_type`, `delete_type`, `upsert_about` |
 | `/api/admin/limit` | `GET`/`POST` | `stats`, `requests`, `request`, `search_users`, `user_ledger`, `config` (GET); `approve`, `reject`, `update_config` (POST) |
-| `/api/admin/blast` | `GET`/`POST` | `list`, `detail`, `recipients`, `estimate`, `lookup_username`, `resolve_username` (GET); `create`, `cancel`, `check_receipts` (POST) |
+| `/api/admin/blast` | `GET`/`POST` | `list`, `detail`, `recipients`, `estimate`, `lookup_username`, `resolve_username`, `duplicate_source` (GET); `create`, `cancel`, `check_receipts` (POST) |
 | `/api/admin/telegram/config` | `GET`/`POST` | Baca/ubah konfigurasi bot Telegram |
 | `/api/admin/telegram/stats` | `GET` | Statistik pemakaian bot (jumlah user terhubung, analisa via bot, dll) |
 | `/api/admin/beta-optin` | `GET`/`POST` | Konfigurasi Closed Beta Android: `update_enabled`, `update_content` (POST, wajib `adminPassword`) |
@@ -516,6 +516,12 @@ Seluruh konfigurasi landing disimpan sebagai **satu dokumen JSON** tervalidasi Z
 ---
 
 ## 📋 Changelog
+
+### v1.7.2 — 2026-09-30
+
+#### 📣 Blast Notifikasi
+- Email blast kini dibatasi **maks. 10 request / detik** ke Resend (sliding window 10 per 1,1 detik ≈ 9/detik, `lib/rateLimiter.ts`), memperbaiki error *"Too many requests. You can only make 10 requests per second"*. Kalau Resend tetap membalas 429, email dicoba ulang otomatis hingga 3× (jeda 1s/2s/4s). Kapasitas ±500 email per eksekusi (batas durasi fungsi 60 detik)
+- Fitur **Duplikat Blast**: tombol "Duplikat" di Riwayat & Detail Batch membuka form Kirim Baru terisi (channel, judul, isi, pengirim). Pilihan penerima: *semua penerima batch sumber*, *kecualikan yang gagal*, atau *hanya yang gagal*. Tombol "Kirim Ulang yang Gagal (N)" di Detail Batch langsung memilih opsi terakhir. Penerima dihitung server-side dari log `notification_blast_recipients` dan disimpan sebagai `target_type = 'list'` — tanpa migrasi DB. Batch yang belum pernah terkirim (terjadwal/dibatalkan) diduplikat dengan target aslinya
 
 ### v1.7.1 — 2026-09-29
 
