@@ -19,6 +19,7 @@
     "@vercel/speed-insights": "^1.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "disposable-email-domains": "^1.0.62",
     "drizzle-orm": "^0.41.0",
     "grammy": "^1.31.0",
     "jose": "^5.9.6",

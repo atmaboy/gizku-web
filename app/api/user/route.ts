@@ -4,6 +4,8 @@ import { db } from '@/lib/db'
 import { users, meals, dailyUsage, telegramUsers } from '@/drizzle/schema'
 import { verifyToken, extractToken, hashPassword } from '@/lib/auth'
 import { getGlobalLimit } from '@/lib/admin'
+import { isFakeEmail } from '@/lib/emailDomain.server'
+import { EMAIL_NOT_ALLOWED_CODE, EMAIL_NOT_ALLOWED_MESSAGE } from '@/lib/emailDomain'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { eq, and, count, sum } from 'drizzle-orm'
 
@@ -115,6 +117,7 @@ export async function POST(req: NextRequest) {
     if (!email) return err('Email diperlukan')
     const trimmedEmail = email.trim().toLowerCase()
     if (!isValidEmail(trimmedEmail)) return err('Format email tidak valid')
+    if (isFakeEmail(trimmedEmail)) return err(EMAIL_NOT_ALLOWED_MESSAGE, 400, EMAIL_NOT_ALLOWED_CODE)
 
     const [existing] = await db.select({ id: users.id })
       .from(users).where(eq(users.email, trimmedEmail)).limit(1)

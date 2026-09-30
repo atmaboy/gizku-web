@@ -65,6 +65,7 @@ const id: Dict = {
     errors: {
       emailRequired: 'Email diperlukan',
       emailInvalid: 'Format email tidak valid',
+      emailNotAllowed: 'Gunakan alamat email asli yang aktif. Email sementara atau contoh (mis. @example.com) tidak bisa dipakai.',
       usernameRequired: 'Username diperlukan',
       newPasswordRequired: 'Password baru diperlukan',
       passwordMin: 'Password minimal 6 karakter',
@@ -140,6 +141,7 @@ const id: Dict = {
     errors: {
       emailRequired: 'Email tidak boleh kosong',
       emailInvalid: 'Format email tidak valid',
+      emailNotAllowed: 'Gunakan alamat email asli yang aktif. Email sementara atau contoh (mis. @example.com) tidak bisa dipakai.',
       updateFailed: 'Gagal menyimpan email',
     },
   },
@@ -508,6 +510,7 @@ const en: Dict = {
     errors: {
       emailRequired: 'Email is required',
       emailInvalid: 'Invalid email format',
+      emailNotAllowed: 'Please use a real, active email address. Temporary or placeholder addresses (e.g. @example.com) are not allowed.',
       usernameRequired: 'Username is required',
       newPasswordRequired: 'New password is required',
       passwordMin: 'Password must be at least 6 characters',
@@ -583,6 +586,7 @@ const en: Dict = {
     errors: {
       emailRequired: 'Email cannot be empty',
       emailInvalid: 'Invalid email format',
+      emailNotAllowed: 'Please use a real, active email address. Temporary or placeholder addresses (e.g. @example.com) are not allowed.',
       updateFailed: 'Failed to save email',
     },
   },

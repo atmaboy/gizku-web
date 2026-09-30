@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { users } from '@/drizzle/schema'
 import { hashPassword, signUserToken, verifyToken, extractToken } from '@/lib/auth'
+import { isFakeEmail } from '@/lib/emailDomain.server'
+import { EMAIL_NOT_ALLOWED_CODE, EMAIL_NOT_ALLOWED_MESSAGE } from '@/lib/emailDomain'
 import { ok, err, setCors } from '@/lib/utils'
 import { checkMaintenance, maintenanceResponse } from '@/lib/maintenance'
 import { sendVerificationEmailInBackground } from '@/lib/emailVerification'
@@ -34,6 +36,7 @@ export async function POST(req: NextRequest) {
     if (!email) return err('Email diperlukan')
     const trimmedEmail = email.trim().toLowerCase()
     if (!isValidEmail(trimmedEmail)) return err('Format email tidak valid')
+    if (isFakeEmail(trimmedEmail)) return err(EMAIL_NOT_ALLOWED_MESSAGE, 400, EMAIL_NOT_ALLOWED_CODE)
 
     const [existingEmail] = await db.select({ id: users.id })
       .from(users).where(eq(users.email, trimmedEmail)).limit(1)
