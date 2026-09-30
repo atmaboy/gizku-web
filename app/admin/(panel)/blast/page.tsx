@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { AlertOctagon, Bell, Eye, History, Plus, RotateCcw, XCircle } from 'lucide-react'
+import { AlertOctagon, Bell, Copy, Eye, History, Plus, RotateCcw, XCircle } from 'lucide-react'
 import { fmtDateTime, fmtNum } from '@/lib/utils'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import { Alert, Badge, Button, Card, DataTable, EmptyState, Modal, Pagination, Skeleton, TrackedLink } from '@/components/admin/ui'
@@ -27,6 +27,7 @@ type Blast = {
 function targetLabel(b: Blast) {
   if (b.targetType === 'all') return 'Seluruh User'
   const n = (b.targetUsernames ?? []).length
+  if (b.targetType === 'list') return `${n} penerima (duplikat)`
   return b.channel === 'email' ? `${n} email` : `${n} username`
 }
 function whenLabel(b: Blast) {
@@ -132,7 +133,12 @@ export default function BlastHistoryPage() {
               { key: 'rc', header: 'Dibaca', align: 'right', render: b => fmtNum(b.readCount) },
               { key: 'a', header: 'Aksi', render: b => b.status === 'scheduled'
                 ? <Button variant="outline-danger" size="sm" icon={XCircle} loading={canceling === b.id} onClick={() => setConfirmCancel(b)}>Batalkan</Button>
-                : <Button variant="outline-primary" size="sm" icon={Eye} href={`/admin/blast/${b.id}`}>Detail</Button> },
+                : (
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline-primary" size="sm" icon={Eye} href={`/admin/blast/${b.id}`}>Detail</Button>
+                    <Button variant="outline" size="sm" icon={Copy} href={`/admin/blast/new?duplicate=${b.id}`} aria-label={`Duplikat ${b.batchName}`}>Duplikat</Button>
+                  </div>
+                ) },
             ]}
           />
         )}

@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  AlertOctagon, Ban, BarChart3, ChevronDown, ChevronLeft, ChevronUp, Clock, Eye, Hourglass, Info, ListChecks,
+  AlertOctagon, Ban, BarChart3, ChevronDown, ChevronLeft, ChevronUp, Clock, Copy, Eye, Hourglass, Info, ListChecks,
   MousePointerClick, RefreshCw, Send, Server, Target,
 } from 'lucide-react'
 import { fmtDateTime, fmtNum, cn } from '@/lib/utils'
@@ -181,7 +181,10 @@ export default function BlastDetailPage() {
     )
   }
 
-  const targetLabel = blast.targetType === 'all' ? 'Semua User' : `${(blast.targetUsernames ?? []).length} ${blast.channel === 'email' ? 'email' : 'username'}`
+  const targetCount = (blast.targetUsernames ?? []).length
+  const targetLabel = blast.targetType === 'all' ? 'Semua User'
+    : blast.targetType === 'list' ? `${fmtNum(targetCount)} penerima (duplikat)`
+    : `${targetCount} ${blast.channel === 'email' ? 'email' : 'username'}`
   const sendTimeLabel = (blast.status === 'scheduled' || blast.status === 'cancelled') ? fmtDateTime(blast.scheduledAt) : fmtDateTime(blast.sentAt)
   const deliveredTimeLabel = (blast.status === 'completed' || blast.status === 'failed') ? fmtDateTime(blast.sentAt) : '—'
   const hasStats = blast.status === 'completed' || blast.status === 'failed'
@@ -208,9 +211,24 @@ export default function BlastDetailPage() {
     </Button>
   )
 
+  const canResendFailed = hasStats && blast.failedCount > 0
+  const duplicateBtns = (
+    <div className="flex items-center gap-2 flex-wrap max-lg:w-full">
+      <Button variant="outline" icon={Copy} href={`/admin/blast/new?duplicate=${blast.id}`} className="max-lg:flex-1">Duplikat</Button>
+      {canResendFailed && (
+        <Button variant="outline-danger" icon={Send} href={`/admin/blast/new?duplicate=${blast.id}&mode=only_failed`} className="max-lg:flex-1">
+          Kirim Ulang yang Gagal ({fmtNum(blast.failedCount)})
+        </Button>
+      )}
+    </div>
+  )
+
   return (
     <AdminPage title="Detail Batch" breadcrumb={crumbs}>
-      <div><Button variant="outline" size="sm" icon={ChevronLeft} href="/admin/blast">Kembali ke Riwayat</Button></div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Button variant="outline" size="sm" icon={ChevronLeft} href="/admin/blast">Kembali ke Riwayat</Button>
+        <div className="max-lg:hidden">{duplicateBtns}</div>
+      </div>
 
       <Card outline="brand">
         <div className="flex items-start gap-4 flex-wrap">
@@ -233,6 +251,7 @@ export default function BlastDetailPage() {
           ))}
         </dl>
         <KeyValue className="lg:hidden mt-3 border-t border-border" dense items={meta} />
+        <div className="lg:hidden mt-3">{duplicateBtns}</div>
 
         <div className="bg-sunken border border-border rounded-sm px-4 py-3.5 mt-4">
           {(isChannelPush || isChannelEmail) && (

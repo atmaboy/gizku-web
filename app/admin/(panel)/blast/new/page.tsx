@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  AtSign, Bell, Check, ChevronDown, ImagePlus, Link2, Mail, RotateCcw, Send, Users, X, type LucideIcon,
+  AtSign, Bell, Check, ChevronDown, Copy, ImagePlus, Link2, Mail, RotateCcw, Send, Users, X, type LucideIcon,
 } from 'lucide-react'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import {
-  Button, Card, FormField, Input, Modal, Progress, SectionNumber, SegmentedControl, Select, Textarea,
+  Button, Card, FormField, Input, Modal, Progress, SectionNumber, SegmentedControl, Select, Skeleton, Textarea,
 } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { EmailBodyPreview, TelegramBodyPreview } from '@/components/admin/blast/BlastBodyPreview'
@@ -28,6 +28,20 @@ const TELEGRAM_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
 const MAX_IMAGE_MB = 5
 
 type Estimate = { targeted: number; reachable: number; platforms: { ios: number; android: number } }
+type DuplicateMode = 'all' | 'exclude_failed' | 'only_failed'
+/** "Duplikat" from the batch detail page (?duplicate=<id>&mode=…): recipients come from the source batch log. */
+type DuplicateState = {
+  id: string
+  name: string
+  channel: 'push' | 'telegram' | 'email'
+  counts: Record<DuplicateMode, number>
+  mode: DuplicateMode
+}
+const DUPLICATE_OPTIONS: { value: DuplicateMode; label: string; hint: string }[] = [
+  { value: 'all', label: 'Semua penerima batch asal', hint: 'Kirim ke semua penerima yang tercatat di batch asal.' },
+  { value: 'exclude_failed', label: 'Kecualikan yang gagal', hint: 'Lewati penerima yang gagal dikirimi di batch asal.' },
+  { value: 'only_failed', label: 'Hanya yang gagal (kirim ulang)', hint: 'Kirim ulang khusus ke penerima yang gagal di batch asal.' },
+]
 type Channel = 'push' | 'telegram' | 'email'
 type FromAddress = 'support' | 'marketing'
 
@@ -56,6 +70,8 @@ export default function BlastComposePage() {
   const [uploadingImage, setUploadingImage] = useState(false)
   // Gambar email yang baru diupload, menunggu URL tujuan (opsional) sebelum disisipkan.
   const [pendingImage, setPendingImage] = useState<{ src: string; href: string } | null>(null)
+  const [duplicate, setDuplicate] = useState<DuplicateState | null>(null)
+  const [loadingDuplicate, setLoadingDuplicate] = useState(false)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
@@ -65,6 +81,42 @@ export default function BlastComposePage() {
   const bodyMax = isEmail ? EMAIL_BODY_MAX : isTelegram ? TELEGRAM_BODY_MAX : PUSH_BODY_MAX
   const imageTypes = isTelegram ? TELEGRAM_IMAGE_TYPES : ACCEPTED_IMAGE_TYPES
   const telegramImageCount = isTelegram ? splitTelegramBody(body).images.length : 0
+  const dupActive = !!duplicate && duplicate.channel === channel
+  const dupCount = duplicate ? duplicate.counts[duplicate.mode] : 0
+
+  // Prefill from ?duplicate=<id>[&mode=exclude_failed|only_failed|all].
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get('duplicate')
+    if (!id) return
+    const wantMode = params.get('mode') as DuplicateMode | null
+    setLoadingDuplicate(true)
+    fetch(`/api/admin/blast?action=duplicate_source&id=${encodeURIComponent(id)}`)
+      .then(async res => {
+        const d = await res.json()
+        if (!res.ok) { toast.error(d.error ?? 'Batch sumber tidak ditemukan'); return }
+        const src = d.blast as { id: string; channel: Channel; batchName: string; title: string; body: string; fromAddress: string | null; targetType: string; targetUsernames: string[] | null }
+        setChannel(src.channel)
+        setBatchName(`${src.batchName} (salinan)`.slice(0, 80))
+        setTitle(src.title ?? '')
+        setBody(src.body)
+        if (src.channel === 'email') setFromAddress(src.fromAddress === 'marketing' ? 'marketing' : 'support')
+        const a = d.audience as { hasRecipients: boolean; all: number; excludeFailed: number; onlyFailed: number }
+        if (a.hasRecipients) {
+          const counts: Record<DuplicateMode, number> = { all: a.all, exclude_failed: a.excludeFailed, only_failed: a.onlyFailed }
+          const mode: DuplicateMode = wantMode && counts[wantMode] > 0 ? wantMode : (a.onlyFailed > 0 && a.excludeFailed > 0 ? 'exclude_failed' : 'all')
+          setDuplicate({ id: src.id, name: src.batchName, channel: src.channel, counts, mode })
+        } else if (src.targetType === 'specific' && src.targetUsernames?.length) {
+          // Batch belum pernah terkirim (terjadwal/dibatalkan): salin target aslinya.
+          setTargetType('specific')
+          setUsernames(src.targetUsernames.map(v => ({ value: v, label: v })))
+        } else if (src.targetType === 'list') {
+          toast.message('Target batch sumber tidak bisa disalin — pilih target penerima lagi.')
+        }
+      })
+      .catch(() => toast.error('Gagal memuat batch sumber'))
+      .finally(() => setLoadingDuplicate(false))
+  }, [])
 
   useEffect(() => {
     if (isEmail) return // email channel: input alamat langsung, tidak ada lookup server
@@ -84,6 +136,10 @@ export default function BlastComposePage() {
   }, [usernameInput, usernames, channel, isEmail])
 
   useEffect(() => {
+    if (dupActive) {
+      setEstimate({ targeted: dupCount, reachable: dupCount, platforms: { ios: 0, android: 0 } })
+      return
+    }
     const t = setTimeout(async () => {
       if (targetType === 'specific' && usernames.length === 0) {
         setEstimate({ targeted: 0, reachable: 0, platforms: { ios: 0, android: 0 } })
@@ -100,7 +156,7 @@ export default function BlastComposePage() {
       }
     }, 300)
     return () => clearTimeout(t)
-  }, [channel, targetType, usernames])
+  }, [channel, targetType, usernames, dupActive, dupCount])
 
   function commitUsername(resolved: { value: string; label: string }) {
     if (usernames.some(u => u.value === resolved.value)) { setUsernameInput(''); return }
@@ -203,6 +259,7 @@ export default function BlastComposePage() {
     setChannel('push'); setBatchName(''); setTitle(''); setBody(''); setFromAddress('support')
     setTargetType('all'); setUsernames([]); setUsernameInput('')
     setSendMode('now'); setDate(''); setHour('')
+    setDuplicate(null)
   }
 
   function changeChannel(next: Channel) {
@@ -215,11 +272,13 @@ export default function BlastComposePage() {
 
   const canSubmit = batchName.trim() !== '' && body.trim() !== ''
     && (channel === 'telegram' || title.trim() !== '')
-    && (targetType === 'all' || usernames.length > 0)
+    && (dupActive ? dupCount > 0 : (targetType === 'all' || usernames.length > 0))
     && (sendMode === 'now' || (date !== '' && hour !== ''))
 
   const targetUnitLabel = isEmail ? 'email' : 'username'
-  const targetCountLabel = targetType === 'all' ? `~${estimate?.targeted ?? 0} user` : `${usernames.length} ${targetUnitLabel}`
+  const targetCountLabel = dupActive
+    ? `${dupCount} ${isEmail ? 'email' : 'penerima'}`
+    : targetType === 'all' ? `~${estimate?.targeted ?? 0} user` : `${usernames.length} ${targetUnitLabel}`
   const actionVerb = sendMode === 'schedule' ? 'Jadwalkan Pengiriman' : 'Kirim Sekarang'
   const selectedSender = SENDER_OPTIONS.find(s => s.value === fromAddress)!
 
@@ -241,8 +300,9 @@ export default function BlastComposePage() {
           title: channel === 'telegram' ? undefined : title.trim(),
           body: body.trim(),
           fromAddress: isEmail ? fromAddress : undefined,
-          targetType,
-          targetUsernames: targetType === 'specific' ? usernames.map(u => u.value) : undefined,
+          targetType: dupActive ? 'list' : targetType,
+          targetUsernames: !dupActive && targetType === 'specific' ? usernames.map(u => u.value) : undefined,
+          duplicateFrom: dupActive && duplicate ? { id: duplicate.id, mode: duplicate.mode } : undefined,
           scheduledAt: scheduledAtIso,
         }),
       })
@@ -408,7 +468,53 @@ export default function BlastComposePage() {
     </div>
   )
 
-  const targetSection = (
+  const duplicateSection = duplicate && (
+    <div className="rounded-sm border border-green-200 bg-green-50 px-3.5 py-3">
+      <p className="text-base text-primary flex items-start gap-2">
+        <Copy size={16} className="text-green-700 mt-0.5 shrink-0" aria-hidden />
+        <span>Penerima dari batch <strong className="font-semibold">{duplicate.name}</strong></span>
+      </p>
+      <div role="radiogroup" aria-label="Penerima duplikat" className="mt-3 flex flex-col gap-2">
+        {DUPLICATE_OPTIONS.map(o => {
+          const n = duplicate.counts[o.value]
+          const active = duplicate.mode === o.value
+          return (
+            <label
+              key={o.value}
+              className={cn(
+                'flex gap-2.5 rounded-sm px-3 py-2.5 bg-surface transition-colors',
+                n === 0 ? 'opacity-50 cursor-not-allowed border border-border' : 'cursor-pointer',
+                n > 0 && (active ? 'border-2 border-brand' : 'border border-border-strong hover:bg-muted'),
+              )}
+            >
+              <input
+                type="radio"
+                name="duplicate-mode"
+                value={o.value}
+                checked={active}
+                disabled={n === 0}
+                onChange={() => setDuplicate({ ...duplicate, mode: o.value })}
+                className="mt-1 accent-[var(--green-600)]"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span className="text-base font-semibold text-primary">{o.label}</span>
+                  <span className="text-sm font-semibold text-primary tabular-nums">{n}</span>
+                </span>
+                <span className="block text-sm text-secondary leading-normal">{o.hint}</span>
+              </span>
+            </label>
+          )
+        })}
+      </div>
+      <p className="text-sm text-secondary mt-2.5 leading-normal">
+        {duplicate.counts.only_failed} dari {duplicate.counts.all} penerima gagal di batch asal.{' '}
+        <button type="button" onClick={() => setDuplicate(null)} className="font-semibold text-link hover:underline">Pilih target lain</button>
+      </p>
+    </div>
+  )
+
+  const targetSection = dupActive ? duplicateSection : (
     <>
       <SegmentedControl
         ariaLabel="Target penerima"
@@ -605,8 +711,21 @@ export default function BlastComposePage() {
     </div>
   )
 
+  if (loadingDuplicate) {
+    return (
+      <AdminPage title="Duplikat Blast" breadcrumb={[{ label: 'Blast Notifikasi', href: '/admin/blast' }, { label: 'Duplikat' }]}>
+        <div role="status" aria-label="Memuat batch sumber" className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+          <div className="xl:col-span-8 flex flex-col gap-4 bg-surface rounded-md shadow-card p-5">
+            {Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className={i % 2 ? 'h-10' : 'h-4 w-40'} />)}
+          </div>
+          <Skeleton className="xl:col-span-4 h-[420px] rounded-md" />
+        </div>
+      </AdminPage>
+    )
+  }
+
   return (
-    <AdminPage title="Buat Blast Baru" breadcrumb={[{ label: 'Blast Notifikasi', href: '/admin/blast' }, { label: 'Kirim Baru' }]}>
+    <AdminPage title={duplicate ? 'Duplikat Blast' : 'Buat Blast Baru'} breadcrumb={[{ label: 'Blast Notifikasi', href: '/admin/blast' }, { label: 'Kirim Baru' }]}>
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 max-lg:gap-4 items-start">
         {/* Desktop form card */}
         <Card outline="brand" icon={Send} title="Buat Blast Baru" className="xl:col-span-8 max-lg:hidden" footer={actions} bodyClassName="flex flex-col gap-5">

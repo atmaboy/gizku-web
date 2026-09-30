@@ -5,9 +5,10 @@
  * GET  ?action=detail&id=                 — detail satu batch + provider breakdown + rincian kegagalan
  * GET  ?action=recipients&id=&page=&per_page= — log mentah per-penerima (username/email, status, error, raw response)
  * GET  ?action=estimate&channel=&target_type=&usernames=a,b,c — estimasi penerima saat compose
+ * GET  ?action=duplicate_source&id=     — isi + jumlah penerima (semua/berhasil/gagal) batch sumber untuk "Duplikat"
  * GET  ?action=lookup_username&channel=&q= — cari username/telegram handle (untuk chip target spesifik; push/telegram saja)
  * GET  ?action=resolve_username&channel=&value= — cocokkan 1 input admin ke identitas channel (username app / Telegram) secara persis
- * POST ?action=create                     — buat + kirim/jadwalkan batch baru
+ * POST ?action=create                     — buat + kirim/jadwalkan batch baru (targetType 'list' + duplicateFrom {id, mode} untuk duplikat)
  * POST ?action=cancel                     — batalkan batch yang masih 'scheduled'
  * POST ?action=check_receipts             — cek status delivery asli (Expo push receipts) untuk 1 batch
  */
@@ -16,7 +17,7 @@ import { db } from '@/lib/db'
 import { users, telegramUsers, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
 import { requireAdmin } from '@/lib/admin'
 import { ok, err, setCors } from '@/lib/utils'
-import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel, checkPushReceipts } from '@/lib/blast'
+import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel, checkPushReceipts, getDuplicateAudience, DUPLICATE_MODES, type DuplicateMode } from '@/lib/blast'
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
 import { TELEGRAM_MAX_IMAGES, splitTelegramBody } from '@/lib/blastContent'
 
@@ -149,6 +150,26 @@ async function handleGet(req: NextRequest) {
     return ok(estimate)
   }
 
+  if (action === 'duplicate_source') {
+    const id = req.nextUrl.searchParams.get('id')
+    if (!id) return err('id diperlukan')
+    const a = await getDuplicateAudience(id)
+    if (!a) return err('Batch tidak ditemukan', 404)
+    const { source } = a
+    return ok({
+      blast: {
+        id: source.id, channel: source.channel, batchName: source.batchName, title: source.title, body: source.body,
+        fromAddress: source.fromAddress, targetType: source.targetType, targetUsernames: source.targetUsernames, status: source.status,
+      },
+      audience: {
+        hasRecipients: a.hasRecipients,
+        all: a.keys.all.length,
+        excludeFailed: a.keys.exclude_failed.length,
+        onlyFailed: a.keys.only_failed.length,
+      },
+    })
+  }
+
   if (action === 'lookup_username') {
     const channel = req.nextUrl.searchParams.get('channel') === 'telegram' ? 'telegram' : 'push'
     const q = (req.nextUrl.searchParams.get('q') || '').trim()
@@ -193,7 +214,7 @@ async function handlePost(req: NextRequest) {
     const batchName = String(body.batchName ?? '').trim()
     const title = channel === 'telegram' ? '' : String(body.title ?? '').trim()
     const messageBody = String(body.body ?? '').trim()
-    const targetType = body.targetType === 'specific' ? 'specific' : 'all'
+    const targetType = body.targetType === 'specific' ? 'specific' : body.targetType === 'list' ? 'list' : 'all'
     const scheduledAtRaw = body.scheduledAt ? new Date(body.scheduledAt) : null
     const maxBodyLength = channel === 'email' ? MAX_EMAIL_BODY_LENGTH : channel === 'telegram' ? MAX_TELEGRAM_BODY_LENGTH : MAX_BODY_LENGTH
 
@@ -213,6 +234,20 @@ async function handlePost(req: NextRequest) {
     if (scheduledAtRaw && scheduledAtRaw.getTime() < Date.now() - 60_000) return err('Waktu pengiriman tidak boleh di masa lalu')
 
     let targetUsernames: string[] | null = null
+    if (targetType === 'list') {
+      // Duplikat: penerima diambil dari log batch sumber di server (bukan
+      // dari client), jadi tidak kena batas 10/100 target manual.
+      const sourceId = typeof body.duplicateFrom?.id === 'string' ? body.duplicateFrom.id : ''
+      const mode = DUPLICATE_MODES.includes(body.duplicateFrom?.mode) ? body.duplicateFrom.mode as DuplicateMode : 'all'
+      if (!sourceId) return err('Batch sumber duplikat diperlukan')
+      const a = await getDuplicateAudience(sourceId)
+      if (!a) return err('Batch sumber tidak ditemukan', 404)
+      if (a.source.channel !== channel) return err('Channel harus sama dengan batch sumber untuk memakai daftar penerimanya')
+      targetUsernames = a.keys[mode]
+      if (targetUsernames.length === 0) {
+        return err(mode === 'only_failed' ? 'Tidak ada penerima yang gagal di batch sumber' : 'Tidak ada penerima tersisa untuk dikirimi')
+      }
+    }
     if (targetType === 'specific') {
       if (channel === 'email') {
         // Target email blast spesifik pakai alamat email langsung (bukan

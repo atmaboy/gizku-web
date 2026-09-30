@@ -3,7 +3,8 @@ import { users, pushTokens, telegramUsers, notificationBlasts, notificationBlast
 import { eq, and, inArray, ilike, sql, count, isNotNull } from 'drizzle-orm'
 import { TELEGRAM_CAPTION_MAX, splitTelegramBody } from '@/lib/blastContent'
 import { Api, GrammyError } from 'grammy'
-import { sendEmail, BLAST_SENDERS, BlastSenderKey } from '@/lib/email'
+import { sendEmail, BLAST_SENDERS, BlastSenderKey, EmailSendError } from '@/lib/email'
+import { createRateLimiter, type RateLimiter } from '@/lib/rateLimiter'
 import { buildBlastEmailHtml } from '@/lib/emailTemplates/blast'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
@@ -69,6 +70,13 @@ function telegramErrorMessage(err: unknown): string {
 }
 
 async function resolveTargetUsers(targetType: string, targetUsernames: string[] | null) {
+  if (targetType === 'list') {
+    // Duplicated blast: targetUsernames holds user ids (see getDuplicateAudience).
+    if (!targetUsernames || targetUsernames.length === 0) return []
+    return db.select({ id: users.id, username: users.username })
+      .from(users)
+      .where(and(inArray(users.id, targetUsernames), eq(users.isActive, true)))
+  }
   if (targetType === 'all') {
     return db.select({ id: users.id, username: users.username })
       .from(users).where(eq(users.isActive, true))
@@ -88,6 +96,14 @@ type TelegramTarget = { telegramId: bigint; userId: string | null }
  * whether they've ever linked a Gizku account, since most haven't.
  */
 async function resolveTelegramTargets(targetType: string, targetUsernames: string[] | null): Promise<TelegramTarget[]> {
+  if (targetType === 'list') {
+    // Duplicated blast: targetUsernames holds Telegram chat ids.
+    const ids = (targetUsernames ?? []).filter(v => /^-?\d+$/.test(v)).map(v => BigInt(v))
+    if (ids.length === 0) return []
+    return db.select({ telegramId: telegramUsers.telegramId, userId: telegramUsers.userId })
+      .from(telegramUsers)
+      .where(inArray(telegramUsers.telegramId, ids))
+  }
   if (targetType === 'all') {
     return db.select({ telegramId: telegramUsers.telegramId, userId: telegramUsers.userId }).from(telegramUsers)
   }
@@ -170,8 +186,70 @@ export async function resolveUsernameForChannel(channel: string, raw: string): P
   return { value: row.username, label: `@${row.username}` }
 }
 
+export type DuplicateMode = 'all' | 'exclude_failed' | 'only_failed'
+export const DUPLICATE_MODES: DuplicateMode[] = ['all', 'exclude_failed', 'only_failed']
+
+/**
+ * Audience for "Duplikat blast": the recipients actually logged for the
+ * source blast (notification_blast_recipients), keyed by the channel's
+ * identity — email address, Telegram chat id, or app user id. A recipient
+ * counts as failed when none of its rows succeeded (push can log several).
+ *
+ * The keys are stored on the new blast as targetType 'list' (no migration —
+ * target_type is plain text), so the duplicate reaches exactly this snapshot
+ * of people, not "all users" as of today.
+ */
+export async function getDuplicateAudience(sourceId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sourceId)) return null
+  const [source] = await db.select().from(notificationBlasts).where(eq(notificationBlasts.id, sourceId)).limit(1)
+  if (!source) return null
+  const rows = await db.select({
+    userId: notificationBlastRecipients.userId,
+    telegramUserId: notificationBlastRecipients.telegramUserId,
+    email: notificationBlastRecipients.email,
+    status: notificationBlastRecipients.status,
+  }).from(notificationBlastRecipients).where(eq(notificationBlastRecipients.blastId, sourceId))
+
+  const keys = splitDuplicateAudience(source.channel, rows)
+  return {
+    source,
+    /** false for scheduled/cancelled blasts (never sent) — duplicate copies their original targeting instead. */
+    hasRecipients: keys.all.length > 0,
+    keys,
+  }
+}
+
+type AudienceRow = { userId: string | null; telegramUserId: bigint | null; email: string | null; status: string }
+
+/** Pure part of getDuplicateAudience: group logged rows per recipient and split by outcome. */
+export function splitDuplicateAudience(channel: string, rows: AudienceRow[]): Record<DuplicateMode, string[]> {
+  const keyOf = (r: AudienceRow): string | null =>
+    channel === 'email' ? (r.email ? r.email.trim().toLowerCase() : null)
+    : channel === 'telegram' ? (r.telegramUserId != null ? r.telegramUserId.toString() : null)
+    : r.userId
+
+  const ok = new Set<string>()
+  const seen = new Set<string>()
+  for (const r of rows) {
+    const k = keyOf(r)
+    if (!k) continue
+    seen.add(k)
+    if (r.status !== 'failed') ok.add(k)
+  }
+  const all = [...seen]
+  return {
+    all,
+    exclude_failed: all.filter(k => ok.has(k)),
+    only_failed: all.filter(k => !ok.has(k)),
+  }
+}
+
 /** Estimasi jumlah penerima + berapa yang bisa dijangkau lewat channel terpilih, dipakai saat compose. */
 export async function estimateRecipients(channel: string, targetType: string, targetUsernames: string[] | null) {
+  if (targetType === 'list' && channel !== 'push') {
+    const n = (targetUsernames ?? []).length
+    return { targeted: n, reachable: n, platforms: { ios: 0, android: 0 } }
+  }
   if (channel === 'email') {
     if (targetType === 'all') {
       const [{ c }] = await db.select({ c: count() }).from(users)
@@ -214,7 +292,7 @@ export async function estimateRecipients(channel: string, targetType: string, ta
   }
 }
 
-type RecipientResult = {
+export type RecipientResult = {
   status: 'sent' | 'failed'
   errorMessage?: string
   pushTokenId: string | null
@@ -365,43 +443,63 @@ async function dispatchTelegramChannel(blast: typeof notificationBlasts.$inferSe
   return perTarget
 }
 
-const EMAIL_SEND_CHUNK_SIZE = 10
+// Resend allows 10 API requests per second per team (shared with every other
+// email the app sends — verification, helpdesk replies). Blasts stay just
+// under it: max 10 sends per 1.1 s sliding window (~9/s), and a send that
+// still gets "Too many requests" is retried after a short backoff instead of
+// being recorded as failed.
+export const EMAIL_MAX_PER_WINDOW = 10
+export const EMAIL_WINDOW_MS = 1100
+const EMAIL_RATE_LIMIT_RETRIES = 3
+const EMAIL_RETRY_BACKOFF_MS = [1000, 2000, 4000]
 
 /**
- * Kirim blast lewat email (Resend). Beda dari dispatchTelegramChannel: dikirim
- * berkelompok (bukan satu-satu berurutan) supaya batch besar tidak terlalu lama,
- * tapi tetap dalam chunk kecil untuk menghindari rate limit Resend.
+ * Kirim blast lewat email (Resend), dibatasi kecepatannya (lihat konstanta di
+ * atas). Pengiriman tetap paralel secukupnya — tiap email dimulai begitu ada
+ * slot di jendela rate limit — jadi 35 email selesai ±4 detik.
  */
+export async function sendEmailsRateLimited<T extends { email: string }>(
+  targets: T[],
+  send: (t: T) => Promise<{ id: string | null }>,
+  opts: { limiter?: RateLimiter; sleep?: (ms: number) => Promise<void> } = {},
+): Promise<Map<string, RecipientResult>> {
+  const limiter = opts.limiter ?? createRateLimiter({ max: EMAIL_MAX_PER_WINDOW, windowMs: EMAIL_WINDOW_MS })
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)))
+  const perEmail = new Map<string, RecipientResult>()
+
+  async function attempt(t: T, tries: number): Promise<void> {
+    try {
+      const { id } = await send(t)
+      perEmail.set(t.email, { status: 'sent', pushTokenId: null, provider: 'resend', providerMessageId: id, providerResponse: { id } })
+    } catch (e) {
+      if (e instanceof EmailSendError && e.isRateLimited && tries < EMAIL_RATE_LIMIT_RETRIES) {
+        await sleep(EMAIL_RETRY_BACKOFF_MS[tries] ?? 4000)
+        await limiter.acquire()
+        return attempt(t, tries + 1)
+      }
+      perEmail.set(t.email, {
+        status: 'failed',
+        errorMessage: e instanceof Error ? e.message : 'Gagal mengirim email',
+        pushTokenId: null,
+        provider: 'resend',
+      })
+    }
+  }
+
+  const inFlight: Promise<void>[] = []
+  for (const t of targets) {
+    await limiter.acquire()
+    inFlight.push(attempt(t, 0))
+  }
+  await Promise.all(inFlight)
+  return perEmail
+}
+
 async function dispatchEmailChannel(blast: typeof notificationBlasts.$inferSelect, targets: EmailTarget[]) {
   const senderKey: BlastSenderKey = blast.fromAddress === 'marketing' ? 'marketing' : 'support'
   const from = BLAST_SENDERS[senderKey]
   const html = buildBlastEmailHtml({ subject: blast.title, bodyText: blast.body, sender: senderKey })
-  const perEmail = new Map<string, RecipientResult>()
-
-  for (let i = 0; i < targets.length; i += EMAIL_SEND_CHUNK_SIZE) {
-    const chunk = targets.slice(i, i + EMAIL_SEND_CHUNK_SIZE)
-    await Promise.all(chunk.map(async t => {
-      try {
-        const { id } = await sendEmail({ to: t.email, subject: blast.title, html, from })
-        perEmail.set(t.email, {
-          status: 'sent',
-          pushTokenId: null,
-          provider: 'resend',
-          providerMessageId: id,
-          providerResponse: { id },
-        })
-      } catch (e) {
-        perEmail.set(t.email, {
-          status: 'failed',
-          errorMessage: e instanceof Error ? e.message : 'Gagal mengirim email',
-          pushTokenId: null,
-          provider: 'resend',
-        })
-      }
-    }))
-  }
-
-  return perEmail
+  return sendEmailsRateLimited(targets, t => sendEmail({ to: t.email, subject: blast.title, html, from }))
 }
 
 /**
