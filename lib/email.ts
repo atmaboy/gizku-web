@@ -41,6 +41,18 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
     subject: opts.subject,
     html: opts.html,
   })
-  if (error) throw new Error(`Resend error: ${error.message}`)
+  if (error) throw new EmailSendError(`Resend error: ${error.message}`, error.name, error.statusCode)
   return { id: data?.id ?? null }
+}
+
+/** Resend API failure, keeping Resend's error code so callers can react (e.g. retry on rate limit). */
+export class EmailSendError extends Error {
+  constructor(message: string, public code: string | null = null, public statusCode: number | null = null) {
+    super(message)
+    this.name = 'EmailSendError'
+  }
+  /** Resend's "Too many requests" — safe to retry after a short wait. */
+  get isRateLimited(): boolean {
+    return this.code === 'rate_limit_exceeded' || this.statusCode === 429
+  }
 }
