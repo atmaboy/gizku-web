@@ -140,17 +140,24 @@ export async function POST(req: NextRequest) {
   if (!user) return err('Token tidak valid', 401)
 
   const body = await req.json()
-  const { analysis, imageDataUrl, source, imageHash } = body
+  const { analysis, imageDataUrl, source, imageHash, loggedAt } = body
 
   if (!analysis) return err('Data analisis diperlukan')
 
+  // A caller-supplied loggedAt means this is a backdated save — a draft finally
+  // re-analyzed, or a save retried after the first upload attempt failed — so the
+  // real gap since the original attempt can be well past the usual 60s dedup
+  // window. Widen the dedup match to "ever" (same user + image) in that case
+  // instead of narrowing the protection right when retries make it matter most.
+  const explicitLoggedAt = typeof loggedAt === 'string' && !isNaN(new Date(loggedAt).getTime())
+
   if (imageHash) {
+    const dedupConditions = [eq(meals.userId, user.userId), eq(meals.imageHash, imageHash)]
+    if (!explicitLoggedAt) {
+      dedupConditions.push(gte(meals.loggedAt, new Date(Date.now() - HISTORY_DEDUP_WINDOW_MS)))
+    }
     const [recent] = await db.select().from(meals)
-      .where(and(
-        eq(meals.userId, user.userId),
-        eq(meals.imageHash, imageHash),
-        gte(meals.loggedAt, new Date(Date.now() - HISTORY_DEDUP_WINDOW_MS)),
-      ))
+      .where(and(...dedupConditions))
       .orderBy(desc(meals.loggedAt))
       .limit(1)
 
@@ -173,6 +180,13 @@ export async function POST(req: NextRequest) {
   }
   if (ALLOWED_CLIENT_SOURCES.has(source)) {
     values.source = source
+  }
+  if (explicitLoggedAt) {
+    const parsed = new Date(loggedAt)
+    // Guard against a wildly-wrong device clock claiming a future capture time.
+    if (parsed.getTime() <= Date.now() + 5 * 60 * 1000) {
+      values.loggedAt = parsed
+    }
   }
 
   const [meal] = await db.insert(meals).values(values).returning()
