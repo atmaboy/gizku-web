@@ -59,7 +59,8 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Landing Builder', description: 'Atur 9 section landing + pengaturan global tanpa deploy; drag urutan, pratinjau desktop/mobile, alur Draf → Terbitkan, riwayat terbitan.' },
         { name: 'Dokumen legal', description: 'Rich text editor dwibahasa untuk Syarat & Ketentuan, Kebijakan Privasi, dan tipe custom.' },
         { name: 'Review Request Limit', description: 'Approve/reject pengajuan (alasan reject terstruktur), konfigurasi tier & rekening tujuan.' },
-        { name: 'Blast Notifikasi', description: 'Broadcast via push (Expo), Telegram, atau email ke semua/user tertentu; terjadwal; tracking per penerima; duplikat blast & kirim ulang yang gagal.' },
+        { name: 'Blast Notifikasi', description: 'Broadcast via push (Expo), Telegram, atau email ke semua/user tertentu; terjadwal; tracking per penerima; duplikat blast & kirim ulang yang gagal. Push dwibahasa dengan gambar banner, ikon, tujuan ketuk (detail/halaman/tautan web), dan mode senyap; selalu masuk inbox user.' },
+        { name: 'Whitelist Domain', description: 'Daftar domain yang boleh dibuka sebagai tautan web di blast push (gizku.com default). Divalidasi di form, server, dan saat blast terjadwal dikirim.' },
         { name: 'Telegram Bot', description: 'Konfigurasi & statistik bot dari backoffice.' },
         { name: 'Laporan & Helpdesk', description: 'Satu inbox untuk laporan in-app dan email masuk; balas dari backoffice, pipeline 4 status.' },
         { name: 'Pengaturan sistem', description: 'Limit global, API key, model AI, verifikasi email, maintenance, Closed Beta — setiap simpan wajib konfirmasi password admin.' },
@@ -70,7 +71,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       group: 'Infrastruktur',
       items: [
         { name: 'Supabase', description: 'PostgreSQL (Drizzle ORM) + Storage untuk file upload.' },
-        { name: 'Cron job', description: 'send-scheduled-blasts & prune-old-usage, dipicu lewat cron-job.org.' },
+        { name: 'Cron job', description: 'send-scheduled-blasts, prune-old-usage & prune-notifications, dipicu lewat cron-job.org.' },
         { name: 'Vercel Analytics & Speed Insights', description: 'Page view dan web vitals otomatis. Merge ke main = deploy production.' },
         { name: 'CORS global', description: 'Middleware untuk semua /api/* agar bisa diakses aplikasi mobile.' },
       ],
@@ -102,6 +103,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Request Kenaikan Limit Analisa', description: 'Pilih paket, kode unik, upload bukti transfer; lihat status & ledger penggunaan.' },
         { name: 'Koneksi Telegram', description: 'Generate kode OTP, link/unlink; foto yang dikirim ke bot tercatat ke riwayat.' },
         { name: 'Push notification', description: 'Terima blast dari admin; registrasi token otomatis, tracking klik/dibaca.' },
+        { name: 'Halaman Notifikasi (inbox)', description: 'Ikon lonceng di header dengan badge belum dibaca. Inbox dari server (sinkron antar perangkat): grup tanggal, filter belum dibaca, swipe tandai dibaca/belum dibaca, Baca semua + Urungkan, banner bila push dimatikan. Tautan web dibuka di webview dalam app (dibatasi whitelist domain). Notifikasi >3 bulan dihapus otomatis.' },
       ],
     },
     {
@@ -118,6 +120,19 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.10.0',
+      date: '2026-11-12',
+      note: 'Jalankan sql/019_notification_inbox.sql sebelum deploy. Jika cron dijalankan lewat cron-job.org, tambahkan juga /api/cron/prune-notifications (harian).',
+      changes: [
+        { type: 'feat', text: 'Inbox notifikasi per user: setiap blast Push kini tersimpan ke inbox di server untuk semua target aktif (termasuk yang belum punya push token atau mematikan push). Status dibaca tersimpan di server. API baru: GET/POST /api/notifications (daftar + cursor, detail, unread_count, read, read_all, whitelist). Notifikasi lebih dari 90 hari tidak tampil dan dihapus cron prune-notifications.' },
+        { type: 'feat', text: 'Blast Push v2: konten dwibahasa (ID wajib, EN opsional; user EN menerima versi ID bila EN kosong), gambar besar untuk banner push, ikon khusus (default logo Gizku), tujuan saat diketuk (detail notifikasi / halaman di app / tautan web di webview), dan mode kirim "Banner push + halaman Notifikasi" atau "Halaman Notifikasi saja (senyap)".' },
+        { type: 'feat', text: 'Backoffice: menu baru Blast Notifikasi › Whitelist Domain. Tautan web di blast hanya boleh ke domain di daftar (gizku.com + subdomain default, tidak bisa dihapus); divalidasi langsung di form, di server saat dibuat, dan lagi saat cron mengirim blast terjadwal (dibatalkan dengan alasan bila domain sudah dihapus).' },
+        { type: 'improve', text: 'Form Buat Blast: tab bahasa, pratinjau banner Android + baris halaman Notifikasi dengan toggle ID/EN, estimasi dipecah "Masuk halaman Notifikasi" dan "Dapat banner push". User tanpa push token tidak lagi dihitung gagal (status penerima baru "Hanya inbox") dan masuk hitungan Terkirim.' },
+        { type: 'improve', text: 'Push dikirim sesuai bahasa app di perangkat: push_tokens.language diisi saat register dan diperbarui lewat POST /api/push?action=language. Payload push kini membawa notificationId, linkType, dan linkValue. Mobile lama tanpa update tetap aman (field baru opsional).' },
+        { type: 'improve', text: 'read_count blast naik saat user membaca di halaman Notifikasi app (sekali per user), menggantikan ack read.' },
+      ],
+    },
     {
       version: '1.9.0',
       date: '2026-11-12',
@@ -236,6 +251,8 @@ export const RELEASES: Record<Platform, Release[]> = {
       status: 'unreleased',
       note: 'Gabungan perubahan di main sejak v1.1.0. Tandai sebagai released setelah build ini naik ke Play Store / App Store.',
       changes: [
+        { type: 'feat', text: 'Halaman Notifikasi (ikon lonceng di header Riwayat): inbox blast dari Gizku dengan badge belum dibaca, grup tanggal, filter, swipe tandai dibaca/belum dibaca, Baca semua + Urungkan, dan banner saat push dimatikan. Ketuk notifikasi (juga dari banner push) menandai dibaca dan membuka tujuannya: detail, halaman di app, atau tautan web di webview dalam app. Butuh backend web ≥ 1.10.0.' },
+        { type: 'improve', text: 'Push mengikuti bahasa app (ID/EN) dan warna ikon notifikasi Android disesuaikan ke hijau Gizku baru. Butuh backend web ≥ 1.10.0.' },
         { type: 'feat', text: 'Simpan sebagai Draft: foto yang gagal dianalisa karena koneksi atau server disimpan di perangkat (maks. 3, yang terlama diganti) dan bisa dianalisa ulang dari Riwayat, dengan tombol Analisa Sekarang / Hapus Draft.' },
         { type: 'feat', text: 'Sesi login habis saat memotret/menganalisa: foto otomatis disimpan sebagai draft (alasan "Sesi berakhir") dan menunggu setelah login ulang, tidak perlu foto ulang.' },
         { type: 'feat', text: 'Riwayat: filter Semua/Draft, section Draft, kalender pilih tanggal baru (OK/Clear/Batal), mode "10 Hari Terakhir", pagination ikon 10 per halaman. Butuh backend web ≥ 1.7.3.' },

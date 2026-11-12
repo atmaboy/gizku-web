@@ -223,6 +223,7 @@ export const pushTokens = pgTable('push_tokens', {
   userId:     uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   token:      text('token').unique().notNull(),
   platform:   text('platform').notNull(), // 'ios' | 'android'
+  language:   text('language').notNull().default('id'), // 'id' | 'en' — app language on this device, picks push title/body
   isActive:   boolean('is_active').notNull().default(true),
   createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt:  timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -247,6 +248,16 @@ export const notificationBlasts = pgTable('notification_blasts', {
   // Sender identity for the 'email' channel only — 'support' | 'marketing' (see lib/email.ts BLAST_SENDERS;
   // 'marketing' is sent as "Gizku Connect <connect@gizku.com>"). Null for push/telegram.
   fromAddress:     text('from_address'),
+  // Push v2: English copy (empty = users fall back to title/body), banner image, custom avatar icon,
+  // tap destination, and delivery mode. imageUrl is only used for the push banner, never in the inbox.
+  titleEn:         text('title_en').notNull().default(''),
+  bodyEn:          text('body_en').notNull().default(''),
+  imageUrl:        text('image_url'),
+  iconUrl:         text('icon_url'),
+  linkType:        text('link_type').notNull().default('detail'), // 'detail' | 'screen' | 'url'
+  linkValue:       text('link_value'),
+  delivery:        text('delivery').notNull().default('push'),    // 'push' (banner + inbox) | 'silent' (inbox only)
+  failureReason:   text('failure_reason'),                         // why the whole blast failed before sending (e.g. link domain no longer whitelisted)
   status:          text('status').notNull().default('scheduled'), // scheduled|sending|completed|cancelled|failed
   scheduledAt:     timestamp('scheduled_at', { withTimezone: true }),
   sentAt:          timestamp('sent_at', { withTimezone: true }),
@@ -278,7 +289,7 @@ export const notificationBlastRecipients = pgTable('notification_blast_recipient
   email:       text('email'),
   pushTokenId: uuid('push_token_id').references(() => pushTokens.id, { onDelete: 'set null' }),
   provider:    text('provider'), // 'fcm' | 'apns' | 'telegram' | 'resend' — set once dispatch resolves a delivery path
-  status:      text('status').notNull().default('pending'), // pending|sent|failed|clicked|read
+  status:      text('status').notNull().default('pending'), // pending|sent|failed|clicked|read|inbox_only
   errorMessage: text('error_message'),
   // Ticket/message id from the provider (Expo push ticket id for push,
   // Telegram message_id for telegram) — needed to look up delivery receipts
@@ -300,6 +311,40 @@ export const notificationBlastRecipients = pgTable('notification_blast_recipient
   telegramIdx: index('idx_blast_recipients_telegram_user_id').on(t.telegramUserId),
   statusIdx:   index('idx_blast_recipients_status').on(t.blastId, t.status),
 }))
+
+// ── User Notifications (inbox) ───────────────────────────────────────────────
+// Per-user inbox shown on the app's Notifikasi page. Blast content is snapshotted
+// here so editing/deleting a blast later never changes what a user already received.
+export const userNotifications = pgTable('user_notifications', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  userId:    uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  source:    text('source').notNull().default('blast'), // 'blast' | 'system' (later)
+  blastId:   uuid('blast_id').references(() => notificationBlasts.id, { onDelete: 'cascade' }),
+  title:     text('title').notNull(),
+  body:      text('body').notNull(),
+  titleEn:   text('title_en').notNull().default(''),
+  bodyEn:    text('body_en').notNull().default(''),
+  iconUrl:   text('icon_url'), // null = Gizku logo
+  linkType:  text('link_type').notNull().default('detail'),
+  linkValue: text('link_value'),
+  readAt:    timestamp('read_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  userCreatedIdx: index('idx_user_notifications_user_created').on(t.userId, t.createdAt),
+  createdIdx:     index('idx_user_notifications_created').on(t.createdAt),
+}))
+
+// ── Link Whitelist ───────────────────────────────────────────────────────────
+// Domains a push blast may open in the app's in-app webview. gizku.com (+ subdomains) is the
+// undeletable default.
+export const linkWhitelist = pgTable('link_whitelist', {
+  id:                uuid('id').primaryKey().defaultRandom(),
+  domain:            text('domain').unique().notNull(),
+  includeSubdomains: boolean('include_subdomains').notNull().default(false),
+  isDefault:         boolean('is_default').notNull().default(false),
+  createdBy:         text('created_by'),
+  createdAt:         timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+})
 
 // ── Limit Tiers ───────────────────────────────────────────────────────────────
 // Admin-configurable add-on packages for "Request Kenaikan Limit Analisa".

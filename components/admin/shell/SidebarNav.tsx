@@ -63,7 +63,7 @@ export default function SidebarNav({ counts, onNavigate, mobile }: { counts: Adm
           )
         }
         const Icon = entry.icon
-        const childActive = entry.children.some(c => isNavActive(pathname, c.href))
+        const childActive = entry.children.some(c => isNavActive(pathname, c.href, c.exclude))
         const open = openTrees[entry.label] ?? true
         const listId = `tree-${entry.label.replace(/\s+/g, '-').toLowerCase()}${mobile ? '-m' : ''}`
         return (
@@ -85,6 +85,7 @@ export default function SidebarNav({ counts, onNavigate, mobile }: { counts: Adm
                   <li key={c.href}>
                     <NavLink
                       href={c.href}
+                      exclude={c.exclude}
                       onNavigate={onNavigate}
                       className={active => cn(linkBase, 'pl-[34px]', active ? 'bg-green-50 text-green-800 font-semibold' : 'text-bark-700 hover:bg-muted')}
                     >

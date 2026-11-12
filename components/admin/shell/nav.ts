@@ -6,7 +6,7 @@ import type { AdminNavCounts } from '@/lib/adminCounts'
 export type NavEntry =
   | { type: 'item'; label: string; icon: LucideIcon; href: string; badge?: keyof AdminNavCounts }
   | { type: 'header'; label: string }
-  | { type: 'tree'; label: string; icon: LucideIcon; children: { label: string; href: string }[] }
+  | { type: 'tree'; label: string; icon: LucideIcon; children: { label: string; href: string; exclude?: string }[] }
 
 export const ADMIN_NAV: NavEntry[] = [
   { type: 'item',   label: 'Dashboard',          icon: LayoutGrid,    href: '/admin' },
@@ -16,7 +16,9 @@ export const ADMIN_NAV: NavEntry[] = [
   { type: 'item',   label: 'Request Limit',      icon: Gauge,         href: '/admin/limit',   badge: 'pendingLimit' },
   { type: 'header', label: 'Komunikasi' },
   { type: 'item',   label: 'Laporan & Helpdesk', icon: MessageSquare, href: '/admin/reports', badge: 'openReports' },
-  { type: 'item',   label: 'Blast Notifikasi',   icon: Bell,          href: '/admin/blast' },
+  { type: 'tree',   label: 'Blast Notifikasi',   icon: Bell, children: [
+      { label: 'Riwayat & Buat Blast', href: '/admin/blast', exclude: '/admin/blast/whitelist' },
+      { label: 'Whitelist Domain',     href: '/admin/blast/whitelist' } ] },
   { type: 'item',   label: 'Telegram Bot',       icon: Send,          href: '/admin/telegram' },
   { type: 'header', label: 'Konten Website' },
   { type: 'tree',   label: 'Halaman Publik',     icon: Globe, children: [

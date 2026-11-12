@@ -1,11 +1,13 @@
 import { db } from '@/lib/db'
-import { users, pushTokens, telegramUsers, notificationBlasts, notificationBlastRecipients } from '@/drizzle/schema'
+import { users, pushTokens, telegramUsers, notificationBlasts, notificationBlastRecipients, userNotifications } from '@/drizzle/schema'
 import { eq, and, inArray, ilike, sql, count, isNotNull } from 'drizzle-orm'
 import { TELEGRAM_CAPTION_MAX, splitTelegramBody } from '@/lib/blastContent'
 import { Api, GrammyError } from 'grammy'
 import { sendEmail, BLAST_SENDERS, BlastSenderKey, EmailSendError } from '@/lib/email'
 import { createRateLimiter, type RateLimiter } from '@/lib/rateLimiter'
 import { buildBlastEmailHtml } from '@/lib/emailTemplates/blast'
+import { checkWhitelistedUrl, urlCheckError } from '@/lib/notificationLinks'
+import { getWhitelistEntries } from '@/lib/linkWhitelist'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts'
@@ -18,6 +20,8 @@ type ExpoPushMessage = {
   body: string
   data?: Record<string, unknown>
   sound?: 'default'
+  /** Gambar besar di banner (Expo rich content). Dikirim hanya kalau blast punya gambar. */
+  richContent?: { image: string }
 }
 
 type ExpoPushTicket = {
@@ -274,7 +278,7 @@ export async function estimateRecipients(channel: string, targetType: string, ta
 
   const targetUsers = await resolveTargetUsers(targetType, targetUsernames)
   if (targetUsers.length === 0) {
-    return { targeted: 0, reachable: 0, platforms: { ios: 0, android: 0 } }
+    return { targeted: 0, reachable: 0, inbox: 0, platforms: { ios: 0, android: 0 } }
   }
   const userIds = targetUsers.map(u => u.id)
 
@@ -284,6 +288,8 @@ export async function estimateRecipients(channel: string, targetType: string, ta
   const usersWithToken = new Set(tokens.map(t => t.userId))
   return {
     targeted: targetUsers.length,
+    // Push blasts also land in every target's in-app inbox, token or not.
+    inbox: targetUsers.length,
     reachable: usersWithToken.size,
     platforms: {
       ios: tokens.filter(t => t.platform === 'ios').length,
@@ -293,7 +299,8 @@ export async function estimateRecipients(channel: string, targetType: string, ta
 }
 
 export type RecipientResult = {
-  status: 'sent' | 'failed'
+  /** 'inbox_only' = masuk halaman Notifikasi tanpa banner push (belum punya token, atau blast senyap). */
+  status: 'sent' | 'failed' | 'inbox_only'
   errorMessage?: string
   pushTokenId: string | null
   provider: string | null
@@ -301,7 +308,50 @@ export type RecipientResult = {
   providerResponse?: unknown
 }
 
+/** Insert satu baris inbox per target user (snapshot konten blast). Mengembalikan userId → id notifikasi. */
+async function createInboxRows(blast: typeof notificationBlasts.$inferSelect, userIds: string[]): Promise<Map<string, string>> {
+  const ids = new Map<string, string>()
+  const CHUNK = 1000
+  for (let i = 0; i < userIds.length; i += CHUNK) {
+    const rows = await db.insert(userNotifications)
+      .values(userIds.slice(i, i + CHUNK).map(userId => ({
+        userId,
+        source: 'blast',
+        blastId: blast.id,
+        title: blast.title,
+        body: blast.body,
+        titleEn: blast.titleEn,
+        bodyEn: blast.bodyEn,
+        iconUrl: blast.iconUrl,
+        linkType: blast.linkType,
+        linkValue: blast.linkValue,
+      })))
+      .returning({ id: userNotifications.id, userId: userNotifications.userId })
+    for (const r of rows) ids.set(r.userId, r.id)
+  }
+  return ids
+}
+
+/** Judul/isi push untuk satu token: versi EN kalau perangkat berbahasa EN dan teks EN terisi, selain itu ID. */
+export function pushCopyFor(blast: { title: string; body: string; titleEn: string; bodyEn: string }, language: string) {
+  const en = language === 'en'
+  return {
+    title: en && blast.titleEn ? blast.titleEn : blast.title,
+    body: en && blast.bodyEn ? blast.bodyEn : blast.body,
+  }
+}
+
 async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect, targetUsers: { id: string; username: string }[]) {
+  // Inbox dulu: setiap target user mendapat notifikasi di halaman Notifikasi, apa pun status push-nya.
+  const inboxIds = await createInboxRows(blast, targetUsers.map(u => u.id))
+  const perUser = new Map<string, RecipientResult>()
+
+  // Blast senyap: hanya inbox, tidak ada banner push.
+  if (blast.delivery === 'silent') {
+    for (const u of targetUsers) perUser.set(u.id, { status: 'inbox_only', pushTokenId: null, provider: null })
+    return perUser
+  }
+
   const tokens = await db.select()
     .from(pushTokens)
     .where(and(inArray(pushTokens.userId, targetUsers.map(u => u.id)), eq(pushTokens.isActive, true)))
@@ -316,17 +366,23 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
   // Flatten (user, token) pairs to send, remembering which user/token each message belongs to.
   const messages: ExpoPushMessage[] = []
   const messageOwners: { userId: string; pushTokenId: string; provider: string }[] = []
-  const perUser = new Map<string, RecipientResult>()
 
   for (const u of targetUsers) {
     const userTokens = tokensByUser.get(u.id) ?? []
     if (userTokens.length === 0) {
-      perUser.set(u.id, { status: 'failed', errorMessage: 'Tidak ada push token terdaftar', pushTokenId: null, provider: null })
+      // Bukan kegagalan: notifikasinya tetap ada di inbox.
+      perUser.set(u.id, { status: 'inbox_only', pushTokenId: null, provider: null })
       continue
     }
     for (const t of userTokens) {
       const provider = t.platform === 'ios' ? 'apns' : 'fcm'
-      messages.push({ to: t.token, title: blast.title, body: blast.body, data: { blastId: blast.id }, sound: 'default' })
+      messages.push({
+        to: t.token,
+        ...pushCopyFor(blast, t.language),
+        data: { notificationId: inboxIds.get(u.id) ?? null, blastId: blast.id, linkType: blast.linkType, linkValue: blast.linkValue },
+        sound: 'default',
+        ...(blast.imageUrl ? { richContent: { image: blast.imageUrl } } : {}),
+      })
       messageOwners.push({ userId: u.id, pushTokenId: t.id, provider })
     }
   }
@@ -565,6 +621,17 @@ export async function dispatchBlast(blastId: string): Promise<void> {
       return
     }
 
+    if (blast.linkType === 'url') {
+      // Domain bisa dihapus dari whitelist setelah blast dijadwalkan — cek ulang sebelum kirim.
+      const check = checkWhitelistedUrl(blast.linkValue ?? '', await getWhitelistEntries())
+      if (!check.ok) {
+        await db.update(notificationBlasts)
+          .set({ status: 'failed', failureReason: `Tautan dibatalkan: ${urlCheckError(check)}`, updatedAt: new Date() })
+          .where(eq(notificationBlasts.id, blast.id))
+        return
+      }
+    }
+
     const targetUsers = await resolveTargetUsers(blast.targetType, blast.targetUsernames)
     const perUser = targetUsers.length > 0 ? await dispatchPushChannel(blast, targetUsers) : new Map<string, RecipientResult>()
     const now = new Date()
@@ -601,7 +668,8 @@ async function finalizeBlast(
     await db.insert(notificationBlastRecipients).values(recipientRows)
   }
 
-  const sentCount = recipientRows.filter(r => r.status === 'sent').length
+  // 'inbox_only' (masuk inbox tanpa banner) juga dihitung terkirim: user menerimanya di halaman Notifikasi.
+  const sentCount = recipientRows.filter(r => r.status === 'sent' || r.status === 'inbox_only').length
   const failedCount = recipientRows.filter(r => r.status === 'failed').length
 
   await db.update(notificationBlasts)

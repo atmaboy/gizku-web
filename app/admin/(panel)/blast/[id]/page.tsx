@@ -33,6 +33,12 @@ type Blast = {
   clickedCount: number
   readCount: number
   failedCount: number
+  titleEn?: string
+  bodyEn?: string
+  linkType?: 'detail' | 'screen' | 'url'
+  linkValue?: string | null
+  delivery?: 'push' | 'silent'
+  failureReason?: string | null
 }
 type Failure = { errorMessage: string | null; count: number }
 type Provider = { provider: string; targeted: number; success: number; failed: number }
@@ -43,7 +49,7 @@ type Recipient = {
   telegramFirstName: string | null
   email: string | null
   provider: string | null
-  status: 'pending' | 'sent' | 'failed'
+  status: 'pending' | 'sent' | 'failed' | 'inbox_only'
   errorMessage: string | null
   providerMessageId: string | null
   providerResponse: unknown
@@ -55,10 +61,10 @@ type Recipient = {
 
 
 const RECIPIENT_STATUS_LABEL: Record<Recipient['status'], string> = {
-  pending: 'Pending', sent: 'Terkirim', failed: 'Gagal',
+  pending: 'Pending', sent: 'Terkirim', failed: 'Gagal', inbox_only: 'Hanya inbox',
 }
 const RECIPIENT_STATUS_BADGE: Record<Recipient['status'], BadgeVariant> = {
-  pending: 'light', sent: 'success', failed: 'danger',
+  pending: 'light', sent: 'success', failed: 'danger', inbox_only: 'soft',
 }
 const FAILURE_TONES = ['rose', 'honey', 'clay'] as const
 
@@ -268,6 +274,20 @@ export default function BlastDetailPage() {
           ) : (
             <div className="text-base leading-normal max-w-[420px] rounded-lg bg-surface border border-border px-3 py-2.5 overflow-hidden"><TelegramBodyPreview text={blast.body} dark={false} /></div>
           )}
+          {isChannelPush && blast.titleEn && (
+            <>
+              <p className="text-sm text-secondary mt-3">English</p>
+              <p className="text-base font-semibold text-primary break-words">{blast.titleEn}</p>
+              <p className="text-base text-bark-700 leading-normal whitespace-pre-wrap break-words">{blast.bodyEn}</p>
+            </>
+          )}
+          {isChannelPush && (
+            <p className="text-sm text-secondary mt-3">
+              {blast.delivery === 'silent' ? 'Halaman Notifikasi saja (senyap)' : 'Banner push + halaman Notifikasi'}
+              {' · Tujuan: '}
+              {blast.linkType === 'url' ? <span className="break-all">{blast.linkValue}</span> : blast.linkType === 'screen' ? `halaman ${blast.linkValue}` : 'detail notifikasi'}
+            </p>
+          )}
         </div>
         {checkBtn && <div className="lg:hidden mt-4">{checkBtn}</div>}
       </Card>
@@ -277,6 +297,9 @@ export default function BlastDetailPage() {
       )}
       {blast.status === 'cancelled' && (
         <Alert variant="light" icon={Ban}>Notifikasi terjadwal ini dibatalkan sebelum dikirim.</Alert>
+      )}
+      {blast.status === 'failed' && blast.failureReason && (
+        <Alert variant="danger">{blast.failureReason}</Alert>
       )}
       {blast.status === 'sending' && (
         <Alert variant="warning" icon={Hourglass}>Notifikasi sedang dalam proses pengiriman.</Alert>

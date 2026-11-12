@@ -20,6 +20,8 @@ import { ok, err, setCors } from '@/lib/utils'
 import { dispatchBlast, estimateRecipients, getProviderBreakdown, searchUsernamesForChannel, resolveUsernameForChannel, checkPushReceipts, getDuplicateAudience, DUPLICATE_MODES, type DuplicateMode } from '@/lib/blast'
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
 import { TELEGRAM_MAX_IMAGES, splitTelegramBody } from '@/lib/blastContent'
+import { LINK_TYPES, NOTIFICATION_SCREENS, checkWhitelistedUrl, urlCheckError, type LinkType } from '@/lib/notificationLinks'
+import { getWhitelistEntries } from '@/lib/linkWhitelist'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -27,6 +29,7 @@ export const maxDuration = 60
 const MAX_SPECIFIC_TARGETS = 10
 const MAX_SPECIFIC_EMAIL_TARGETS = 100
 const MAX_BODY_LENGTH = 300
+const MAX_PUSH_TITLE_LENGTH = 65
 const MAX_EMAIL_BODY_LENGTH = 5000
 // Telegram text becomes a photo caption when the blast has images (Telegram caps captions at 1024).
 const MAX_TELEGRAM_BODY_LENGTH = 1024
@@ -160,6 +163,8 @@ async function handleGet(req: NextRequest) {
       blast: {
         id: source.id, channel: source.channel, batchName: source.batchName, title: source.title, body: source.body,
         fromAddress: source.fromAddress, targetType: source.targetType, targetUsernames: source.targetUsernames, status: source.status,
+        titleEn: source.titleEn, bodyEn: source.bodyEn, imageUrl: source.imageUrl, iconUrl: source.iconUrl,
+        linkType: source.linkType, linkValue: source.linkValue, delivery: source.delivery,
       },
       audience: {
         hasRecipients: a.hasRecipients,
@@ -230,6 +235,40 @@ async function handlePost(req: NextRequest) {
       if (images.length > TELEGRAM_MAX_IMAGES) return err(`Maksimal ${TELEGRAM_MAX_IMAGES} gambar per pesan Telegram`)
       if (images.length === 0 && !text) return err('Isi chat Telegram diperlukan')
     }
+
+    // Push v2: dwibahasa, gambar banner, ikon, tautan tujuan, mode kirim. Channel lain tidak memakainya.
+    let titleEn = '', bodyEn = '', imageUrl: string | null = null, iconUrl: string | null = null
+    let linkType: LinkType = 'detail', linkValue: string | null = null, delivery: 'push' | 'silent' = 'push'
+    if (channel === 'push') {
+      if (title.length > MAX_PUSH_TITLE_LENGTH) return err(`Judul maksimum ${MAX_PUSH_TITLE_LENGTH} karakter`)
+      titleEn = String(body.titleEn ?? '').trim()
+      bodyEn = String(body.bodyEn ?? '').trim()
+      if (titleEn.length > MAX_PUSH_TITLE_LENGTH) return err(`Judul English maksimum ${MAX_PUSH_TITLE_LENGTH} karakter`)
+      if (bodyEn.length > MAX_BODY_LENGTH) return err(`Isi English maksimum ${MAX_BODY_LENGTH} karakter`)
+      // Versi English boleh kosong seluruhnya, tapi tidak boleh setengah terisi.
+      if (!!titleEn !== !!bodyEn) return err('Versi English harus mengisi judul dan isi, atau dikosongkan dua-duanya')
+
+      const httpsOrNull = (raw: unknown, label: string): string | null | Response => {
+        const v = typeof raw === 'string' ? raw.trim() : ''
+        if (!v) return null
+        try { if (new URL(v).protocol !== 'https:') throw new Error() } catch { return err(`URL ${label} tidak valid`) }
+        return v
+      }
+      const img = httpsOrNull(body.imageUrl, 'gambar'); if (img instanceof Response) return img; imageUrl = img
+      const icon = httpsOrNull(body.iconUrl, 'ikon'); if (icon instanceof Response) return icon; iconUrl = icon
+
+      delivery = body.delivery === 'silent' ? 'silent' : 'push'
+      linkType = LINK_TYPES.includes(body.linkType) ? body.linkType : 'detail'
+      if (linkType === 'screen') {
+        linkValue = String(body.linkValue ?? '')
+        if (!NOTIFICATION_SCREENS.some(sc => sc.key === linkValue)) return err('Halaman tujuan tidak dikenal')
+      } else if (linkType === 'url') {
+        linkValue = String(body.linkValue ?? '').trim()
+        const check = checkWhitelistedUrl(linkValue, await getWhitelistEntries())
+        if (!check.ok) return err(urlCheckError(check))
+      }
+    }
+
     if (scheduledAtRaw && isNaN(scheduledAtRaw.getTime())) return err('Waktu pengiriman tidak valid')
     if (scheduledAtRaw && scheduledAtRaw.getTime() < Date.now() - 60_000) return err('Waktu pengiriman tidak boleh di masa lalu')
 
@@ -299,6 +338,7 @@ async function handlePost(req: NextRequest) {
       channel,
       title,
       body: messageBody,
+      titleEn, bodyEn, imageUrl, iconUrl, linkType, linkValue, delivery,
       targetType,
       targetUsernames,
       fromAddress,

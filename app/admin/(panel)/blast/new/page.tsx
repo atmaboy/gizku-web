@@ -3,15 +3,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  AtSign, Bell, Check, ChevronDown, Copy, ImagePlus, Link2, Mail, RotateCcw, Send, Users, X, type LucideIcon,
+  AtSign, Bell, Check, ChevronDown, Copy, ImagePlus, Link2, Mail, RotateCcw, Send, Trash2, Users, X, type LucideIcon,
 } from 'lucide-react'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import {
-  Button, Card, FormField, Input, Modal, Progress, SectionNumber, SegmentedControl, Select, Skeleton, Textarea,
+  Button, Card, FormField, Input, Modal, Progress, SectionNumber, SegmentedControl, Select, Skeleton, Tabs, Textarea,
 } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { EmailBodyPreview, TelegramBodyPreview } from '@/components/admin/blast/BlastBodyPreview'
 import { TELEGRAM_MAX_IMAGES, buildImageLine, isHttpUrl, splitTelegramBody } from '@/lib/blastContent'
+import {
+  NOTIFICATION_SCREENS, URL_CHECK_MESSAGES, checkWhitelistedUrl, type LinkType, type WhitelistEntry,
+} from '@/lib/notificationLinks'
 
 const MAX_TARGETS = 10
 const MAX_EMAIL_TARGETS = 100
@@ -22,12 +25,15 @@ const EMAIL_BODY_MAX = 5000
 // batasnya lebih longgar dari push (300) tapi tidak sepanjang email.
 const TELEGRAM_BODY_MAX = 1024
 const PUSH_BODY_MAX = 300
+const PUSH_TITLE_MAX = 65
+const DEFAULT_WHITELIST: WhitelistEntry[] = [{ domain: 'gizku.com', includeSubdomains: true }]
+type Lang = 'id' | 'en'
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
 // Telegram sendPhoto tidak menerima GIF animasi sebagai foto.
 const TELEGRAM_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_IMAGE_MB = 5
 
-type Estimate = { targeted: number; reachable: number; platforms: { ios: number; android: number } }
+type Estimate = { targeted: number; reachable: number; inbox?: number; platforms: { ios: number; android: number } }
 type DuplicateMode = 'all' | 'exclude_failed' | 'only_failed'
 /** "Duplikat" from the batch detail page (?duplicate=<id>&mode=…): recipients come from the source batch log. */
 type DuplicateState = {
@@ -56,6 +62,23 @@ export default function BlastComposePage() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [fromAddress, setFromAddress] = useState<FromAddress>('support')
+  // Push v2
+  const [titleEn, setTitleEn] = useState('')
+  const [bodyEn, setBodyEn] = useState('')
+  const [langTab, setLangTab] = useState<Lang>('id')
+  const [previewLang, setPreviewLang] = useState<Lang>('id')
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
+  const [iconMode, setIconMode] = useState<'default' | 'custom'>('default')
+  const [iconUrl, setIconUrl] = useState<string | null>(null)
+  const [linkType, setLinkType] = useState<LinkType>('detail')
+  const [screenKey, setScreenKey] = useState(NOTIFICATION_SCREENS[0].key)
+  const [linkUrl, setLinkUrl] = useState('')
+  const [delivery, setDelivery] = useState<'push' | 'silent'>('push')
+  const [whitelist, setWhitelist] = useState<WhitelistEntry[] | null>(null)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [uploadingIcon, setUploadingIcon] = useState(false)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+  const iconInputRef = useRef<HTMLInputElement>(null)
   const [targetType, setTargetType] = useState<'all' | 'specific'>('all')
   const [usernames, setUsernames] = useState<{ value: string; label: string }[]>([])
   const [usernameInput, setUsernameInput] = useState('')
@@ -76,6 +99,7 @@ export default function BlastComposePage() {
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   const isEmail = channel === 'email'
+  const isPush = channel === 'push'
   const maxTargets = isEmail ? MAX_EMAIL_TARGETS : MAX_TARGETS
   const isTelegram = channel === 'telegram'
   const bodyMax = isEmail ? EMAIL_BODY_MAX : isTelegram ? TELEGRAM_BODY_MAX : PUSH_BODY_MAX
@@ -101,6 +125,15 @@ export default function BlastComposePage() {
         setTitle(src.title ?? '')
         setBody(src.body)
         if (src.channel === 'email') setFromAddress(src.fromAddress === 'marketing' ? 'marketing' : 'support')
+        if (src.channel === 'push') {
+          const p = d.blast as { titleEn?: string; bodyEn?: string; imageUrl?: string | null; iconUrl?: string | null; linkType?: LinkType; linkValue?: string | null; delivery?: 'push' | 'silent' }
+          setTitleEn(p.titleEn ?? ''); setBodyEn(p.bodyEn ?? ''); setBannerUrl(p.imageUrl ?? null)
+          setIconUrl(p.iconUrl ?? null); setIconMode(p.iconUrl ? 'custom' : 'default')
+          setLinkType(p.linkType ?? 'detail')
+          if (p.linkType === 'screen' && p.linkValue) setScreenKey(p.linkValue)
+          if (p.linkType === 'url') setLinkUrl(p.linkValue ?? '')
+          setDelivery(p.delivery === 'silent' ? 'silent' : 'push')
+        }
         const a = d.audience as { hasRecipients: boolean; all: number; excludeFailed: number; onlyFailed: number }
         if (a.hasRecipients) {
           const counts: Record<DuplicateMode, number> = { all: a.all, exclude_failed: a.excludeFailed, only_failed: a.onlyFailed }
@@ -116,6 +149,14 @@ export default function BlastComposePage() {
       })
       .catch(() => toast.error('Gagal memuat batch sumber'))
       .finally(() => setLoadingDuplicate(false))
+  }, [])
+
+  // Whitelist Domain untuk validasi tautan web (server tetap mengecek ulang saat kirim).
+  useEffect(() => {
+    fetch('/api/admin/link-whitelist')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.domains) setWhitelist(d.domains) })
+      .catch(() => { /* server tetap memvalidasi; fallback ke gizku.com saja */ })
   }, [])
 
   useEffect(() => {
@@ -248,6 +289,42 @@ export default function BlastComposePage() {
     }
   }
 
+  async function uploadBlastImage(file: File): Promise<string | null> {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/admin/blast/upload-image', { method: 'POST', body: fd })
+    const d = await res.json()
+    if (!res.ok) { toast.error(d.error ?? 'Upload gambar gagal'); return null }
+    return d.url as string
+  }
+
+  async function handleBannerFile(file: File) {
+    if (!TELEGRAM_IMAGE_TYPES.includes(file.type)) { toast.error('Gunakan gambar JPEG, PNG, atau WebP.'); return }
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) { toast.error(`Ukuran gambar terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal ${MAX_IMAGE_MB} MB.`); return }
+    setUploadingBanner(true)
+    try { const url = await uploadBlastImage(file); if (url) setBannerUrl(url) }
+    catch { toast.error('Gagal upload gambar, coba lagi') }
+    finally { setUploadingBanner(false) }
+  }
+
+  async function handleIconFile(file: File) {
+    if (file.type !== 'image/png') { toast.error('Ikon harus berformat PNG.'); return }
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) { toast.error(`Ukuran ikon terlalu besar. Maksimal ${MAX_IMAGE_MB} MB.`); return }
+    const dims = await new Promise<{ w: number; h: number } | null>(resolve => {
+      const img = new window.Image()
+      const objUrl = URL.createObjectURL(file)
+      img.onload = () => { resolve({ w: img.naturalWidth, h: img.naturalHeight }); URL.revokeObjectURL(objUrl) }
+      img.onerror = () => { resolve(null); URL.revokeObjectURL(objUrl) }
+      img.src = objUrl
+    })
+    if (!dims) { toast.error('File gambar tidak bisa dibaca.'); return }
+    if (dims.w !== dims.h || dims.w < 128) { toast.error(`Ikon harus persegi dan minimal 128×128 px (file ini ${dims.w}×${dims.h}).`); return }
+    setUploadingIcon(true)
+    try { const url = await uploadBlastImage(file); if (url) setIconUrl(url) }
+    catch { toast.error('Gagal upload ikon, coba lagi') }
+    finally { setUploadingIcon(false) }
+  }
+
   const pendingHrefInvalid = !!pendingImage?.href.trim() && !isHttpUrl(pendingImage.href)
   function confirmPendingImage() {
     if (!pendingImage || pendingHrefInvalid) return
@@ -257,6 +334,8 @@ export default function BlastComposePage() {
 
   function resetForm() {
     setChannel('push'); setBatchName(''); setTitle(''); setBody(''); setFromAddress('support')
+    setTitleEn(''); setBodyEn(''); setLangTab('id'); setBannerUrl(null); setIconMode('default'); setIconUrl(null)
+    setLinkType('detail'); setLinkUrl(''); setDelivery('push')
     setTargetType('all'); setUsernames([]); setUsernameInput('')
     setSendMode('now'); setDate(''); setHour('')
     setDuplicate(null)
@@ -270,8 +349,16 @@ export default function BlastComposePage() {
     setUsernames([])
   }
 
+  const urlCheck = linkType === 'url' ? checkWhitelistedUrl(linkUrl, whitelist ?? DEFAULT_WHITELIST) : null
+  const enHalfFilled = isPush && (!!titleEn.trim() !== !!bodyEn.trim())
+  const pushOk = !isPush || (
+    (linkType !== 'url' || !!urlCheck?.ok)
+    && (iconMode === 'default' || !!iconUrl)
+    && !enHalfFilled
+  )
   const canSubmit = batchName.trim() !== '' && body.trim() !== ''
     && (channel === 'telegram' || title.trim() !== '')
+    && pushOk
     && (dupActive ? dupCount > 0 : (targetType === 'all' || usernames.length > 0))
     && (sendMode === 'now' || (date !== '' && hour !== ''))
 
@@ -300,6 +387,12 @@ export default function BlastComposePage() {
           title: channel === 'telegram' ? undefined : title.trim(),
           body: body.trim(),
           fromAddress: isEmail ? fromAddress : undefined,
+          ...(isPush ? {
+            titleEn: titleEn.trim(), bodyEn: bodyEn.trim(),
+            imageUrl: bannerUrl, iconUrl: iconMode === 'custom' ? iconUrl : null,
+            linkType, linkValue: linkType === 'screen' ? screenKey : linkType === 'url' ? linkUrl.trim() : null,
+            delivery,
+          } : {}),
           targetType: dupActive ? 'list' : targetType,
           targetUsernames: !dupActive && targetType === 'specific' ? usernames.map(u => u.value) : undefined,
           duplicateFrom: dupActive && duplicate ? { id: duplicate.id, mode: duplicate.mode } : undefined,
@@ -366,6 +459,8 @@ export default function BlastComposePage() {
           )
         })}
       </div>
+
+      <p className="text-sm text-secondary mt-3 leading-normal">Hanya channel Push App yang ikut tersimpan di halaman Notifikasi aplikasi.</p>
 
       {isEmail && (
         <fieldset className="mt-4">
@@ -466,6 +561,184 @@ export default function BlastComposePage() {
         </p>
       )}
     </div>
+  )
+
+
+  const idDone = title.trim() !== '' && body.trim() !== ''
+  const enDone = titleEn.trim() !== '' && bodyEn.trim() !== ''
+  const tabCheck = (done: boolean) => done ? <Check size={14} aria-hidden className="text-green-600" /> : null
+  const pushContentSection = (
+    <div className="flex flex-col gap-4">
+      <FormField label="Nama Batch (internal)" htmlFor="blast-batch" help="Untuk memudahkan pencarian di riwayat batch. Tidak ditampilkan ke user.">
+        <Input id="blast-batch" value={batchName} onChange={e => setBatchName(e.target.value.slice(0, 80))} placeholder="Contoh: Promo Akhir Bulan - Broadcast Nasional" />
+      </FormField>
+
+      <div>
+        <Tabs<Lang>
+          ariaLabel="Bahasa konten" idPrefix="blast-lang" value={langTab} onChange={setLangTab}
+          items={[
+            { value: 'id', label: 'Bahasa Indonesia', badge: tabCheck(idDone) },
+            { value: 'en', label: 'English', badge: tabCheck(enDone) },
+          ]}
+        />
+        <div role="tabpanel" id={`blast-lang-panel-${langTab}`} aria-labelledby={`blast-lang-tab-${langTab}`} className="flex flex-col gap-4 pt-4 lg:border-t lg:border-border">
+          <FormField
+            label={langTab === 'id' ? 'Judul Notifikasi' : 'Notification title'} htmlFor={`blast-title-${langTab}`} required={langTab === 'id'}
+            labelAside={<span className="text-sm text-secondary tabular-nums">{(langTab === 'id' ? title : titleEn).length}/{PUSH_TITLE_MAX}</span>}
+          >
+            <Input
+              id={`blast-title-${langTab}`}
+              value={langTab === 'id' ? title : titleEn}
+              onChange={e => (langTab === 'id' ? setTitle : setTitleEn)(e.target.value.slice(0, PUSH_TITLE_MAX))}
+              placeholder={langTab === 'id' ? 'Contoh: Fitur Baru: Analisa Otomatis' : 'e.g. New: Automatic Analysis'}
+            />
+          </FormField>
+          <FormField
+            label={langTab === 'id' ? 'Isi Pesan' : 'Message'} htmlFor={`blast-body-${langTab}`} required={langTab === 'id'}
+            labelAside={<span className="text-sm text-secondary tabular-nums">{(langTab === 'id' ? body : bodyEn).length}/{PUSH_BODY_MAX}</span>}
+          >
+            <Textarea
+              id={`blast-body-${langTab}`}
+              value={langTab === 'id' ? body : bodyEn}
+              onChange={e => (langTab === 'id' ? setBody : setBodyEn)(e.target.value.slice(0, PUSH_BODY_MAX))}
+              rows={4}
+              placeholder={langTab === 'id' ? 'Tuliskan isi notifikasi di sini...' : 'Write the notification text here...'}
+            />
+          </FormField>
+        </div>
+        <p className={cn('text-sm mt-2 leading-normal', enHalfFilled ? 'text-rose-600' : 'text-secondary')}>
+          {enHalfFilled
+            ? 'Versi English harus mengisi judul dan isi, atau dikosongkan dua-duanya.'
+            : 'User menerima versi sesuai bahasa yang dipilih di app. Kalau versi English kosong, user English menerima versi Bahasa Indonesia.'}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-base font-semibold text-primary mb-1.5">Gambar <span className="font-normal text-secondary">(opsional)</span></p>
+        {bannerUrl ? (
+          <div className="flex items-start gap-3 flex-wrap">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={bannerUrl} alt="Gambar banner push" className="w-[200px] aspect-[2/1] object-cover rounded-sm border border-border" />
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" icon={ImagePlus} loading={uploadingBanner} onClick={() => bannerInputRef.current?.click()}>Ganti</Button>
+              <Button variant="outline-danger" size="sm" icon={Trash2} onClick={() => setBannerUrl(null)}>Hapus</Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" icon={ImagePlus} loading={uploadingBanner} onClick={() => bannerInputRef.current?.click()}>
+            {uploadingBanner ? 'Mengupload…' : 'Pilih Gambar'}
+          </Button>
+        )}
+        <input ref={bannerInputRef} type="file" accept={TELEGRAM_IMAGE_TYPES.join(',')} className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleBannerFile(f); e.target.value = '' }} />
+        <p className="text-sm text-secondary mt-1.5 leading-normal">JPEG/PNG/WebP, maks {MAX_IMAGE_MB}MB, rasio 2:1. Hanya tampil sebagai gambar besar di banner push, tidak di halaman Notifikasi.</p>
+      </div>
+    </div>
+  )
+
+  const radioCard = (active: boolean) => cn(
+    'relative flex gap-2.5 rounded-sm px-3.5 py-3 cursor-pointer transition-colors',
+    active ? 'border-2 border-brand bg-green-50' : 'border border-border-strong hover:bg-muted',
+  )
+
+  const urlMsg: { tone: 'muted' | 'error' | 'ok'; text: string } = !urlCheck
+    ? { tone: 'muted', text: '' }
+    : urlCheck.ok ? { tone: 'ok', text: `${urlCheck.host} terdaftar di whitelist. Dibuka di webview dalam aplikasi Gizku.` }
+    : urlCheck.reason === 'empty' ? { tone: 'muted', text: 'Hanya domain di Whitelist Domain yang bisa dipakai. gizku.com selalu terdaftar.' }
+    : urlCheck.reason === 'format' ? { tone: 'error', text: URL_CHECK_MESSAGES.format }
+    : urlCheck.reason === 'https' ? { tone: 'error', text: URL_CHECK_MESSAGES.https }
+    : { tone: 'error', text: URL_CHECK_MESSAGES.notWhitelisted(urlCheck.host ?? '') }
+
+  const displaySection = (
+    <div className="flex flex-col gap-5">
+      <fieldset>
+        <legend className="text-base font-semibold text-primary mb-2">Ikon notifikasi</legend>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+          <label className={radioCard(iconMode === 'default')}>
+            <input type="radio" name="icon-mode" checked={iconMode === 'default'} onChange={() => setIconMode('default')} className="mt-1 accent-[var(--green-600)]" />
+            <span className="min-w-0">
+              <span className="block text-base font-semibold text-primary">Logo Gizku (default)</span>
+              <span className="block text-sm text-secondary leading-normal">Avatar di halaman Notifikasi memakai logo Gizku.</span>
+            </span>
+          </label>
+          <label className={radioCard(iconMode === 'custom')}>
+            <input type="radio" name="icon-mode" checked={iconMode === 'custom'} onChange={() => setIconMode('custom')} className="mt-1 accent-[var(--green-600)]" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-semibold text-primary">Ikon khusus</span>
+              <span className="block text-sm text-secondary leading-normal">PNG persegi, minimal 128×128 px.</span>
+              {iconMode === 'custom' && (
+                <span className="flex items-center gap-2.5 mt-2">
+                  {iconUrl && /* eslint-disable-next-line @next/next/no-img-element */ <img src={iconUrl} alt="Ikon khusus" className="w-10 h-10 rounded-full border border-border object-cover" />}
+                  <Button variant="outline" size="sm" icon={ImagePlus} loading={uploadingIcon} onClick={e => { e.preventDefault(); iconInputRef.current?.click() }}>
+                    {iconUrl ? 'Ganti' : 'Pilih PNG'}
+                  </Button>
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
+        <input ref={iconInputRef} type="file" accept="image/png" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleIconFile(f); e.target.value = '' }} />
+      </fieldset>
+
+      <fieldset>
+        <legend className="text-base font-semibold text-primary mb-2">Saat notifikasi diketuk</legend>
+        <div className="flex flex-col gap-2.5">
+          <label className={radioCard(linkType === 'detail')}>
+            <input type="radio" name="link-type" checked={linkType === 'detail'} onChange={() => setLinkType('detail')} className="mt-1 accent-[var(--green-600)]" />
+            <span className="block text-base font-semibold text-primary">Buka detail notifikasi <span className="font-normal text-secondary">(default)</span></span>
+          </label>
+          <label className={radioCard(linkType === 'screen')}>
+            <input type="radio" name="link-type" checked={linkType === 'screen'} onChange={() => setLinkType('screen')} className="mt-1 accent-[var(--green-600)]" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-semibold text-primary">Buka halaman di app</span>
+              <Select aria-label="Halaman tujuan" className="mt-2 lg:max-w-[320px]" value={screenKey} disabled={linkType !== 'screen'} onChange={e => setScreenKey(e.target.value)}>
+                {NOTIFICATION_SCREENS.map(sc => <option key={sc.key} value={sc.key}>{sc.label}</option>)}
+              </Select>
+            </span>
+          </label>
+          <label className={radioCard(linkType === 'url')}>
+            <input type="radio" name="link-type" checked={linkType === 'url'} onChange={() => setLinkType('url')} className="mt-1 accent-[var(--green-600)]" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-semibold text-primary">Buka tautan web di dalam aplikasi</span>
+              <Input
+                aria-label="URL tujuan" inputMode="url" autoComplete="off" className="mt-2" placeholder="https://gizku.com/tips"
+                value={linkUrl} disabled={linkType !== 'url'} aria-describedby="blast-url-msg"
+                invalid={linkType === 'url' && urlMsg.tone === 'error'}
+                onChange={e => setLinkUrl(e.target.value)}
+              />
+              {linkType === 'url' && (
+                <span id="blast-url-msg" className={cn('block text-sm mt-1.5 leading-normal', urlMsg.tone === 'error' ? 'text-rose-600' : urlMsg.tone === 'ok' ? 'text-green-700' : 'text-secondary')}>
+                  {urlMsg.tone === 'ok' && <Check size={14} aria-hidden className="inline mr-1 -mt-0.5" />}
+                  {urlMsg.text}{' '}
+                  <a href="/admin/blast/whitelist" target="_blank" rel="noreferrer" className="font-semibold text-link hover:underline whitespace-nowrap">Kelola whitelist</a>
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
+      </fieldset>
+    </div>
+  )
+
+  const deliverySection = (
+    <fieldset className="mb-4">
+      <legend className="text-base font-semibold text-primary mb-2">Kirim sebagai</legend>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+        {([
+          { v: 'push' as const, label: 'Banner push + halaman Notifikasi', hint: 'User yang push-nya aktif melihat banner; semua target tetap menerimanya di halaman Notifikasi.' },
+          { v: 'silent' as const, label: 'Halaman Notifikasi saja (senyap)', hint: 'Tidak ada banner atau bunyi. Muncul sebagai badge lonceng saat user membuka app.' },
+        ]).map(o => (
+          <label key={o.v} className={radioCard(delivery === o.v)}>
+            <input type="radio" name="delivery" checked={delivery === o.v} onChange={() => setDelivery(o.v)} className="mt-1 accent-[var(--green-600)]" />
+            <span className="min-w-0">
+              <span className="block text-base font-semibold text-primary">{o.label}</span>
+              <span className="block text-sm text-secondary leading-normal">{o.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   )
 
   const duplicateSection = duplicate && (
@@ -584,6 +857,8 @@ export default function BlastComposePage() {
 
   const timeSection = (
     <>
+      {isPush && deliverySection}
+      {isPush && <p className="text-base font-semibold text-primary mb-2">Waktu kirim</p>}
       <SegmentedControl
         ariaLabel="Waktu pengiriman"
         options={[{ value: 'now', label: 'Kirim Sekarang' }, { value: 'schedule', label: 'Jadwalkan' }]}
@@ -611,23 +886,57 @@ export default function BlastComposePage() {
 
   const preview = (
     <>
-      {channel === 'push' && (
-        <div className="w-full max-w-[300px] mx-auto h-[480px] rounded-[32px] overflow-hidden shadow-md bg-gradient-to-b from-green-800 to-bark-800">
-          <div className="h-full flex flex-col items-center pt-9 px-4">
-            <div className="text-white text-[38px] font-semibold tracking-tight">14:32</div>
-            <div className="text-white/75 text-xs mt-0.5 mb-6">Selasa, 21 Juli</div>
-            <div className="w-full rounded-lg p-3.5 bg-white/15 backdrop-blur-md shadow-md">
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="w-[18px] h-[18px] rounded-xs bg-brand flex-shrink-0" />
-                <span className="text-[11px] font-semibold text-white/85 flex-1">GIZKU</span>
-                <span className="text-[11px] text-white/65">sekarang</span>
+      {channel === 'push' && (() => {
+        const useEn = previewLang === 'en' && titleEn.trim() !== '' && bodyEn.trim() !== ''
+        const pTitle = (useEn ? titleEn : title) || 'Judul notifikasi'
+        const pBody = (useEn ? bodyEn : body) || 'Isi pesan notifikasi akan tampil di sini seperti yang dilihat user.'
+        const avatar = iconMode === 'custom' && iconUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={iconUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+          : <div className="w-10 h-10 rounded-full bg-brand" aria-hidden />
+        return (
+          <div className="flex flex-col gap-4">
+            <SegmentedControl<Lang> ariaLabel="Bahasa pratinjau" size="sm" mobileGrid={false} className="self-center" value={previewLang} onChange={setPreviewLang}
+              options={[{ value: 'id', label: 'ID' }, { value: 'en', label: 'EN' }]} />
+            {previewLang === 'en' && !useEn && <p className="text-xs text-secondary text-center -mt-2">Versi English kosong — user English menerima versi Indonesia.</p>}
+            <div>
+              <p className="text-xs font-semibold text-secondary mb-1.5">Banner push (Android)</p>
+              {delivery === 'silent' ? (
+                <p className="rounded-md border border-dashed border-border-strong px-3 py-4 text-sm text-secondary text-center">Mode senyap: tidak ada banner push.</p>
+              ) : (
+                <div className="rounded-lg bg-bark-800 p-3 shadow-md">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-brand flex-shrink-0" aria-hidden />
+                    <span className="text-[11px] text-white/70">Gizku · sekarang</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-bold text-white break-words">{pTitle}</div>
+                      <div className="text-xs text-white/80 leading-relaxed line-clamp-2 break-words">{pBody}</div>
+                    </div>
+                    {avatar}
+                  </div>
+                  {bannerUrl && /* eslint-disable-next-line @next/next/no-img-element */ <img src={bannerUrl} alt="" className="mt-2.5 w-full aspect-[2/1] object-cover rounded-sm" />}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-secondary mb-1.5">Halaman Notifikasi</p>
+              <div className="flex gap-3 rounded-md border border-border bg-green-50 p-3.5">
+                <div className="shrink-0">{avatar}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-2">
+                    <span className="flex-1 text-sm font-semibold text-primary break-words line-clamp-2">{pTitle}</span>
+                    <span className="text-xs text-secondary shrink-0">14.32</span>
+                  </div>
+                  <p className="text-[13px] text-secondary leading-snug line-clamp-2 break-words mt-0.5">{pBody}</p>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-brand mt-1.5 shrink-0" aria-label="Belum dibaca" />
               </div>
-              <div className="text-[13px] font-bold text-white mb-0.5 break-words">{title || 'Judul notifikasi'}</div>
-              <div className="text-xs text-white/80 leading-relaxed line-clamp-2 break-words">{body || 'Isi pesan notifikasi akan tampil di sini seperti yang dilihat user.'}</div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
       {channel === 'telegram' && (
         <div className="w-full max-w-[300px] mx-auto h-[480px] rounded-[32px] overflow-hidden shadow-md flex flex-col bg-bark-900">
           <div className="flex items-center gap-2.5 pt-10 pb-3 px-3.5 bg-bark-800 border-b border-white/10">
@@ -675,8 +984,9 @@ export default function BlastComposePage() {
       {estimate && (
         <div className="flex flex-col gap-3 mt-4">
           {[
-            { label: 'Dapat dijangkau', value: estimate.reachable, tone: 'brand' as const },
-            ...(channel === 'push' ? [
+            ...(isPush ? [{ label: 'Masuk halaman Notifikasi', value: estimate.inbox ?? estimate.targeted, tone: 'brand' as const }] : []),
+            { label: isPush ? 'Dapat banner push' : 'Dapat dijangkau', value: isPush && delivery === 'silent' ? 0 : estimate.reachable, tone: isPush ? 'green' as const : 'brand' as const },
+            ...(isPush && delivery !== 'silent' ? [
               { label: 'Android', value: estimate.platforms.android, tone: 'green' as const },
               { label: 'iOS', value: estimate.platforms.ios, tone: 'sand' as const },
             ] : []),
@@ -688,8 +998,13 @@ export default function BlastComposePage() {
           ))}
         </div>
       )}
+      {isPush && (
+        <p className="text-sm text-green-800 bg-green-50 border border-green-200 rounded-sm px-3 py-2 mt-4 leading-normal">
+          User tanpa push token tidak lagi dihitung gagal: notifikasinya tetap masuk halaman Notifikasi.
+        </p>
+      )}
       <p className="text-sm text-secondary mt-4 leading-normal">
-        {channel === 'push' && <>Dikirim via <strong className="text-primary">FCM</strong> (Android) &amp; <strong className="text-primary">APNs</strong> (iOS).</>}
+        {channel === 'push' && <>Banner dikirim via <strong className="text-primary">FCM</strong> (Android) &amp; <strong className="text-primary">APNs</strong> (iOS).</>}
         {channel === 'telegram' && <>Dikirim via <strong className="text-primary">Bot Gizku</strong> di Telegram.</>}
         {isEmail && <>Dikirim via <strong className="text-primary">Resend</strong>, dari <strong className="text-primary">{selectedSender.address}</strong>.</>}
       </p>
@@ -731,20 +1046,22 @@ export default function BlastComposePage() {
         <Card outline="brand" icon={Send} title="Buat Blast Baru" className="xl:col-span-8 max-lg:hidden" footer={actions} bodyClassName="flex flex-col gap-5">
           {section(1, 'Channel Notifikasi', 'Pilih saluran pengiriman blast ini.', channelSection, true)}
           {section(2, isEmail ? 'Konten Email' : 'Konten Notifikasi',
-            channel === 'push' ? 'Nama batch untuk keperluan internal, serta judul dan isi pesan yang tampil di perangkat user.'
+            channel === 'push' ? 'Nama batch internal, serta judul dan isi pesan dalam Bahasa Indonesia (wajib) dan English (opsional).'
             : channel === 'telegram' ? 'Nama batch untuk keperluan internal, serta isi chat yang dikirim lewat Bot Gizku di Telegram.'
             : 'Nama campaign untuk keperluan internal, serta subjek dan isi email yang dikirim ke penerima.',
-            contentSection)}
-          {section(3, 'Target Penerima', `Pilih siapa yang akan menerima ${isEmail ? 'email' : 'notifikasi'} ini.`, targetSection)}
-          {section(4, 'Waktu Pengiriman', 'Kirim langsung atau jadwalkan untuk waktu tertentu.', timeSection)}
+            isPush ? pushContentSection : contentSection)}
+          {isPush && section(3, 'Tampilan di app', 'Ikon di halaman Notifikasi dan apa yang terjadi saat user mengetuk notifikasi.', displaySection)}
+          {section(isPush ? 4 : 3, 'Target Penerima', `Pilih siapa yang akan menerima ${isEmail ? 'email' : 'notifikasi'} ini.`, targetSection)}
+          {section(isPush ? 5 : 4, isPush ? 'Cara & Waktu Kirim' : 'Waktu Pengiriman', isPush ? 'Pilih apakah ada banner push, lalu kirim langsung atau jadwalkan.' : 'Kirim langsung atau jadwalkan untuk waktu tertentu.', timeSection)}
         </Card>
 
         {/* Mobile: one card per section */}
         <div className="lg:hidden flex flex-col gap-4">
           <Card>{section(1, 'Channel Notifikasi', 'Pilih saluran pengiriman blast ini.', channelSection, true)}</Card>
-          <Card>{section(2, isEmail ? 'Konten Email' : 'Konten Notifikasi', 'Nama batch internal, judul dan isi pesan.', contentSection, true)}</Card>
-          <Card>{section(3, 'Target Penerima', `Pilih siapa yang akan menerima ${isEmail ? 'email' : 'notifikasi'} ini.`, targetSection, true)}</Card>
-          <Card>{section(4, 'Waktu Pengiriman', 'Kirim langsung atau jadwalkan.', timeSection, true)}</Card>
+          <Card>{section(2, isEmail ? 'Konten Email' : 'Konten Notifikasi', 'Nama batch internal, judul dan isi pesan.', isPush ? pushContentSection : contentSection, true)}</Card>
+          {isPush && <Card>{section(3, 'Tampilan di app', 'Ikon dan tujuan saat diketuk.', displaySection, true)}</Card>}
+          <Card>{section(isPush ? 4 : 3, 'Target Penerima', `Pilih siapa yang akan menerima ${isEmail ? 'email' : 'notifikasi'} ini.`, targetSection, true)}</Card>
+          <Card>{section(isPush ? 5 : 4, isPush ? 'Cara & Waktu Kirim' : 'Waktu Pengiriman', isPush ? 'Banner push atau senyap, kirim langsung atau jadwalkan.' : 'Kirim langsung atau jadwalkan.', timeSection, true)}</Card>
         </div>
 
         <div className="xl:col-span-4 flex flex-col gap-5 max-lg:gap-4 xl:sticky xl:top-[72px]">

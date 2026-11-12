@@ -1,7 +1,8 @@
 /**
  * Mobile-facing push token registration + delivery ack.
  *
- * POST /api/push?action=register   body: { token, platform }  — upsert this device's Expo push token
+ * POST /api/push?action=register   body: { token, platform, language? }  — upsert this device's Expo push token (+ app language 'id'|'en')
+ * POST /api/push?action=language   body: { token, language }  — update the app language stored for this device's token
  * POST /api/push?action=unregister body: { token }            — deactivate token (on logout)
  * POST /api/push?action=ack        body: { blastId, event }   — mark a blast as clicked/read by this user
  */
@@ -37,18 +38,31 @@ export async function POST(req: NextRequest) {
   const action = req.nextUrl.searchParams.get('action')
 
   if (action === 'register') {
-    const { token, platform } = await req.json()
+    const { token, platform, language } = await req.json()
     if (!token || typeof token !== 'string') return err('Push token diperlukan')
     if (platform !== 'ios' && platform !== 'android') return err('Platform tidak valid')
+    // Older app versions don't send a language: keep what's stored (default 'id').
+    const lang = language === 'en' || language === 'id' ? language : undefined
 
     await db.insert(pushTokens)
-      .values({ userId: user.userId, token, platform, isActive: true })
+      .values({ userId: user.userId, token, platform, isActive: true, ...(lang ? { language: lang } : {}) })
       .onConflictDoUpdate({
         target: pushTokens.token,
-        set: { userId: user.userId, platform, isActive: true, updatedAt: new Date(), lastSeenAt: new Date() },
+        set: { userId: user.userId, platform, isActive: true, updatedAt: new Date(), lastSeenAt: new Date(), ...(lang ? { language: lang } : {}) },
       })
 
     return ok({ message: 'Push token terdaftar' })
+  }
+
+  if (action === 'language') {
+    const { token, language } = await req.json()
+    if (!token || typeof token !== 'string') return err('Push token diperlukan')
+    if (language !== 'en' && language !== 'id') return err('Bahasa tidak valid')
+
+    await db.update(pushTokens).set({ language, updatedAt: new Date() })
+      .where(and(eq(pushTokens.token, token), eq(pushTokens.userId, user.userId)))
+
+    return ok({ message: 'Bahasa push diperbarui' })
   }
 
   if (action === 'unregister') {
