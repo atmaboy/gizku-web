@@ -28,7 +28,7 @@ export default function Hero({ model }: { model: RenderModel }) {
               {hero.eyebrow}
             </span>
           )}
-          <h1 id="hero-title" className="mt-5 lg:mt-7 text-[36px] leading-[1.12] lg:text-[48px] xl:text-[60px] lg:leading-[1.08] font-extrabold tracking-[-0.03em] text-primary">
+          <h1 id="hero-title" className="mt-5 lg:mt-7 text-[30px] leading-[1.15] sm:text-[36px] sm:leading-[1.12] lg:text-[48px] xl:text-[60px] lg:leading-[1.08] font-extrabold tracking-[-0.03em] text-primary">
             {first}
             {second && <>{' '}<span className="text-green-600 lg:block">{second}</span></>}
           </h1>
