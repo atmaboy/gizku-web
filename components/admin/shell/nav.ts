@@ -1,5 +1,5 @@
 import {
-  LayoutGrid, Users, History, Gauge, MessageSquare, Bell, Send, Globe, Settings, type LucideIcon,
+  LayoutGrid, Users, History, Gauge, MessageSquare, Bell, Send, Globe, Settings, Rocket, type LucideIcon,
 } from 'lucide-react'
 import type { AdminNavCounts } from '@/lib/adminCounts'
 
@@ -23,6 +23,7 @@ export const ADMIN_NAV: NavEntry[] = [
       { label: 'Landing Page',  href: '/admin/landing' },
       { label: 'Dokumen Legal', href: '/admin/legal' } ] },
   { type: 'header', label: 'Sistem' },
+  { type: 'item',   label: 'Rilis & Fitur',      icon: Rocket,        href: '/admin/releases' },
   { type: 'item',   label: 'Pengaturan',         icon: Settings,      href: '/admin/config' },
 ]
 
