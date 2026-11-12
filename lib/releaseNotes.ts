@@ -119,6 +119,13 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
     {
+      version: '1.9.1',
+      date: '2026-11-12',
+      changes: [
+        { type: 'improve', text: 'Landing page: judul utama (hero) di layar HP diperkecil dari 36px ke 30px agar lebih proporsional; tablet dan desktop tidak berubah.' },
+      ],
+    },
+    {
       version: '1.9.0',
       date: '2026-11-12',
       changes: [
