@@ -517,6 +517,8 @@ Seluruh konfigurasi landing disimpan sebagai **satu dokumen JSON** tervalidasi Z
 
 ## 📋 Changelog
 
+> **Sumber utama release notes & daftar fitur ada di backoffice `/admin/releases`** (data di `lib/releaseNotes.ts`, web + mobile, lengkap dengan versi). Aturan update setiap merge ke `main` ada di [`CLAUDE.md`](CLAUDE.md). Changelog di bawah hanya arsip s/d v1.7.2.
+
 ### v1.7.2 — 2026-09-30
 
 #### 📣 Blast Notifikasi
