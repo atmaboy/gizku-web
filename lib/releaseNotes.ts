@@ -130,6 +130,7 @@ export const RELEASES: Record<Platform, Release[]> = {
         { type: 'feat', text: 'Backoffice: menu baru Blast Notifikasi › Whitelist Domain. Tautan web di blast hanya boleh ke domain di daftar (gizku.com + subdomain default, tidak bisa dihapus); divalidasi langsung di form, di server saat dibuat, dan lagi saat cron mengirim blast terjadwal (dibatalkan dengan alasan bila domain sudah dihapus).' },
         { type: 'improve', text: 'Form Buat Blast: tab bahasa, pratinjau banner Android + baris halaman Notifikasi dengan toggle ID/EN, estimasi dipecah "Masuk halaman Notifikasi" dan "Dapat banner push". User tanpa push token tidak lagi dihitung gagal (status penerima baru "Hanya inbox") dan masuk hitungan Terkirim.' },
         { type: 'improve', text: 'Push dikirim sesuai bahasa app di perangkat: push_tokens.language diisi saat register dan diperbarui lewat POST /api/push?action=language. Payload push kini membawa notificationId, linkType, dan linkValue. Mobile lama tanpa update tetap aman (field baru opsional).' },
+        { type: 'improve', text: 'Aplikasi web: tombol kamera di bottom nav kini tampil "floating" dengan lekukan (notch) melengkung di garis atas bar dan bayangan hijau yang lebih tegas, sama seperti aplikasi mobile.' },
         { type: 'improve', text: 'read_count blast naik saat user membaca di halaman Notifikasi app (sekali per user), menggantikan ack read.' },
       ],
     },

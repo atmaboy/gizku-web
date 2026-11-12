@@ -22,10 +22,7 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="relative">
-        <div
-          className="flex bg-surface border-t"
-          style={{ borderColor: 'var(--color-border-default)', height: 72 }}
-        >
+        <div className="flex bg-surface" style={{ height: 72, paddingTop: 1 }}>
           {TABS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/')
             return (
@@ -46,12 +43,26 @@ export default function BottomNav() {
           })}
         </div>
 
+        {/* Garis atas bar + notch melengkung di sekeliling FAB (kamera "floating") */}
+        <div className="absolute top-0 left-0 right-0 flex items-start pointer-events-none" aria-hidden>
+          <div className="flex-1" style={{ height: 1, background: 'var(--color-border-default)' }} />
+          <svg width="120" height="52" viewBox="0 0 120 52" style={{ display: 'block', flexShrink: 0 }}>
+            <path
+              d="M 0 0.5 L 18 0.5 A 8 8 0 0 1 25.91 9.72 A 34.5 34.5 0 1 0 94.09 9.72 A 8 8 0 0 1 102 0.5 L 120 0.5"
+              fill="var(--color-bg-page)"
+              stroke="var(--color-border-default)"
+              strokeWidth="1"
+            />
+          </svg>
+          <div className="flex-1" style={{ height: 1, background: 'var(--color-border-default)' }} />
+        </div>
+
         <button
           type="button"
           onClick={openCaptureMenu}
           aria-label={t('nav.captureAriaLabel')}
-          className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-brand shadow-md cursor-pointer"
-          style={{ top: -26, width: 56, height: 56 }}
+          className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-brand cursor-pointer"
+          style={{ top: -26, width: 56, height: 56, boxShadow: '0 8px 18px -2px rgba(61,120,51,.45), 0 3px 6px rgba(36,30,25,.14)' }}
         >
           <IconCamera size={22} color="#fff" strokeWidth={1.8} />
         </button>
