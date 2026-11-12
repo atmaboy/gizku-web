@@ -61,10 +61,10 @@ export default function BottomNav() {
           type="button"
           onClick={openCaptureMenu}
           aria-label={t('nav.captureAriaLabel')}
-          className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full bg-brand cursor-pointer"
-          style={{ top: -26, width: 56, height: 56, boxShadow: '0 8px 18px -2px rgba(61,120,51,.45), 0 3px 6px rgba(36,30,25,.14)' }}
+          className="gz-fab absolute left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full cursor-pointer"
+          style={{ top: -26, width: 56, height: 56 }}
         >
-          <IconCamera size={22} color="#fff" strokeWidth={1.8} />
+          <IconCamera size={24} color="#fff" strokeWidth={2} />
         </button>
       </div>
     </div>
