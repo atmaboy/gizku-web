@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button'
 import TextField from '@/components/ui/TextField'
 import { IconArrowLeft, IconLock, IconPerson, IconMail } from '@/components/ui/icons'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { EMAIL_NOT_ALLOWED_CODE, isPlaceholderEmail } from '@/lib/emailDomain'
 
 type MaintenanceInfo = { title: string; description: string } | null
 type PageTab = 'login' | 'register' | 'reset'
@@ -84,6 +85,7 @@ function LoginPageInner() {
         if (!trimmedEmail) { setError(t('login.errors.emailRequired')); setLoading(false); return }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(trimmedEmail)) { setError(t('login.errors.emailInvalid')); setLoading(false); return }
+        if (isPlaceholderEmail(trimmedEmail)) { setError(t('login.errors.emailNotAllowed')); setLoading(false); return }
         if (consentRequired && !agreedToTerms) { setError(t('legalConsent.mustAgree')); setLoading(false); return }
       }
 
@@ -109,7 +111,7 @@ function LoginPageInner() {
         return
       }
 
-      if (!res.ok) { setError(data.error || t('login.errors.genericError')); return }
+      if (!res.ok) { setError(data.code === EMAIL_NOT_ALLOWED_CODE ? t('login.errors.emailNotAllowed') : data.error || t('login.errors.genericError')); return }
 
       localStorage.setItem('nl_token', data.token)
       localStorage.setItem('nl_user', JSON.stringify(data.user))

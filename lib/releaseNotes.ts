@@ -40,7 +40,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       items: [
         { name: 'Analisa foto makanan', description: 'Upload/kamera, AI (Anthropic Claude) mendeteksi makanan beserta kalori, protein, karbo, dan lemak. Kuota harian hanya terpotong jika analisa berhasil.' },
         { name: 'Riwayat & statistik', description: 'Rekap harian/mingguan, ringkasan nutrisi per hari, edit hasil analisa. Filter per tanggal atau jendela N hari terakhir.' },
-        { name: 'Autentikasi', description: 'Login/register JWT custom; wajib setuju Syarat & Ketentuan + Kebijakan Privasi saat register.' },
+        { name: 'Autentikasi', description: 'Login/register JWT custom; wajib setuju Syarat & Ketentuan + Kebijakan Privasi saat register; email palsu/sementara (example.com, mailinator, dll.) ditolak saat daftar & ganti email.' },
         { name: 'Reset & ubah password, ubah email', description: 'Dari Settings; admin bisa reset password user (user dipaksa ganti password di login berikutnya).' },
         { name: 'Dwibahasa (Indonesia/English)', description: 'UI, hasil analisa AI, dan konten legal dalam dua bahasa.' },
         { name: 'Request Kenaikan Limit Analisa', description: 'Ajukan tambahan kuota harian via transfer bank manual (tier, kode unik, bukti transfer) + ledger penggunaan.' },
@@ -118,6 +118,14 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.9.0',
+      date: '2026-11-12',
+      changes: [
+        { type: 'feat', text: 'Daftar akun dan ganti email menolak alamat email palsu/sementara: domain contoh (example.com/.net/.org, test.com, testing.com, email.com beserta subdomainnya), TLD cadangan (.test, .example, .invalid, .localhost, .local), dan ±120 ribu penyedia email sekali pakai (mailinator, yopmail, 10minutemail, …). Akun lama tidak diubah.' },
+        { type: 'improve', text: 'POST /api/auth?action=register dan /api/user?action=update_email mengembalikan `code: "email_not_allowed"` untuk email yang ditolak, sehingga pesan tampil sesuai bahasa. Aplikasi mobile tetap aman tanpa update: field `error` berisi pesan Bahasa Indonesia.' },
+      ],
+    },
     {
       version: '1.8.0',
       date: '2026-11-12',

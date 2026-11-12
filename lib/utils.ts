@@ -71,5 +71,5 @@ function corsHeaders(): HeadersInit {
 export const ok = (data: unknown) =>
   Response.json(data, { headers: corsHeaders() })
 
-export const err = (msg: string, status = 400) =>
-  Response.json({ error: msg }, { status, headers: corsHeaders() })
+export const err = (msg: string, status = 400, code?: string) =>
+  Response.json(code ? { error: msg, code } : { error: msg }, { status, headers: corsHeaders() })

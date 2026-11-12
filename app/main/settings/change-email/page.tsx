@@ -8,6 +8,7 @@ import TextField from '@/components/ui/TextField'
 import Button from '@/components/ui/Button'
 import { IconMail, IconCheck, IconClock } from '@/components/ui/icons'
 import { useTranslation } from '@/lib/i18n/LanguageContext'
+import { EMAIL_NOT_ALLOWED_CODE, isPlaceholderEmail } from '@/lib/emailDomain'
 
 function authHeaders() {
   return { Authorization: `Bearer ${localStorage.getItem('nl_token') ?? ''}` }
@@ -69,6 +70,7 @@ export default function ChangeEmailPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!trimmed) { setError(t('changeEmail.errors.emailRequired')); return }
     if (!emailRegex.test(trimmed)) { setError(t('changeEmail.errors.emailInvalid')); return }
+    if (isPlaceholderEmail(trimmed)) { setError(t('changeEmail.errors.emailNotAllowed')); return }
 
     setLoading(true)
     try {
@@ -79,7 +81,7 @@ export default function ChangeEmailPage() {
       })
       const data = await res.json()
       if (res.status === 401) { router.replace('/login'); return }
-      if (!res.ok) { setError(data.error || t('changeEmail.errors.updateFailed')); return }
+      if (!res.ok) { setError(data.code === EMAIL_NOT_ALLOWED_CODE ? t('changeEmail.errors.emailNotAllowed') : data.error || t('changeEmail.errors.updateFailed')); return }
 
       toast.success(t('changeEmail.updateSuccess'))
       setCurrentEmail(trimmed)
