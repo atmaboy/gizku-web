@@ -1,7 +1,8 @@
 /**
  * Mobile-facing push token registration + delivery ack.
  *
- * POST /api/push?action=register   body: { token, platform, language? }  — upsert this device's Expo push token (+ app language 'id'|'en')
+ * POST /api/push?action=register   body: { token, platform, language?, provider?, replaces? }  — upsert this device's push token (+ app language 'id'|'en').
+ *     provider 'expo' (default) | 'fcm' (native FCM token, Android only); `replaces` = the device's previous Expo token, deactivated so it isn't notified twice.
  * POST /api/push?action=language   body: { token, language }  — update the app language stored for this device's token
  * POST /api/push?action=unregister body: { token }            — deactivate token (on logout)
  * POST /api/push?action=ack        body: { blastId, event }   — mark a blast as clicked/read by this user
@@ -38,18 +39,26 @@ export async function POST(req: NextRequest) {
   const action = req.nextUrl.searchParams.get('action')
 
   if (action === 'register') {
-    const { token, platform, language } = await req.json()
+    const { token, platform, language, provider: providerRaw, replaces } = await req.json()
     if (!token || typeof token !== 'string') return err('Push token diperlukan')
     if (platform !== 'ios' && platform !== 'android') return err('Platform tidak valid')
     // Older app versions don't send a language: keep what's stored (default 'id').
     const lang = language === 'en' || language === 'id' ? language : undefined
+    const provider = providerRaw === 'fcm' ? 'fcm' : 'expo'
+    if (provider === 'fcm' && platform !== 'android') return err('Token FCM hanya untuk Android')
 
     await db.insert(pushTokens)
-      .values({ userId: user.userId, token, platform, isActive: true, ...(lang ? { language: lang } : {}) })
+      .values({ userId: user.userId, token, platform, provider, isActive: true, ...(lang ? { language: lang } : {}) })
       .onConflictDoUpdate({
         target: pushTokens.token,
-        set: { userId: user.userId, platform, isActive: true, updatedAt: new Date(), lastSeenAt: new Date(), ...(lang ? { language: lang } : {}) },
+        set: { userId: user.userId, platform, provider, isActive: true, updatedAt: new Date(), lastSeenAt: new Date(), ...(lang ? { language: lang } : {}) },
       })
+
+    // App yang pindah ke token FCM: matikan token Expo lama di perangkat yang sama (cegah notifikasi ganda).
+    if (provider === 'fcm' && typeof replaces === 'string' && replaces && replaces !== token) {
+      await db.update(pushTokens).set({ isActive: false, updatedAt: new Date() })
+        .where(and(eq(pushTokens.token, replaces), eq(pushTokens.userId, user.userId)))
+    }
 
     return ok({ message: 'Push token terdaftar' })
   }

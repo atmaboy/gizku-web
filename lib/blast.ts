@@ -8,6 +8,8 @@ import { createRateLimiter, type RateLimiter } from '@/lib/rateLimiter'
 import { buildBlastEmailHtml } from '@/lib/emailTemplates/blast'
 import { checkWhitelistedUrl, urlCheckError } from '@/lib/notificationLinks'
 import { getWhitelistEntries } from '@/lib/linkWhitelist'
+import { sendFcmMessages, isFcmConfigured, type FcmResult } from '@/lib/fcm'
+import { getExpoAndroidEnabled, tokenDeliverable } from '@/lib/pushConfig'
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts'
@@ -282,15 +284,18 @@ export async function estimateRecipients(channel: string, targetType: string, ta
   }
   const userIds = targetUsers.map(u => u.id)
 
-  const tokens = await db.select({ userId: pushTokens.userId, platform: pushTokens.platform })
+  const expoAndroidEnabled = await getExpoAndroidEnabled()
+  const tokens = (await db.select({ userId: pushTokens.userId, platform: pushTokens.platform, provider: pushTokens.provider })
     .from(pushTokens)
-    .where(and(inArray(pushTokens.userId, userIds), eq(pushTokens.isActive, true)))
+    .where(and(inArray(pushTokens.userId, userIds), eq(pushTokens.isActive, true))))
+    .filter(t => tokenDeliverable(t, expoAndroidEnabled))
   const usersWithToken = new Set(tokens.map(t => t.userId))
   return {
     targeted: targetUsers.length,
     // Push blasts also land in every target's in-app inbox, token or not.
     inbox: targetUsers.length,
     reachable: usersWithToken.size,
+    providers: { fcm: tokens.filter(t => t.provider === 'fcm').length, expo: tokens.filter(t => t.provider !== 'fcm').length },
     platforms: {
       ios: tokens.filter(t => t.platform === 'ios').length,
       android: tokens.filter(t => t.platform === 'android').length,
@@ -352,9 +357,12 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
     return perUser
   }
 
-  const tokens = await db.select()
+  const expoAndroidEnabled = await getExpoAndroidEnabled()
+  const tokens = (await db.select()
     .from(pushTokens)
-    .where(and(inArray(pushTokens.userId, targetUsers.map(u => u.id)), eq(pushTokens.isActive, true)))
+    .where(and(inArray(pushTokens.userId, targetUsers.map(u => u.id)), eq(pushTokens.isActive, true))))
+    // Token Expo Android dilewati kalau jalur Expo dimatikan (semua app sudah pakai FCM). iOS selalu lewat Expo.
+    .filter(t => tokenDeliverable(t, expoAndroidEnabled))
 
   const tokensByUser = new Map<string, typeof tokens>()
   for (const t of tokens) {
@@ -363,9 +371,11 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
     tokensByUser.set(t.userId, list)
   }
 
-  // Flatten (user, token) pairs to send, remembering which user/token each message belongs to.
-  const messages: ExpoPushMessage[] = []
-  const messageOwners: { userId: string; pushTokenId: string; provider: string }[] = []
+  type Owner = { userId: string; pushTokenId: string; provider: string }
+  const expoMessages: ExpoPushMessage[] = []
+  const expoOwners: Owner[] = []
+  const fcmMessages: Parameters<typeof sendFcmMessages>[0] = []
+  const fcmOwners: Owner[] = []
 
   for (const u of targetUsers) {
     const userTokens = tokensByUser.get(u.id) ?? []
@@ -376,45 +386,60 @@ async function dispatchPushChannel(blast: typeof notificationBlasts.$inferSelect
     }
     for (const t of userTokens) {
       const provider = t.platform === 'ios' ? 'apns' : 'fcm'
-      messages.push({
-        to: t.token,
-        ...pushCopyFor(blast, t.language),
-        data: { notificationId: inboxIds.get(u.id) ?? null, blastId: blast.id, linkType: blast.linkType, linkValue: blast.linkValue },
-        sound: 'default',
-        ...(blast.imageUrl ? { richContent: { image: blast.imageUrl } } : {}),
-      })
-      messageOwners.push({ userId: u.id, pushTokenId: t.id, provider })
+      const data = { notificationId: inboxIds.get(u.id) ?? null, blastId: blast.id, linkType: blast.linkType, linkValue: blast.linkValue }
+      const copy = pushCopyFor(blast, t.language)
+      if (t.provider === 'fcm') {
+        fcmMessages.push({ token: t.token, ...copy, imageUrl: blast.imageUrl, data })
+        fcmOwners.push({ userId: u.id, pushTokenId: t.id, provider })
+      } else {
+        expoMessages.push({ to: t.token, ...copy, data, sound: 'default', ...(blast.imageUrl ? { richContent: { image: blast.imageUrl } } : {}) })
+        expoOwners.push({ userId: u.id, pushTokenId: t.id, provider })
+      }
     }
   }
 
-  const tickets = messages.length > 0 ? await chunkedExpoSend(messages) : []
-
   const tokensToDeactivate: string[] = []
+  const record = (owner: Owner, r: { ok: true; id: string | null; raw: unknown } | { ok: false; message: string; raw: unknown }) => {
+    if (r.ok) {
+      perUser.set(owner.userId, { status: 'sent', pushTokenId: owner.pushTokenId, provider: owner.provider, providerMessageId: r.id, providerResponse: r.raw })
+      return
+    }
+    const existing = perUser.get(owner.userId)
+    if (!existing || existing.status !== 'sent') {
+      perUser.set(owner.userId, { status: 'failed', errorMessage: r.message, pushTokenId: owner.pushTokenId, provider: owner.provider, providerResponse: r.raw })
+    }
+  }
+
+  // Jalur Expo (iOS + Android app lama)
+  const tickets = expoMessages.length > 0 ? await chunkedExpoSend(expoMessages) : []
   tickets.forEach((ticket, i) => {
-    const owner = messageOwners[i]
-    if (ticket.status === 'ok') {
-      perUser.set(owner.userId, {
-        status: 'sent',
-        pushTokenId: owner.pushTokenId,
-        provider: owner.provider,
-        providerMessageId: ticket.id ?? null,
-        providerResponse: { ticket },
-      })
-    } else {
+    const owner = expoOwners[i]
+    if (ticket.status === 'ok') record(owner, { ok: true, id: ticket.id ?? null, raw: { ticket } })
+    else {
       if (ticket.details?.error === 'DeviceNotRegistered') tokensToDeactivate.push(owner.pushTokenId)
-      const existing = perUser.get(owner.userId)
-      if (!existing || existing.status !== 'sent') {
-        perUser.set(owner.userId, {
-          status: 'failed',
-          errorMessage: ticket.message || ticket.details?.error || 'Gagal mengirim',
-          pushTokenId: owner.pushTokenId,
-          provider: owner.provider,
-          providerMessageId: ticket.id ?? null,
-          providerResponse: { ticket },
-        })
-      }
+      record(owner, { ok: false, message: ticket.message || ticket.details?.error || 'Gagal mengirim', raw: { ticket } })
     }
   })
+
+  // Jalur FCM langsung (Android app baru)
+  if (fcmMessages.length > 0) {
+    let results: FcmResult[]
+    try {
+      if (!isFcmConfigured()) throw new Error('FCM_SERVICE_ACCOUNT_JSON belum dikonfigurasi di server ini')
+      results = await sendFcmMessages(fcmMessages)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Gagal mengirim lewat FCM'
+      results = fcmMessages.map(() => ({ ok: false as const, message, unregistered: false }))
+    }
+    results.forEach((r, i) => {
+      const owner = fcmOwners[i]
+      if (r.ok) record(owner, { ok: true, id: r.name, raw: { fcm: { name: r.name } } })
+      else {
+        if (r.unregistered) tokensToDeactivate.push(owner.pushTokenId)
+        record(owner, { ok: false, message: r.message, raw: { fcm: r.raw ?? { error: r.message } } })
+      }
+    })
+  }
 
   if (tokensToDeactivate.length > 0) {
     await db.update(pushTokens).set({ isActive: false, updatedAt: new Date() })
@@ -714,6 +739,8 @@ export async function checkPushReceipts(blastId: string): Promise<{ checked: num
       eq(notificationBlastRecipients.status, 'sent'),
       inArray(notificationBlastRecipients.provider, ['fcm', 'apns']),
       sql`${notificationBlastRecipients.providerMessageId} IS NOT NULL`,
+      // Pesan FCM langsung (nama "projects/…/messages/…") tidak punya Expo receipt.
+      sql`${notificationBlastRecipients.providerMessageId} NOT LIKE 'projects/%'`,
     ))
 
   if (pending.length === 0) return { checked: 0, nowFailed: 0 }

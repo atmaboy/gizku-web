@@ -223,6 +223,7 @@ export const pushTokens = pgTable('push_tokens', {
   userId:     uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   token:      text('token').unique().notNull(),
   platform:   text('platform').notNull(), // 'ios' | 'android'
+  provider:   text('provider').notNull().default('expo'), // 'expo' (Expo push token) | 'fcm' (native FCM token, Android only)
   language:   text('language').notNull().default('id'), // 'id' | 'en' — app language on this device, picks push title/body
   isActive:   boolean('is_active').notNull().default(true),
   createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

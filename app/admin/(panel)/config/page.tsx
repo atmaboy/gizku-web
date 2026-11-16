@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
-  AlertTriangle, Camera, Cpu, Eye, EyeOff, KeyRound, Lock, Mail, Pencil, Plus, Shield, Smartphone, X,
+  AlertTriangle, Bell, Camera, Cpu, Eye, EyeOff, KeyRound, Lock, Mail, Pencil, Plus, Shield, Smartphone, X,
 } from 'lucide-react'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import ConfirmPasswordModal, { type ConfirmRequest } from '@/components/admin/ConfirmPasswordModal'
@@ -44,6 +44,9 @@ export default function ConfigPage() {
   const [verifyHours, setVerifyHours] = useState('72')
   const [loaded, setLoaded]     = useState(false)
   const [betaOptin, setBetaOptin] = useState<BetaOptinContent | null>(null)
+  const [expoAndroid, setExpoAndroid] = useState(true)
+  const [fcmConfigured, setFcmConfigured] = useState(false)
+  const [pushStats, setPushStats] = useState<{ fcmAndroid: number; expoAndroid: number; expoIos: number } | null>(null)
 
   const [confirm, setConfirm]   = useState<ConfirmRequest | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -61,6 +64,9 @@ export default function ConfigPage() {
         if (d.anthropicModel) setAiModel(d.anthropicModel)
         setHasApiKey(!!d.apiKey)
         if (d.emailVerificationExpiryHours !== undefined) setVerifyHours(String(d.emailVerificationExpiryHours))
+        if (d.expoAndroidPushEnabled !== undefined) setExpoAndroid(!!d.expoAndroidPushEnabled)
+        setFcmConfigured(!!d.fcmConfigured)
+        if (d.pushStats) setPushStats(d.pushStats)
       })
       .catch(() => {})
       .finally(() => setLoaded(true))
@@ -237,6 +243,43 @@ export default function ConfigPage() {
             <FormField label="Password baru" htmlFor="cfg-pwd" help="Min. 8 karakter. Semua sesi admin lain tetap berlaku sampai masa 4 jamnya habis.">
               <Input id="cfg-pwd" type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} placeholder="Min. 8 karakter" autoComplete="new-password" />
             </FormField>
+          </Card>
+
+          {/* Push Notification */}
+          <Card
+            outline="brand" icon={Bell} title="Push Notification"
+            footer={footer(
+              <Button
+                icon={Lock} className="max-lg:w-full"
+                onClick={() => saveConfig({ expoAndroidPushEnabled: expoAndroid }, 'Pengaturan push', {
+                  title: 'Simpan pengaturan push?',
+                  message: expoAndroid
+                    ? 'Blast push ke Android dikirim lewat FCM (app baru) dan Expo (app lama).'
+                    : 'Android app lama (token Expo) TIDAK lagi menerima blast push. Pastikan sebagian besar user Android sudah update. Notifikasi tetap masuk halaman Notifikasi.',
+                  confirmLabel: 'Simpan', severity: expoAndroid ? 'green' : 'orange',
+                })}
+              >Simpan</Button>,
+            )}
+            bodyClassName="flex flex-col gap-4"
+          >
+            <Switch
+              checked={expoAndroid} onChange={setExpoAndroid}
+              label={expoAndroid ? 'Jalur Expo untuk Android: aktif' : 'Jalur Expo untuk Android: nonaktif'}
+              description="Aktif: Android app lama tetap dikirimi push lewat Expo. Matikan setelah semua app Android pindah ke FCM. iOS selalu lewat Expo."
+            />
+            {pushStats && (
+              <dl className="grid grid-cols-3 gap-3 text-sm">
+                <div><dt className="text-secondary">Android FCM</dt><dd className="text-lg font-semibold text-primary tabular-nums">{pushStats.fcmAndroid}</dd></div>
+                <div><dt className="text-secondary">Android Expo</dt><dd className="text-lg font-semibold text-primary tabular-nums">{pushStats.expoAndroid}</dd></div>
+                <div><dt className="text-secondary">iOS Expo</dt><dd className="text-lg font-semibold text-primary tabular-nums">{pushStats.expoIos}</dd></div>
+              </dl>
+            )}
+            <p className="text-sm text-secondary -mt-2">Jumlah token aktif. Matikan jalur Expo saat &ldquo;Android Expo&rdquo; mendekati 0.</p>
+            {!fcmConfigured && (
+              <Alert variant="warning" icon={AlertTriangle}>
+                FCM_SERVICE_ACCOUNT_JSON belum diset di server ini: blast ke token FCM akan gagal.
+              </Alert>
+            )}
           </Card>
 
           {/* 6. Maintenance */}

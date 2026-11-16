@@ -33,7 +33,7 @@ const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
 const TELEGRAM_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_IMAGE_MB = 5
 
-type Estimate = { targeted: number; reachable: number; inbox?: number; platforms: { ios: number; android: number } }
+type Estimate = { targeted: number; reachable: number; inbox?: number; providers?: { fcm: number; expo: number }; platforms: { ios: number; android: number } }
 type DuplicateMode = 'all' | 'exclude_failed' | 'only_failed'
 /** "Duplikat" from the batch detail page (?duplicate=<id>&mode=…): recipients come from the source batch log. */
 type DuplicateState = {
@@ -1004,7 +1004,7 @@ export default function BlastComposePage() {
         </p>
       )}
       <p className="text-sm text-secondary mt-4 leading-normal">
-        {channel === 'push' && <>Banner dikirim via <strong className="text-primary">FCM</strong> (Android) &amp; <strong className="text-primary">APNs</strong> (iOS).</>}
+        {channel === 'push' && <>Banner dikirim via <strong className="text-primary">FCM</strong> langsung ({estimate?.providers?.fcm ?? 0} token) dan <strong className="text-primary">Expo</strong> ({estimate?.providers?.expo ?? 0} token: iOS &amp; Android app lama).</>}
         {channel === 'telegram' && <>Dikirim via <strong className="text-primary">Bot Gizku</strong> di Telegram.</>}
         {isEmail && <>Dikirim via <strong className="text-primary">Resend</strong>, dari <strong className="text-primary">{selectedSender.address}</strong>.</>}
       </p>

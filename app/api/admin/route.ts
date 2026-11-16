@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { users, meals, reports, reportMessages, reportAttachments, dailyUsage, maintenanceConfig } from '@/drizzle/schema'
+import { users, meals, reports, reportMessages, reportAttachments, dailyUsage, maintenanceConfig, pushTokens } from '@/drizzle/schema'
 import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMaintenance, requireAdmin, assertAdminPassword } from '@/lib/admin'
 import { signAdminToken } from '@/lib/auth'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
@@ -10,6 +10,8 @@ import { sendReportReplyEmail } from '@/lib/reportReplyEmail'
 import { buildReplySubject } from '@/lib/reportTicket'
 import { eq, desc, count, and, gte, lte, inArray, sql } from 'drizzle-orm'
 import { getAdminNavCounts } from '@/lib/adminCounts'
+import { getExpoAndroidEnabled, setExpoAndroidEnabled } from '@/lib/pushConfig'
+import { isFcmConfigured } from '@/lib/fcm'
 
 const REPORT_STATUSES = ['open', 'replied', 'waiting', 'done'] as const
 
@@ -77,6 +79,7 @@ export async function POST(req: NextRequest) {
       if (body.dailyLimit !== undefined)      await setCfg('default_daily_limit', String(body.dailyLimit))
       if (body.anthropicApiKey !== undefined) await setCfg('anthropic_api_key', body.anthropicApiKey)
       if (body.anthropicModel !== undefined)  await setCfg('anthropic_model', body.anthropicModel)
+      if (body.expoAndroidPushEnabled !== undefined) await setExpoAndroidEnabled(body.expoAndroidPushEnabled === true)
       if (body.emailVerificationExpiryHours !== undefined) {
         const hours = clampExpiryHours(Number(body.emailVerificationExpiryHours))
         await setCfg('email_verification_expiry_hours', String(hours))
@@ -436,7 +439,15 @@ export async function GET(req: NextRequest) {
       const anthropicModel = await getCfg('anthropic_model') || 'claude-sonnet-5'
       const maintenance    = await getMaintenance()
       const emailVerificationExpiryHours = await getVerificationExpiryHours()
-      return ok({ globalLimit, apiKey: apiKey ? '••••••••' : '', anthropicModel, maintenance, emailVerificationExpiryHours })
+      const expoAndroidPushEnabled = await getExpoAndroidEnabled()
+      const pushRows = await db.select({ provider: pushTokens.provider, platform: pushTokens.platform, n: sql<number>`count(*)::int` })
+        .from(pushTokens).where(eq(pushTokens.isActive, true)).groupBy(pushTokens.provider, pushTokens.platform)
+      const pushStats = {
+        fcmAndroid: pushRows.filter(r => r.provider === 'fcm').reduce((a, r) => a + r.n, 0),
+        expoAndroid: pushRows.filter(r => r.provider !== 'fcm' && r.platform === 'android').reduce((a, r) => a + r.n, 0),
+        expoIos: pushRows.filter(r => r.provider !== 'fcm' && r.platform === 'ios').reduce((a, r) => a + r.n, 0),
+      }
+      return ok({ globalLimit, apiKey: apiKey ? '••••••••' : '', anthropicModel, maintenance, emailVerificationExpiryHours, expoAndroidPushEnabled, fcmConfigured: isFcmConfigured(), pushStats })
     }
 
     // ── sidebar/bell badge counts (AdminShell refreshes these on navigation) ──

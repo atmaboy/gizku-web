@@ -123,7 +123,7 @@ export const RELEASES: Record<Platform, Release[]> = {
     {
       version: '1.10.0',
       date: '2026-11-12',
-      note: 'Jalankan sql/019_notification_inbox.sql sebelum deploy. Jika cron dijalankan lewat cron-job.org, tambahkan juga /api/cron/prune-notifications (harian).',
+      note: 'Jalankan sql/019_notification_inbox.sql dan sql/020_push_token_provider.sql sebelum deploy; isi env FCM_SERVICE_ACCOUNT_JSON (service account Firebase) agar push FCM langsung jalan. Jika cron dijalankan lewat cron-job.org, tambahkan juga /api/cron/prune-notifications (harian).',
       changes: [
         { type: 'feat', text: 'Inbox notifikasi per user: setiap blast Push kini tersimpan ke inbox di server untuk semua target aktif (termasuk yang belum punya push token atau mematikan push). Status dibaca tersimpan di server. API baru: GET/POST /api/notifications (daftar + cursor, detail, unread_count, read, read_all, whitelist). Notifikasi lebih dari 90 hari tidak tampil dan dihapus cron prune-notifications.' },
         { type: 'feat', text: 'Blast Push v2: konten dwibahasa (ID wajib, EN opsional; user EN menerima versi ID bila EN kosong), gambar besar untuk banner push, ikon khusus (default logo Gizku), tujuan saat diketuk (detail notifikasi / halaman di app / tautan web di webview), dan mode kirim "Banner push + halaman Notifikasi" atau "Halaman Notifikasi saja (senyap)".' },
@@ -131,6 +131,8 @@ export const RELEASES: Record<Platform, Release[]> = {
         { type: 'improve', text: 'Form Buat Blast: tab bahasa, pratinjau banner Android + baris halaman Notifikasi dengan toggle ID/EN, estimasi dipecah "Masuk halaman Notifikasi" dan "Dapat banner push". User tanpa push token tidak lagi dihitung gagal (status penerima baru "Hanya inbox") dan masuk hitungan Terkirim.' },
         { type: 'improve', text: 'Push dikirim sesuai bahasa app di perangkat: push_tokens.language diisi saat register dan diperbarui lewat POST /api/push?action=language. Payload push kini membawa notificationId, linkType, dan linkValue. Mobile lama tanpa update tetap aman (field baru opsional).' },
         { type: 'improve', text: 'Aplikasi web: tombol kamera di bottom nav kini tampil "floating" dengan lekukan (notch) melengkung di garis atas bar dan bayangan hijau yang lebih tegas, sama seperti aplikasi mobile.' },
+        { type: 'feat', text: 'Push Android lewat FCM langsung (gambar besar di banner): app Android baru mendaftarkan token FCM (push_tokens.provider) dan dikirimi lewat FCM HTTP v1 dengan notification.image; token Expo lama otomatis dinonaktifkan saat token FCM terdaftar. App lama tetap menerima lewat Expo tanpa gambar besar. iOS tetap lewat Expo. Butuh env FCM_SERVICE_ACCOUNT_JSON.' },
+        { type: 'feat', text: 'Backoffice › Pengaturan › Push Notification: toggle "Jalur Expo untuk Android" (matikan setelah semua app Android migrasi ke FCM) beserta jumlah token aktif per jalur.' },
         { type: 'improve', text: 'read_count blast naik saat user membaca di halaman Notifikasi app (sekali per user), menggantikan ack read.' },
       ],
     },
@@ -260,6 +262,7 @@ export const RELEASES: Record<Platform, Release[]> = {
       note: 'Gabungan perubahan di main sejak v1.1.0. Tandai sebagai released setelah build ini naik ke Play Store / App Store.',
       changes: [
         { type: 'feat', text: 'Halaman Notifikasi (ikon lonceng di header Riwayat): inbox blast dari Gizku dengan badge belum dibaca, grup tanggal, filter, swipe tandai dibaca/belum dibaca, Baca semua + Urungkan, dan banner saat push dimatikan. Ketuk notifikasi (juga dari banner push) menandai dibaca dan membuka tujuannya: detail, halaman di app, atau tautan web di webview dalam app. Butuh backend web ≥ 1.10.0.' },
+        { type: 'feat', text: 'Android: push kini lewat token FCM native sehingga gambar besar di banner blast tampil, dengan channel notifikasi baru (importance tinggi) agar banner muncul sebagai pop-up. Token Expo lama diganti otomatis saat app dibuka pertama kali setelah update. Butuh backend web ≥ 1.10.0 dan env FCM_SERVICE_ACCOUNT_JSON.' },
         { type: 'improve', text: 'Push mengikuti bahasa app (ID/EN) dan warna ikon notifikasi Android disesuaikan ke hijau Gizku baru. Butuh backend web ≥ 1.10.0.' },
         { type: 'feat', text: 'Simpan sebagai Draft: foto yang gagal dianalisa karena koneksi atau server disimpan di perangkat (maks. 3, yang terlama diganti) dan bisa dianalisa ulang dari Riwayat, dengan tombol Analisa Sekarang / Hapus Draft.' },
         { type: 'feat', text: 'Sesi login habis saat memotret/menganalisa: foto otomatis disimpan sebagai draft (alasan "Sesi berakhir") dan menunggu setelah login ulang, tidak perlu foto ulang.' },
