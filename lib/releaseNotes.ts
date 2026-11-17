@@ -133,6 +133,7 @@ export const RELEASES: Record<Platform, Release[]> = {
         { type: 'improve', text: 'Aplikasi web: tombol kamera di bottom nav kini tampil "floating" dengan lekukan (notch) melengkung di garis atas bar dan bayangan hijau yang lebih tegas, sama seperti aplikasi mobile.' },
         { type: 'feat', text: 'Push Android lewat FCM langsung (gambar besar di banner): app Android baru mendaftarkan token FCM (push_tokens.provider) dan dikirimi lewat FCM HTTP v1 dengan notification.image; token Expo lama otomatis dinonaktifkan saat token FCM terdaftar. App lama tetap menerima lewat Expo tanpa gambar besar. iOS tetap lewat Expo. Butuh env FCM_SERVICE_ACCOUNT_JSON.' },
         { type: 'feat', text: 'Backoffice › Pengaturan › Push Notification: toggle "Jalur Expo untuk Android" (matikan setelah semua app Android migrasi ke FCM) beserta jumlah token aktif per jalur.' },
+        { type: 'improve', text: 'Gambar banner push otomatis di-crop 2:1 dan dikompres ke di bawah 1 MB di browser sebelum upload (FCM membuang gambar notifikasi yang lebih besar). Form menampilkan ukuran gambar, memblokir kirim jika gambar bawaan Duplikat > 1 MB, API menolak gambar > 1 MB, dan detail batch menampilkan gambar banner.' },
         { type: 'improve', text: 'read_count blast naik saat user membaca di halaman Notifikasi app (sekali per user), menggantikan ack read.' },
       ],
     },

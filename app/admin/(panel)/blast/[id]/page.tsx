@@ -34,6 +34,7 @@ type Blast = {
   readCount: number
   failedCount: number
   titleEn?: string
+  imageUrl?: string | null
   bodyEn?: string
   linkType?: 'detail' | 'screen' | 'url'
   linkValue?: string | null
@@ -279,6 +280,13 @@ export default function BlastDetailPage() {
               <p className="text-sm text-secondary mt-3">English</p>
               <p className="text-base font-semibold text-primary break-words">{blast.titleEn}</p>
               <p className="text-base text-bark-700 leading-normal whitespace-pre-wrap break-words">{blast.bodyEn}</p>
+            </>
+          )}
+          {isChannelPush && blast.imageUrl && (
+            <>
+              <p className="text-sm text-secondary mt-3">Gambar banner</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <a href={blast.imageUrl} target="_blank" rel="noreferrer"><img src={blast.imageUrl} alt="Gambar banner push" className="mt-1 w-[240px] aspect-[2/1] object-cover rounded-sm border border-border" /></a>
             </>
           )}
           {isChannelPush && (

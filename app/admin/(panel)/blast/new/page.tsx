@@ -11,6 +11,8 @@ import {
 } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { EmailBodyPreview, TelegramBodyPreview } from '@/components/admin/blast/BlastBodyPreview'
+import { compressBanner } from '@/lib/clientImage'
+import { BANNER_MAX_BYTES, fmtMB } from '@/lib/pushImage'
 import { TELEGRAM_MAX_IMAGES, buildImageLine, isHttpUrl, splitTelegramBody } from '@/lib/blastContent'
 import {
   NOTIFICATION_SCREENS, URL_CHECK_MESSAGES, checkWhitelistedUrl, type LinkType, type WhitelistEntry,
@@ -32,6 +34,7 @@ const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
 // Telegram sendPhoto tidak menerima GIF animasi sebagai foto.
 const TELEGRAM_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_IMAGE_MB = 5
+const BANNER_INPUT_MAX_MB = 15 // sebelum dikompres di browser
 
 type Estimate = { targeted: number; reachable: number; inbox?: number; providers?: { fcm: number; expo: number }; platforms: { ios: number; android: number } }
 type DuplicateMode = 'all' | 'exclude_failed' | 'only_failed'
@@ -76,6 +79,7 @@ export default function BlastComposePage() {
   const [delivery, setDelivery] = useState<'push' | 'silent'>('push')
   const [whitelist, setWhitelist] = useState<WhitelistEntry[] | null>(null)
   const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [bannerBytes, setBannerBytes] = useState<number | null>(null)
   const [uploadingIcon, setUploadingIcon] = useState(false)
   const bannerInputRef = useRef<HTMLInputElement>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
@@ -150,6 +154,17 @@ export default function BlastComposePage() {
       .catch(() => toast.error('Gagal memuat batch sumber'))
       .finally(() => setLoadingDuplicate(false))
   }, [])
+
+  // Gambar bawaan Duplikat bisa saja > 1 MB (batas FCM): ambil ukurannya dari server.
+  useEffect(() => {
+    if (!bannerUrl || bannerBytes !== null) return
+    let cancelled = false
+    fetch(`/api/admin/blast?action=image_info&url=${encodeURIComponent(bannerUrl)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d?.bytes) setBannerBytes(d.bytes) })
+      .catch(() => { /* ukuran tidak diketahui — server tetap memvalidasi saat kirim */ })
+    return () => { cancelled = true }
+  }, [bannerUrl, bannerBytes])
 
   // Whitelist Domain untuk validasi tautan web (server tetap mengecek ulang saat kirim).
   useEffect(() => {
@@ -300,10 +315,17 @@ export default function BlastComposePage() {
 
   async function handleBannerFile(file: File) {
     if (!TELEGRAM_IMAGE_TYPES.includes(file.type)) { toast.error('Gunakan gambar JPEG, PNG, atau WebP.'); return }
-    if (file.size > MAX_IMAGE_MB * 1024 * 1024) { toast.error(`Ukuran gambar terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal ${MAX_IMAGE_MB} MB.`); return }
+    if (file.size > BANNER_INPUT_MAX_MB * 1024 * 1024) { toast.error(`Ukuran gambar terlalu besar (${fmtMB(file.size)}). Maksimal ${BANNER_INPUT_MAX_MB} MB.`); return }
     setUploadingBanner(true)
-    try { const url = await uploadBlastImage(file); if (url) setBannerUrl(url) }
-    catch { toast.error('Gagal upload gambar, coba lagi') }
+    try {
+      // FCM hanya menampilkan gambar ≤ 1 MB: resize 2:1 + kompres JPEG di browser sebelum upload.
+      const compact = await compressBanner(file)
+      const url = await uploadBlastImage(compact)
+      if (url) {
+        setBannerUrl(url); setBannerBytes(compact.size)
+        toast.success(`Gambar dikompres ${fmtMB(file.size)} → ${fmtMB(compact.size)}`)
+      }
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Gagal upload gambar, coba lagi') }
     finally { setUploadingBanner(false) }
   }
 
@@ -335,7 +357,7 @@ export default function BlastComposePage() {
   function resetForm() {
     setChannel('push'); setBatchName(''); setTitle(''); setBody(''); setFromAddress('support')
     setTitleEn(''); setBodyEn(''); setLangTab('id'); setBannerUrl(null); setIconMode('default'); setIconUrl(null)
-    setLinkType('detail'); setLinkUrl(''); setDelivery('push')
+    setLinkType('detail'); setLinkUrl(''); setDelivery('push'); setBannerBytes(null)
     setTargetType('all'); setUsernames([]); setUsernameInput('')
     setSendMode('now'); setDate(''); setHour('')
     setDuplicate(null)
@@ -349,11 +371,13 @@ export default function BlastComposePage() {
     setUsernames([])
   }
 
+  const bannerTooLarge = isPush && !!bannerUrl && bannerBytes !== null && bannerBytes > BANNER_MAX_BYTES
   const urlCheck = linkType === 'url' ? checkWhitelistedUrl(linkUrl, whitelist ?? DEFAULT_WHITELIST) : null
   const enHalfFilled = isPush && (!!titleEn.trim() !== !!bodyEn.trim())
   const pushOk = !isPush || (
     (linkType !== 'url' || !!urlCheck?.ok)
     && (iconMode === 'default' || !!iconUrl)
+    && !bannerTooLarge
     && !enHalfFilled
   )
   const canSubmit = batchName.trim() !== '' && body.trim() !== ''
@@ -621,7 +645,7 @@ export default function BlastComposePage() {
             <img src={bannerUrl} alt="Gambar banner push" className="w-[200px] aspect-[2/1] object-cover rounded-sm border border-border" />
             <div className="flex gap-2">
               <Button variant="outline" size="sm" icon={ImagePlus} loading={uploadingBanner} onClick={() => bannerInputRef.current?.click()}>Ganti</Button>
-              <Button variant="outline-danger" size="sm" icon={Trash2} onClick={() => setBannerUrl(null)}>Hapus</Button>
+              <Button variant="outline-danger" size="sm" icon={Trash2} onClick={() => { setBannerUrl(null); setBannerBytes(null) }}>Hapus</Button>
             </div>
           </div>
         ) : (
@@ -631,7 +655,12 @@ export default function BlastComposePage() {
         )}
         <input ref={bannerInputRef} type="file" accept={TELEGRAM_IMAGE_TYPES.join(',')} className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleBannerFile(f); e.target.value = '' }} />
-        <p className="text-sm text-secondary mt-1.5 leading-normal">JPEG/PNG/WebP, maks {MAX_IMAGE_MB}MB, rasio 2:1. Hanya tampil sebagai gambar besar di banner push, tidak di halaman Notifikasi.</p>
+        {bannerUrl && bannerBytes !== null && (
+          <p className={cn('text-sm mt-1.5 leading-normal', bannerTooLarge ? 'text-rose-600 font-medium' : 'text-secondary')}>
+            Ukuran {fmtMB(bannerBytes)}{bannerTooLarge ? ` — melebihi batas 1 MB untuk push Android, gambar tidak akan tampil. Klik Ganti dan pilih gambar yang sama; akan dikompres otomatis.` : ' — aman untuk push Android.'}
+          </p>
+        )}
+        <p className="text-sm text-secondary mt-1.5 leading-normal">JPEG/PNG/WebP, maks {BANNER_INPUT_MAX_MB}MB. Otomatis di-crop 2:1 dan dikompres ke di bawah 1 MB (batas push Android). Hanya tampil sebagai gambar besar di banner push, tidak di halaman Notifikasi.</p>
       </div>
     </div>
   )

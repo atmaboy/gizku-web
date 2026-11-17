@@ -22,6 +22,7 @@ import { eq, and, desc, count, inArray } from 'drizzle-orm'
 import { TELEGRAM_MAX_IMAGES, splitTelegramBody } from '@/lib/blastContent'
 import { LINK_TYPES, NOTIFICATION_SCREENS, checkWhitelistedUrl, urlCheckError, type LinkType } from '@/lib/notificationLinks'
 import { getWhitelistEntries } from '@/lib/linkWhitelist'
+import { BANNER_MAX_BYTES, fmtMB, isOwnStorageUrl } from '@/lib/pushImage'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -39,6 +40,16 @@ function jsonErr(msg: string, status = 500) {
   const h = new Headers()
   setCors(h)
   return Response.json({ error: msg }, { status, headers: h })
+}
+
+/** Ukuran file gambar (byte) lewat HEAD, hanya untuk URL di storage kita. Null kalau tidak diketahui. */
+async function imageSizeBytes(url: string): Promise<number | null> {
+  if (!isOwnStorageUrl(url)) return null
+  try {
+    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+    const n = Number(res.headers.get('content-length'))
+    return res.ok && Number.isFinite(n) && n > 0 ? n : null
+  } catch { return null }
 }
 
 function resolveChannel(raw: string | null): 'push' | 'telegram' | 'email' {
@@ -140,6 +151,12 @@ async function handleGet(req: NextRequest) {
       .where(eq(notificationBlastRecipients.blastId, id))
 
     return ok({ recipients: rows, total: c, page, perPage, totalPages: Math.max(1, Math.ceil(c / perPage)) })
+  }
+
+  if (action === 'image_info') {
+    const url = req.nextUrl.searchParams.get('url') || ''
+    const bytes = await imageSizeBytes(url)
+    return ok({ bytes, tooLarge: bytes !== null && bytes > BANNER_MAX_BYTES })
   }
 
   if (action === 'estimate') {
@@ -255,6 +272,13 @@ async function handlePost(req: NextRequest) {
         return v
       }
       const img = httpsOrNull(body.imageUrl, 'gambar'); if (img instanceof Response) return img; imageUrl = img
+      if (imageUrl) {
+        // FCM membuang gambar > ±1 MB tanpa error, jadi tolak di sini daripada banner diam-diam tanpa gambar.
+        const bytes = await imageSizeBytes(imageUrl)
+        if (bytes !== null && bytes > BANNER_MAX_BYTES) {
+          return err(`Gambar banner ${fmtMB(bytes)} melebihi batas 1 MB untuk push Android. Ganti dengan gambar yang lebih kecil.`)
+        }
+      }
       const icon = httpsOrNull(body.iconUrl, 'ikon'); if (icon instanceof Response) return icon; iconUrl = icon
 
       delivery = body.delivery === 'silent' ? 'silent' : 'push'
