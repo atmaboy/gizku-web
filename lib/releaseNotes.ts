@@ -258,9 +258,9 @@ export const RELEASES: Record<Platform, Release[]> = {
   mobile: [
     {
       version: '1.2.0',
-      date: '2026-11-12',
-      status: 'unreleased',
-      note: 'Gabungan perubahan di main sejak v1.1.0. Tandai sebagai released setelah build ini naik ke Play Store / App Store.',
+      date: '2026-11-17',
+      status: 'released',
+      note: 'Gabungan perubahan di main sejak v1.1.0. Diajukan ke Google Play (Android) pada 2026-11-17. Butuh backend web ≥ 1.10.0.',
       changes: [
         { type: 'feat', text: 'Halaman Notifikasi (ikon lonceng di header Riwayat): inbox blast dari Gizku dengan badge belum dibaca, grup tanggal, filter, swipe tandai dibaca/belum dibaca, Baca semua + Urungkan, dan banner saat push dimatikan. Ketuk notifikasi (juga dari banner push) menandai dibaca dan membuka tujuannya: detail, halaman di app, atau tautan web di webview dalam app. Butuh backend web ≥ 1.10.0.' },
         { type: 'feat', text: 'Android: push kini lewat token FCM native sehingga gambar besar di banner blast tampil, dengan channel notifikasi baru (importance tinggi) agar banner muncul sebagai pop-up. Token Expo lama diganti otomatis saat app dibuka pertama kali setelah update. Butuh backend web ≥ 1.10.0 dan env FCM_SERVICE_ACCOUNT_JSON.' },
