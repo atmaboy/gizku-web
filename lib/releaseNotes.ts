@@ -54,7 +54,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       group: 'Backoffice',
       items: [
         { name: 'Dashboard admin', description: 'Statistik ringkasan, status sistem, recent users, badge laporan open & request limit.' },
-        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail).' },
+        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform, bahasa, dan aktivitas terakhir; detail user menampilkan perangkat terdaftar.' },
         { name: 'Riwayat analisa user', description: 'Lihat riwayat makanan per user.' },
         { name: 'Landing Builder', description: 'Atur 9 section landing + pengaturan global tanpa deploy; drag urutan, pratinjau desktop/mobile, alur Draf → Terbitkan, riwayat terbitan.' },
         { name: 'Dokumen legal', description: 'Rich text editor dwibahasa untuk Syarat & Ketentuan, Kebijakan Privasi, dan tipe custom.' },
@@ -120,6 +120,14 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.11.0',
+      date: '2026-11-17',
+      changes: [
+        { type: 'feat', text: 'Manajemen User: kolom baru Platform (Android FCM / Android Expo / iOS, dari push token aktif; fallback ke riwayat makanan), Bahasa app, dan Aktif Terakhir (login, catat makanan, atau token push terdaftar). Berlaku juga di tampilan kartu mobile.' },
+        { type: 'feat', text: 'Detail User: kartu baru Perangkat & Aktivitas berisi aktivitas terakhir, platform, dan daftar perangkat terdaftar (jalur push, bahasa, status aktif, waktu terdaftar/terakhir terlihat). Versi app persis belum tersedia — butuh pembaruan app mobile.' },
+      ],
+    },
     {
       version: '1.10.0',
       date: '2026-11-12',

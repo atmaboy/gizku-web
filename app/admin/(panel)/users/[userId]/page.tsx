@@ -4,7 +4,8 @@ import { getGlobalLimit } from '@/lib/admin'
 import { fmtDateTime, fmtNum, todayISO } from '@/lib/utils'
 import { eq, count, sql } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
-import { CalendarPlus, ChevronLeft, History, LogIn, Mail, Smartphone, User } from 'lucide-react'
+import { Activity, CalendarPlus, ChevronLeft, History, LogIn, Mail, Smartphone, User } from 'lucide-react'
+import { getDeviceInfo, deviceLabel, lastActivity, platformSummary, emptyInfo } from '@/lib/userDevices'
 import UserDetailTabs from '@/components/admin/UserDetailTabs'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import { Avatar, Badge, Button, Card, KeyValue } from '@/components/admin/ui'
@@ -38,6 +39,9 @@ export default async function UserDetailPage({
     db.select({ cnt: sql<number>`coalesce(sum(${dailyUsage.count}), 0)` }).from(dailyUsage)
       .where(sql`${dailyUsage.userId} = ${userId} AND ${dailyUsage.date} = ${today}`),
   ])
+  const devInfo = (await getDeviceInfo([userId])).get(userId) ?? emptyInfo()
+  const platform = platformSummary(devInfo)
+  const lastActive = lastActivity(user.lastLoginAt, devInfo)
   const totalMeals = Number(mealsRow.cnt ?? 0)
   const todayUsage = Number(usageRow.cnt ?? 0)
 
@@ -97,6 +101,38 @@ export default async function UserDetailPage({
               ))}
             </div>
             <Button icon={History} href={riwayatHref} fullWidth className="mt-4">Lihat Riwayat</Button>
+          </Card>
+
+          <Card title="Perangkat & Aktivitas" icon={Activity} className="max-xl:order-3">
+            <AboutRow icon={Activity} title="Aktif terakhir">
+              {lastActive ? fmtDateTime(lastActive) : <span className="italic text-clay-600">Belum ada aktivitas</span>}
+            </AboutRow>
+            <AboutRow icon={Smartphone} title="Platform">
+              {platform.labels.length === 0
+                ? <span className="text-secondary">Belum pernah memakai app</span>
+                : <span className="inline-flex flex-wrap items-center gap-1.5">
+                    {platform.labels.map(l => <Badge key={l} variant="soft" size="sm">{l}</Badge>)}
+                    {platform.fromHistory && <span className="text-xs text-secondary">dari riwayat makanan</span>}
+                  </span>}
+            </AboutRow>
+            {devInfo.devices.length > 0 && (
+              <div className="px-0 pt-2">
+                <p className="text-sm font-semibold text-primary mb-1.5">Perangkat terdaftar</p>
+                <ul className="flex flex-col gap-2 list-none m-0 p-0">
+                  {devInfo.devices.map((d, i) => (
+                    <li key={i} className={`rounded-sm border border-border px-3 py-2 text-sm ${d.isActive ? '' : 'opacity-60'}`}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-primary">{deviceLabel(d)}</span>
+                        <Badge variant={d.isActive ? 'success' : 'secondary'} size="sm">{d.isActive ? 'Aktif' : 'Nonaktif'}</Badge>
+                        <span className="text-secondary">Bahasa {d.language === 'en' ? 'EN' : 'ID'}</span>
+                      </div>
+                      <p className="text-secondary mt-0.5 tabular-nums">Terdaftar {fmtDateTime(d.createdAt)} · Terakhir terlihat {fmtDateTime(d.lastSeenAt)}</p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-secondary mt-2 leading-normal">Perangkat nonaktif = user logout atau token sudah tidak valid. &ldquo;Terakhir terlihat&rdquo; = terakhir token didaftarkan, bukan terakhir app dibuka.</p>
+              </div>
+            )}
           </Card>
 
           <Card title="Tentang User" icon={User} className="max-xl:order-3">

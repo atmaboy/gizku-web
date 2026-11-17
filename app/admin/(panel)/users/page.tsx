@@ -4,6 +4,7 @@ import { getGlobalLimit } from '@/lib/admin'
 import { fmtDateTime, fmtNum, todayISO } from '@/lib/utils'
 import { count, desc, sql } from 'drizzle-orm'
 import { Check, Lock, Users as UsersIcon, UserX } from 'lucide-react'
+import { getDeviceInfo, platformSummary, primaryLanguage, lastActivity, emptyInfo } from '@/lib/userDevices'
 import UserListActions from '@/components/admin/UserListActions'
 import PageSizeSelect from '@/components/admin/PageSizeSelect'
 import AdminPage from '@/components/admin/shell/AdminPage'
@@ -33,6 +34,18 @@ function EmailCell({ email, verified }: { email: string | null; verified: boolea
     </span>
   )
 }
+
+function PlatformCell({ platform }: { platform: { labels: string[]; fromHistory: boolean } }) {
+  if (platform.labels.length === 0) return <span className="text-secondary" title="Belum pernah memakai app">—</span>
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1" title={platform.fromHistory ? 'Dari riwayat makanan (belum ada push token aktif)' : 'Perangkat dengan push token aktif'}>
+      {platform.labels.map(l => <Badge key={l} variant={platform.fromHistory ? 'light' : 'soft'} size="sm">{l}</Badge>)}
+      {platform.fromHistory && <span className="text-xs text-secondary">riwayat</span>}
+    </span>
+  )
+}
+
+const LANG_LABEL = { id: 'ID', en: 'EN' } as const
 
 function StatusBadge({ active }: { active: boolean }) {
   return active ? <Badge variant="success" size="sm">Aktif</Badge> : <Badge variant="secondary" size="sm">Nonaktif</Badge>
@@ -72,6 +85,12 @@ export default async function UsersPage({
     return { ...u, todayUsage: Number(td.cnt ?? 0) }
   }))
 
+  const deviceInfo = await getDeviceInfo(usersWithStats.map(u => u.id))
+  const rows = usersWithStats.map(u => {
+    const info = deviceInfo.get(u.id) ?? emptyInfo()
+    return { ...u, platform: platformSummary(info), language: primaryLanguage(info), lastActive: lastActivity(u.lastLoginAt, info) }
+  })
+
   const riwayatHref = (id: string) => `/admin/riwayat/${id}?from=list&fromPage=${page}&fromPageSize=${pageSize}`
   const pageLabel = `Hal. ${page} / ${totalPages} · ${fmtNum(totalUsers)} user`
   const empty = <EmptyState icon={UserX} title="Belum ada user terdaftar" />
@@ -80,6 +99,8 @@ export default async function UsersPage({
     <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-secondary">
       <span className="inline-flex items-center gap-1.5"><Lock size={13} className="text-honey-500" aria-hidden />Wajib ganti password saat login berikutnya</span>
       <span className="inline-flex items-center gap-1.5"><Check size={14} className="text-brand" aria-hidden />Email terverifikasi</span>
+      <span>Platform: dari perangkat dengan push token aktif (FCM = app 1.2.0+, Expo = app lama); &ldquo;riwayat&rdquo; = dari riwayat makanan.</span>
+      <span>Aktif Terakhir: login, catat makanan, atau token push terdaftar (membuka app saja belum tercatat).</span>
     </p>
   )
 
@@ -102,11 +123,11 @@ export default async function UsersPage({
         footer={totalUsers > 0 ? <Pagination page={page} totalPages={totalPages} hrefPattern={`/admin/users?page=__PAGE__&pageSize=${pageSize}`} label={pageLabel} /> : undefined}
       >
         <DataTable
-          rows={usersWithStats}
+          rows={rows}
           rowKey={u => u.id}
           striped
           emptyState={empty}
-          minWidth={880}
+          minWidth={1180}
           columns={[
             { key: 'u', header: 'Username', render: u => (
               <div className="flex items-center gap-2.5">
@@ -120,6 +141,11 @@ export default async function UsersPage({
             { key: 'l', header: 'Last Login', className: 'whitespace-nowrap', render: u => u.lastLoginAt
               ? <span className="tabular-nums">{fmtDateTime(u.lastLoginAt)}</span>
               : <span className="italic text-clay-600">Belum pernah</span> },
+            { key: 'p', header: 'Platform', render: u => <PlatformCell platform={u.platform} /> },
+            { key: 'g', header: 'Bahasa', className: 'tabular-nums', render: u => u.language ? LANG_LABEL[u.language] : <span className="text-secondary">—</span> },
+            { key: 'k', header: 'Aktif Terakhir', className: 'whitespace-nowrap', render: u => u.lastActive
+              ? <span className="tabular-nums">{fmtDateTime(u.lastActive)}</span>
+              : <span className="italic text-clay-600">—</span> },
             { key: 'm', header: 'Meal Hari Ini', align: 'center', className: 'tabular-nums', render: u => u.todayUsage },
             { key: 'a', header: 'Aksi', render: u => <UserListActions user={u} riwayatHref={riwayatHref(u.id)} /> },
           ]}
@@ -133,9 +159,9 @@ export default async function UsersPage({
           <PageSizeSelect value={pageSize} id="page-size-m" />
         </div>
 
-        {usersWithStats.length === 0 && <div className="bg-surface rounded-md shadow-card">{empty}</div>}
+        {rows.length === 0 && <div className="bg-surface rounded-md shadow-card">{empty}</div>}
 
-        {usersWithStats.map(u => (
+        {rows.map(u => (
           <article key={u.id} className="bg-surface rounded-md shadow-card overflow-hidden">
             <div className="flex items-start gap-3 px-3.5 py-3">
               <Avatar name={u.username} size={38} />
@@ -159,6 +185,11 @@ export default async function UsersPage({
                 <p className="text-xs text-secondary">Meal Hari Ini</p>
                 <p className="text-lg font-bold tabular-nums text-primary">{u.todayUsage}</p>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3.5 py-2.5 border-t border-border text-sm">
+              <PlatformCell platform={u.platform} />
+              <span className="text-secondary">Bahasa: <span className="text-primary font-medium">{u.language ? LANG_LABEL[u.language] : '—'}</span></span>
+              <span className="text-secondary">Aktif: <span className="text-primary font-medium tabular-nums">{u.lastActive ? fmtDateTime(u.lastActive) : '—'}</span></span>
             </div>
             <UserListActions user={u} riwayatHref={riwayatHref(u.id)} mobileCard />
           </article>
