@@ -265,6 +265,15 @@ export const RELEASES: Record<Platform, Release[]> = {
   ],
   mobile: [
     {
+      version: '1.2.1',
+      date: '2026-11-21',
+      status: 'unreleased',
+      changes: [
+        { type: 'fix', text: 'Hasil analisa tidak lagi hilang saat gagal tersimpan ke Riwayat (foto/thumbnail atau request simpan gagal): otomatis disimpan sebagai Draft beserta hasil analisanya, dan dari detail Draft bisa langsung Simpan ke Riwayat tanpa analisa ulang (kuota harian tidak terpakai lagi). Berhasil di-retry dari layar hasil → draft otomatis dihapus.' },
+        { type: 'fix', text: 'Menekan Kembali/X saat layar analisa dalam kondisi error, atau analisa yang gagal setelah layar ditutup, kini menyimpan foto sebagai Draft alih-alih membuangnya.' },
+      ],
+    },
+    {
       version: '1.2.0',
       date: '2026-11-17',
       status: 'released',
