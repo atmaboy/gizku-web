@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deviceLabel, lastActivity, platformSummary, primaryLanguage, emptyInfo, type DeviceRow } from './userDevices'
+import { appClientLabel, latestAppClient, deviceLabel, lastActivity, platformSummary, primaryLanguage, emptyInfo, type AppClientRow, type DeviceRow } from './userDevices'
 
 const dev = (o: Partial<DeviceRow>): DeviceRow => ({
   platform: 'android', provider: 'fcm', language: 'id', isActive: true,
@@ -35,5 +35,25 @@ describe('primaryLanguage / lastActivity', () => {
     const info = { ...emptyInfo(), lastMealAt: new Date('2026-11-12'), devices: [dev({ lastSeenAt: new Date('2026-11-14') }), dev({ isActive: false, lastSeenAt: new Date('2026-11-20') })] }
     expect(lastActivity(new Date('2026-11-13'), info)).toEqual(new Date('2026-11-14'))
     expect(lastActivity(null, emptyInfo())).toBeNull()
+  })
+})
+
+const client = (o: Partial<AppClientRow>): AppClientRow => ({
+  platform: 'android', appVersion: '1.2.0', appBuild: '10', firstSeenAt: new Date('2026-11-01'), lastSeenAt: new Date('2026-11-10'), ...o,
+})
+
+describe('app clients (version reporting)', () => {
+  it('latestAppClient picks the most recently seen version', () => {
+    const info = { ...emptyInfo(), appClients: [client({ appVersion: '1.2.0', lastSeenAt: new Date('2026-11-10') }), client({ appVersion: '1.2.1', lastSeenAt: new Date('2026-11-18') })] }
+    expect(latestAppClient(info)?.appVersion).toBe('1.2.1')
+    expect(latestAppClient(emptyInfo())).toBeNull()
+  })
+  it('labels platform + version', () => {
+    expect(appClientLabel({ platform: 'android', appVersion: '1.2.1' })).toBe('Android 1.2.1')
+    expect(appClientLabel({ platform: 'ios', appVersion: '1.3.0' })).toBe('iOS 1.3.0')
+  })
+  it('lastActivity counts the app heartbeat even without login, meal or push token', () => {
+    const info = { ...emptyInfo(), appClients: [client({ lastSeenAt: new Date('2026-11-21') })] }
+    expect(lastActivity(new Date('2026-11-13'), info)).toEqual(new Date('2026-11-21'))
   })
 })

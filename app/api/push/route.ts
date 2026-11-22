@@ -13,6 +13,7 @@ import { pushTokens } from '@/drizzle/schema'
 import { verifyToken, extractToken } from '@/lib/auth'
 import { ok, err, setCors } from '@/lib/utils'
 import { ackBlastRecipient } from '@/lib/blast'
+import { parseAppClient, recordAppClient } from '@/lib/appClient'
 import { eq, and } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
       await db.update(pushTokens).set({ isActive: false, updatedAt: new Date() })
         .where(and(eq(pushTokens.token, replaces), eq(pushTokens.userId, user.userId)))
     }
+
+    await recordAppClient(user.userId, parseAppClient(req.headers))
 
     return ok({ message: 'Push token terdaftar' })
   }

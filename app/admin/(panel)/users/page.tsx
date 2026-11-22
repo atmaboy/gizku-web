@@ -4,7 +4,7 @@ import { getGlobalLimit } from '@/lib/admin'
 import { fmtDateTime, fmtNum, todayISO } from '@/lib/utils'
 import { count, desc, sql } from 'drizzle-orm'
 import { Check, Lock, Users as UsersIcon, UserX } from 'lucide-react'
-import { getDeviceInfo, platformSummary, primaryLanguage, lastActivity, emptyInfo } from '@/lib/userDevices'
+import { getDeviceInfo, platformSummary, primaryLanguage, lastActivity, latestAppClient, emptyInfo } from '@/lib/userDevices'
 import UserListActions from '@/components/admin/UserListActions'
 import PageSizeSelect from '@/components/admin/PageSizeSelect'
 import AdminPage from '@/components/admin/shell/AdminPage'
@@ -35,12 +35,13 @@ function EmailCell({ email, verified }: { email: string | null; verified: boolea
   )
 }
 
-function PlatformCell({ platform }: { platform: { labels: string[]; fromHistory: boolean } }) {
+function PlatformCell({ platform, appVersion }: { platform: { labels: string[]; fromHistory: boolean }; appVersion: string | null }) {
   if (platform.labels.length === 0) return <span className="text-secondary" title="Belum pernah memakai app">—</span>
   return (
     <span className="inline-flex flex-wrap items-center gap-1" title={platform.fromHistory ? 'Dari riwayat makanan (belum ada push token aktif)' : 'Perangkat dengan push token aktif'}>
       {platform.labels.map(l => <Badge key={l} variant={platform.fromHistory ? 'light' : 'soft'} size="sm">{l}</Badge>)}
       {platform.fromHistory && <span className="text-xs text-secondary">riwayat</span>}
+      {appVersion && <span className="text-xs text-secondary tabular-nums" title="Versi app terakhir yang terlihat">v{appVersion}</span>}
     </span>
   )
 }
@@ -88,7 +89,7 @@ export default async function UsersPage({
   const deviceInfo = await getDeviceInfo(usersWithStats.map(u => u.id))
   const rows = usersWithStats.map(u => {
     const info = deviceInfo.get(u.id) ?? emptyInfo()
-    return { ...u, platform: platformSummary(info), language: primaryLanguage(info), lastActive: lastActivity(u.lastLoginAt, info) }
+    return { ...u, platform: platformSummary(info), appVersion: latestAppClient(info)?.appVersion ?? null, language: primaryLanguage(info), lastActive: lastActivity(u.lastLoginAt, info) }
   })
 
   const riwayatHref = (id: string) => `/admin/riwayat/${id}?from=list&fromPage=${page}&fromPageSize=${pageSize}`
@@ -141,7 +142,7 @@ export default async function UsersPage({
             { key: 'l', header: 'Last Login', className: 'whitespace-nowrap', render: u => u.lastLoginAt
               ? <span className="tabular-nums">{fmtDateTime(u.lastLoginAt)}</span>
               : <span className="italic text-clay-600">Belum pernah</span> },
-            { key: 'p', header: 'Platform', render: u => <PlatformCell platform={u.platform} /> },
+            { key: 'p', header: 'Platform', render: u => <PlatformCell platform={u.platform} appVersion={u.appVersion} /> },
             { key: 'g', header: 'Bahasa', className: 'tabular-nums', render: u => u.language ? LANG_LABEL[u.language] : <span className="text-secondary">—</span> },
             { key: 'k', header: 'Aktif Terakhir', className: 'whitespace-nowrap', render: u => u.lastActive
               ? <span className="tabular-nums">{fmtDateTime(u.lastActive)}</span>
@@ -187,7 +188,7 @@ export default async function UsersPage({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-3.5 py-2.5 border-t border-border text-sm">
-              <PlatformCell platform={u.platform} />
+              <PlatformCell platform={u.platform} appVersion={u.appVersion} />
               <span className="text-secondary">Bahasa: <span className="text-primary font-medium">{u.language ? LANG_LABEL[u.language] : '—'}</span></span>
               <span className="text-secondary">Aktif: <span className="text-primary font-medium tabular-nums">{u.lastActive ? fmtDateTime(u.lastActive) : '—'}</span></span>
             </div>

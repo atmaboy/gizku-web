@@ -54,7 +54,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       group: 'Backoffice',
       items: [
         { name: 'Dashboard admin', description: 'Statistik ringkasan, status sistem, recent users, badge laporan open & request limit.' },
-        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform, bahasa, dan aktivitas terakhir; detail user menampilkan perangkat terdaftar.' },
+        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform + versi app, bahasa, dan aktivitas terakhir; detail user menampilkan versi app (terakhir terlihat), riwayat versi, dan perangkat terdaftar.' },
         { name: 'Riwayat analisa user', description: 'Lihat riwayat makanan per user.' },
         { name: 'Landing Builder', description: 'Atur 9 section landing + pengaturan global tanpa deploy; drag urutan, pratinjau desktop/mobile, alur Draf → Terbitkan, riwayat terbitan.' },
         { name: 'Dokumen legal', description: 'Rich text editor dwibahasa untuk Syarat & Ketentuan, Kebijakan Privasi, dan tipe custom.' },
@@ -91,7 +91,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       group: 'Analisa & Riwayat',
       items: [
         { name: 'Scan makanan', description: 'Kamera atau galeri, dianalisa AI (Claude lewat API gizku-web).' },
-        { name: 'Edit hasil analisa', description: 'Koreksi teks untuk re-analisa, atau edit manual per menu.' },
+        { name: 'Edit hasil analisa', description: 'Layar hasil analisa dengan ringkasan kalori & skor gizi, bar asal kalori, dan daftar menu. Koreksi dengan AI (lembar bawah) untuk re-analisa, atau Ubah menu (nama, porsi, kalori, makro, tambah/hapus menu, kembalikan ke hasil AI) langsung setelah scan maupun dari detail Riwayat, kapan saja.' },
         { name: 'Auto-save ke riwayat', description: 'Dengan status tersimpan yang jujur (Menyimpan / Tersimpan / Gagal, ketuk untuk coba lagi). Tanggal riwayat mengikuti waktu foto diambil.' },
         { name: 'Simpan sebagai Draft', description: 'Analisa gagal karena koneksi/server: foto disimpan di perangkat (maks. 3, yang terlama diganti) dan bisa dianalisa ulang dari Riwayat tanpa foto ulang.' },
         { name: 'Riwayat', description: 'Filter Semua/Draft, kalender pilih tanggal, mode 10 hari terakhir, pagination 10 per halaman, shimmer loading, sumber (app/web/Telegram).' },
@@ -113,6 +113,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Dokumen legal & Tentang Aplikasi', description: 'Syarat & Ketentuan, Kebijakan Privasi, dokumen custom dari backoffice.' },
         { name: 'Kirim laporan / masukan', description: 'Dari Pengaturan, masuk ke Laporan & Helpdesk backoffice.' },
         { name: 'Analytics', description: 'Google Analytics 4 (Measurement Protocol) dengan parameter platform android/ios.' },
+        { name: 'Versi app ke backoffice', description: 'App mengirim versi, platform, dan build di setiap request plus heartbeat saat dibuka, sehingga backoffice menampilkan versi app dan waktu terakhir terlihat user dengan presisi.' },
       ],
     },
   ],
@@ -120,6 +121,17 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.12.0',
+      date: '2026-11-22',
+      note: 'Jalankan sql/021_user_app_clients.sql sebelum deploy. Tanpa migrasi, info versi app tidak tampil tapi halaman user tetap normal. Data versi mulai terisi setelah user memperbarui app mobile ke 1.2.1 atau lebih baru.',
+      changes: [
+        { type: 'feat', text: 'Versi app mobile yang dipakai user kini tercatat presisi: app mengirim header X-App-Version / X-App-Platform / X-App-Build di setiap request dan heartbeat baru POST /api/auth?action=ping saat app dibuka. Disimpan di tabel user_app_clients (satu baris per user, platform, dan versi; tulis ke DB maksimal sekali per 5 menit per baris). Request tanpa header (app lama, web, Telegram) tidak dicatat.' },
+        { type: 'feat', text: 'Detail User › Perangkat & Aktivitas: baris baru Versi app (platform, versi, build, waktu terakhir terlihat) dan daftar versi app yang pernah dipakai bila user sudah pernah memperbarui app.' },
+        { type: 'improve', text: 'Manajemen User: kolom Platform menampilkan versi app terakhir (mis. Android FCM v1.2.1), dan Aktif Terakhir kini ikut menghitung kapan app dibuka, tidak lagi hanya login, catat makanan, atau registrasi token push.' },
+        { type: 'chore', text: 'CORS: header X-App-Version, X-App-Platform, dan X-App-Build diizinkan di semua /api/*.' },
+      ],
+    },
     {
       version: '1.11.0',
       date: '2026-11-17',
@@ -266,9 +278,16 @@ export const RELEASES: Record<Platform, Release[]> = {
   mobile: [
     {
       version: '1.2.1',
-      date: '2026-11-21',
+      date: '2026-11-22',
       status: 'unreleased',
+      note: 'Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (jalankan sql/021_user_app_clients.sql). Tanpa itu app tetap berjalan normal. Ubah tanggal makan sudah disiapkan tapi belum aktif sampai backend mendukungnya.',
       changes: [
+        { type: 'feat', text: 'Ubah menu & kalori dari Riwayat: detail catatan kini punya tombol Ubah menu (nama, porsi, kalori, protein, karbo, lemak, tambah/hapus menu) dengan total kalori yang dihitung ulang dan selisihnya terhadap hasil AI. Bisa kapan saja, tanpa batas waktu.' },
+        { type: 'feat', text: 'Layar Ubah menu baru menggantikan editor manual di layar hasil analisa: kartu per menu yang bisa dibuka, penanda menu yang sudah diubah, Kembalikan ke hasil AI, validasi nama menu, dan konfirmasi sebelum membuang perubahan.' },
+        { type: 'improve', text: 'Layar hasil analisa dirombak: tanggal & jam makan, total kalori dengan skor gizi, bar asal kalori (protein/karbo/lemak), daftar menu yang bisa diketuk untuk diubah, dan koreksi dengan AI lewat lembar bawah. Notifikasi simpan/gagal kini lewat toast singkat, angka mengikuti pemisah desimal bahasa (20,9 g / 20.9 g).' },
+        { type: 'improve', text: 'Warna teks bahaya dan toast error dibuat lebih kontras (lolos 4.5:1), area ketuk minimal 44 px di layar baru.' },
+        { type: 'feat', text: 'Versi app, platform, dan waktu terakhir terlihat dikirim ke backend (header X-App-Version / X-App-Platform / X-App-Build dan heartbeat saat app dibuka) supaya tampil presisi di backoffice. Butuh backend web ≥ 1.12.0.' },
+        { type: 'chore', text: 'Disiapkan, belum aktif: ubah tanggal & jam makan dalam 24 jam setelah scan (rentang hari ini sampai 6 hari lalu). Aktif setelah backend mengirim scannedAt dan menerima loggedAt di PATCH /api/history; catatan rilis berikutnya akan menyebut versi backend minimum.' },
         { type: 'fix', text: 'Hasil analisa tidak lagi hilang saat gagal tersimpan ke Riwayat (foto/thumbnail atau request simpan gagal): otomatis disimpan sebagai Draft beserta hasil analisanya, dan dari detail Draft bisa langsung Simpan ke Riwayat tanpa analisa ulang (kuota harian tidak terpakai lagi). Berhasil di-retry dari layar hasil → draft otomatis dihapus.' },
         { type: 'fix', text: 'Menekan Kembali/X saat layar analisa dalam kondisi error, atau analisa yang gagal setelah layar ditutup, kini menyimpan foto sebagai Draft alih-alih membuangnya.' },
       ],

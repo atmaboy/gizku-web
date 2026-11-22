@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, text, integer, numeric, boolean,
-  serial, date, jsonb, timestamp, bigint, index, primaryKey, char,
+  serial, date, jsonb, timestamp, bigint, index, uniqueIndex, primaryKey, char,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -232,6 +232,22 @@ export const pushTokens = pgTable('push_tokens', {
 }, t => ({
   userIdx:   index('idx_push_tokens_user_id').on(t.userId),
   activeIdx: index('idx_push_tokens_active').on(t.isActive),
+}))
+
+// ── App Clients ──────────────────────────────────────────────────────────────
+// Versi app mobile yang dipakai user, dilaporkan app lewat header X-App-* (lihat lib/appClient.ts).
+// Satu baris per (user, platform, versi); last_seen_at = terakhir app versi itu terlihat.
+export const userAppClients = pgTable('user_app_clients', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  platform:    text('platform').notNull(), // 'android' | 'ios'
+  appVersion:  text('app_version').notNull(),
+  appBuild:    text('app_build'),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt:  timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  uniq:        uniqueIndex('uq_user_app_clients_user_platform_version').on(t.userId, t.platform, t.appVersion),
+  userSeenIdx: index('idx_user_app_clients_user_last_seen').on(t.userId, t.lastSeenAt),
 }))
 
 // ── Notification Blasts ──────────────────────────────────────────────────────
