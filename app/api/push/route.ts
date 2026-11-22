@@ -14,7 +14,7 @@ import { verifyToken, extractToken } from '@/lib/auth'
 import { ok, err, setCors } from '@/lib/utils'
 import { ackBlastRecipient } from '@/lib/blast'
 import { parseAppClient, recordAppClient } from '@/lib/appClient'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, ne } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
 
@@ -61,7 +61,23 @@ export async function POST(req: NextRequest) {
         .where(and(eq(pushTokens.token, replaces), eq(pushTokens.userId, user.userId)))
     }
 
-    await recordAppClient(user.userId, parseAppClient(req.headers))
+    const appClient = parseAppClient(req.headers)
+
+    // Perangkat yang sama (ID instalasi dari app): tautkan token ini ke perangkatnya dan matikan token lain
+    // milik perangkat itu (token lama dari install ulang / rotasi / pindah Expo ke FCM), supaya satu perangkat
+    // = satu token aktif dan tidak ada notifikasi ganda. Terpisah dari upsert di atas: tanpa migrasi 023
+    // pendaftaran push tetap berhasil.
+    if (appClient?.deviceId) {
+      try {
+        await db.update(pushTokens).set({ deviceId: appClient.deviceId }).where(eq(pushTokens.token, token))
+        await db.update(pushTokens).set({ isActive: false, updatedAt: new Date() })
+          .where(and(eq(pushTokens.userId, user.userId), eq(pushTokens.deviceId, appClient.deviceId), ne(pushTokens.token, token), eq(pushTokens.isActive, true)))
+      } catch (e) {
+        console.error('[push] device link', e)
+      }
+    }
+
+    await recordAppClient(user.userId, appClient)
 
     return ok({ message: 'Push token terdaftar' })
   }

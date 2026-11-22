@@ -1,8 +1,10 @@
 import { db } from '@/lib/db'
-import { pushTokens, meals, userAppClients } from '@/drizzle/schema'
+import { pushTokens, meals, userAppClients, userDevices } from '@/drizzle/schema'
 import { and, inArray, max, desc } from 'drizzle-orm'
 
 export type DeviceRow = {
+  /** Token push; dipakai untuk menautkan ke perangkat. */
+  token?: string
   platform: string
   provider: string
   language: string
@@ -20,8 +22,23 @@ export type AppClientRow = {
   lastSeenAt: Date
 }
 
+/** Satu perangkat fisik (ID instalasi dari app): versi app terbaru + semua token push yang pernah dipakai di sana. */
+export type DeviceGroup = {
+  deviceId: string
+  platform: 'android' | 'ios'
+  appVersion: string
+  appBuild: string | null
+  firstSeenAt: Date
+  lastSeenAt: Date
+  tokens: DeviceRow[]
+}
+
 export type UserDeviceInfo = {
+  /** Semua push token (mentah). Kelompok per perangkat ada di deviceGroups + legacyTokens. */
   devices: DeviceRow[]
+  deviceGroups: DeviceGroup[]
+  /** Token tanpa ID perangkat (app lama atau token yang belum didaftarkan ulang). */
+  legacyTokens: DeviceRow[]
   /** Satu baris per (platform, versi app) yang pernah dipakai user, terakhir terlihat paling atas. */
   appClients: AppClientRow[]
   /** Platform app dari riwayat makanan (meals.source app-android / app-ios), untuk user tanpa push token. */
@@ -29,7 +46,7 @@ export type UserDeviceInfo = {
   lastMealAt: Date | null
 }
 
-export const emptyInfo = (): UserDeviceInfo => ({ devices: [], appClients: [], mealPlatforms: [], lastMealAt: null })
+export const emptyInfo = (): UserDeviceInfo => ({ devices: [], deviceGroups: [], legacyTokens: [], appClients: [], mealPlatforms: [], lastMealAt: null })
 
 /** Info perangkat + platform + aktivitas makanan terakhir untuk sekumpulan user (satu query per sumber). */
 export async function getDeviceInfo(userIds: string[]): Promise<Map<string, UserDeviceInfo>> {
@@ -40,13 +57,48 @@ export async function getDeviceInfo(userIds: string[]): Promise<Map<string, User
   }
 }
 
+type DeviceGroupSource = {
+  userId: string; deviceId: string; platform: string; appVersion: string; appBuild: string | null; firstSeenAt: Date; lastSeenAt: Date
+}
+
+/**
+ * Kelompokkan token push per perangkat. Token yang device id-nya tidak punya baris perangkat (atau tanpa device id)
+ * masuk legacyTokens. Perangkat tanpa token (push dimatikan) tetap tampil dengan tokens kosong.
+ */
+export function groupDevices(
+  devices: Omit<DeviceGroupSource, 'userId'>[],
+  tokens: (DeviceRow & { deviceId: string | null })[],
+): { groups: DeviceGroup[]; legacyTokens: DeviceRow[] } {
+  const groups: DeviceGroup[] = devices
+    .map(d => ({
+      deviceId: d.deviceId, platform: d.platform === 'ios' ? 'ios' as const : 'android' as const,
+      appVersion: d.appVersion, appBuild: d.appBuild, firstSeenAt: d.firstSeenAt, lastSeenAt: d.lastSeenAt,
+      tokens: [] as DeviceRow[],
+    }))
+    .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
+  const byId = new Map(groups.map(g => [g.deviceId, g]))
+  const legacyTokens: DeviceRow[] = []
+  for (const { deviceId, ...row } of tokens) {
+    const g = deviceId ? byId.get(deviceId) : undefined
+    if (g) g.tokens.push(row)
+    else legacyTokens.push(row)
+  }
+  return { groups, legacyTokens }
+}
+
+/** Token aktif terbaru di perangkat ini (jalur push + bahasa), atau null bila tidak ada token aktif. */
+export function activeToken(g: Pick<DeviceGroup, 'tokens'>): DeviceRow | null {
+  const active = g.tokens.filter(t => t.isActive).sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
+  return active[0] ?? null
+}
+
 async function loadDeviceInfo(userIds: string[]): Promise<Map<string, UserDeviceInfo>> {
   const out = new Map<string, UserDeviceInfo>(userIds.map(id => [id, emptyInfo()]))
   if (userIds.length === 0) return out
 
-  const [tokens, sources, last, clients] = await Promise.all([
+  const [tokens, sources, last, clients, tokenDevices, devices] = await Promise.all([
     db.select({
-      userId: pushTokens.userId, platform: pushTokens.platform, provider: pushTokens.provider, language: pushTokens.language,
+      userId: pushTokens.userId, token: pushTokens.token, platform: pushTokens.platform, provider: pushTokens.provider, language: pushTokens.language,
       isActive: pushTokens.isActive, createdAt: pushTokens.createdAt, lastSeenAt: pushTokens.lastSeenAt,
     }).from(pushTokens).where(inArray(pushTokens.userId, userIds)).orderBy(desc(pushTokens.lastSeenAt)),
     db.select({ userId: meals.userId, source: meals.source }).from(meals)
@@ -60,6 +112,15 @@ async function loadDeviceInfo(userIds: string[]): Promise<Map<string, UserDevice
     }).from(userAppClients).where(inArray(userAppClients.userId, userIds)).orderBy(desc(userAppClients.lastSeenAt))
       // Migrasi 021 belum jalan: versi app saja yang kosong, platform/bahasa/aktivitas tetap tampil.
       .catch(e => { console.error('[userDevices] user_app_clients', e); return [] as AppClientRow[] & { userId: string }[] }),
+    // Migrasi 023 belum jalan: pengelompokan per perangkat saja yang kosong.
+    db.select({ userId: pushTokens.userId, token: pushTokens.token, deviceId: pushTokens.deviceId })
+      .from(pushTokens).where(inArray(pushTokens.userId, userIds))
+      .catch(e => { console.error('[userDevices] push_tokens.device_id', e); return [] as { userId: string; token: string; deviceId: string | null }[] }),
+    db.select({
+      userId: userDevices.userId, deviceId: userDevices.deviceId, platform: userDevices.platform, appVersion: userDevices.appVersion,
+      appBuild: userDevices.appBuild, firstSeenAt: userDevices.firstSeenAt, lastSeenAt: userDevices.lastSeenAt,
+    }).from(userDevices).where(inArray(userDevices.userId, userIds)).orderBy(desc(userDevices.lastSeenAt))
+      .catch(e => { console.error('[userDevices] user_devices', e); return [] as DeviceGroupSource[] }),
   ])
 
   for (const t of tokens) out.get(t.userId)?.devices.push(t)
@@ -73,6 +134,15 @@ async function loadDeviceInfo(userIds: string[]): Promise<Map<string, UserDevice
       platform: c.platform === 'ios' ? 'ios' : 'android', appVersion: c.appVersion, appBuild: c.appBuild,
       firstSeenAt: c.firstSeenAt, lastSeenAt: c.lastSeenAt,
     })
+  }
+  const deviceOfToken = new Map(tokenDevices.map(t => [t.token, t.deviceId]))
+  for (const [userId, info] of out) {
+    const grouped = groupDevices(
+      devices.filter(d => d.userId === userId),
+      info.devices.map(d => ({ ...d, deviceId: d.token ? deviceOfToken.get(d.token) ?? null : null })),
+    )
+    info.deviceGroups = grouped.groups
+    info.legacyTokens = grouped.legacyTokens
   }
   for (const l of last) { const info = out.get(l.userId); if (info) info.lastMealAt = l.at }
   return out

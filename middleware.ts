@@ -8,7 +8,7 @@ const secret = new TextEncoder().encode(
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-App-Version,X-App-Platform,X-App-Build',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-App-Version,X-App-Platform,X-App-Build,X-Device-Id',
 }
 
 export async function middleware(req: NextRequest) {
