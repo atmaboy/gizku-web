@@ -123,6 +123,13 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
     {
+      version: '1.14.1',
+      date: '2026-11-22',
+      changes: [
+        { type: 'fix', text: 'Backoffice: waktu di halaman server (detail user, daftar user, dan lainnya) tampil 7 jam lebih awal dari riwayat makanan (mis. 13.16 padahal 20.16 WIB) karena server berjalan di UTC. Semua format tanggal dan jam backoffice kini dikunci ke WIB (Asia/Jakarta) sehingga konsisten di server maupun browser.' },
+      ],
+    },
+    {
       version: '1.14.0',
       date: '2026-11-22',
       note: 'Jalankan sql/023_user_devices.sql sebelum deploy (staging dulu, lalu production). Tanpa migrasi, pendaftaran push tetap jalan tapi pengelompokan perangkat tidak aktif. Perangkat baru terisi setelah user memperbarui app mobile ke 1.2.1 atau lebih baru.',
@@ -301,8 +308,8 @@ export const RELEASES: Record<Platform, Release[]> = {
     {
       version: '1.2.1',
       date: '2026-11-22',
-      status: 'unreleased',
-      note: 'Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (sql/021), ubah tanggal makan butuh backend web ≥ 1.13.0 (sql/022), pengelompokan perangkat butuh backend web ≥ 1.14.0 (sql/023). Di backend lama app tetap berjalan normal, fitur terkait saja yang tidak muncul.',
+      status: 'released',
+      note: 'Dirilis ke Google Play. Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (sql/021), ubah tanggal makan butuh backend web ≥ 1.13.0 (sql/022), pengelompokan perangkat butuh backend web ≥ 1.14.0 (sql/023). Di backend lama app tetap berjalan normal, fitur terkait saja yang tidak muncul.',
       changes: [
         { type: 'feat', text: 'Ubah menu & kalori dari Riwayat: detail catatan kini punya tombol Ubah menu (nama, porsi, kalori, protein, karbo, lemak, tambah/hapus menu) dengan total kalori yang dihitung ulang dan selisihnya terhadap hasil AI. Bisa kapan saja, tanpa batas waktu.' },
         { type: 'feat', text: 'Layar Ubah menu baru menggantikan editor manual di layar hasil analisa: kartu per menu yang bisa dibuka, penanda menu yang sudah diubah, Kembalikan ke hasil AI, validasi nama menu, dan konfirmasi sebelum membuang perubahan.' },

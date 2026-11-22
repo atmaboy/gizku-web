@@ -3,18 +3,25 @@ import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }
 
+/**
+ * Zona waktu backoffice. Server Vercel berjalan di UTC, sedangkan komponen client memakai zona browser: tanpa
+ * zona eksplisit, halaman server menampilkan 13.16 untuk waktu yang di browser 20.16. Semua format tanggal/jam
+ * di backoffice dikunci ke WIB supaya konsisten di server maupun client.
+ */
+export const ADMIN_TIME_ZONE = 'Asia/Jakarta'
+
 export function todayISO() { return new Date().toISOString().split('T')[0] }
 
 export function fmtDate(d: Date | string | null) {
   if (!d) return '-'
-  return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, day: '2-digit', month: 'short', year: 'numeric' })
     .format(new Date(d))
 }
 
 export function fmtDateTime(d: Date | string | null) {
   if (!d) return '-'
   return new Intl.DateTimeFormat('id-ID', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: ADMIN_TIME_ZONE, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(new Date(d))
 }
 
@@ -43,15 +50,15 @@ export function fmtRelativeID(d: Date | string | null) {
 export function fmtDateTimePrecise(d: Date | string | null) {
   if (!d) return '-'
   const date = new Date(d)
-  const datePart = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date)
-  const timePart = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
+  const datePart = new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, day: 'numeric', month: 'long', year: 'numeric' }).format(date)
+  const timePart = new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
   return `${datePart} ${timePart}`
 }
 
 /** "8 Agustus 2026" */
 export function fmtDateLongID(d: Date | string | null) {
   if (!d) return '-'
-  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(d))
+  return new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(d))
 }
 
 export function setCors(h: Headers) {

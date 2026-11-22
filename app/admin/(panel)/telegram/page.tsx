@@ -171,7 +171,7 @@ export default function TelegramAdminPage() {
   })
 
   const fmtDateTime = (iso: string) =>
-    new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   const q = search
   useEffect(() => { setPage(1) }, [q])

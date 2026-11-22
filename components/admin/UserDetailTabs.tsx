@@ -38,7 +38,7 @@ export default function UserDetailTabs({ user, globalLimit }: { user: U; globalL
   function fmtAudit(dt: Date | string | null | undefined) {
     if (!dt) return null
     return new Date(dt).toLocaleString('id-ID', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     })
   }
 
