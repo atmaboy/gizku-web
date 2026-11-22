@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { users, dailyUsage } from '@/drizzle/schema'
 import { getGlobalLimit } from '@/lib/admin'
 import { fmtDateTime, fmtNum, todayISO } from '@/lib/utils'
-import { count, desc, sql } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import { Check, Lock, Users as UsersIcon, UserX } from 'lucide-react'
 import { getDeviceInfo, platformSummary, primaryLanguage, lastActivity, latestAppClient, emptyInfo } from '@/lib/userDevices'
 import UserListActions from '@/components/admin/UserListActions'
@@ -59,11 +59,12 @@ export default async function UsersPage({
 }) {
   const { page: pageParam, pageSize: pageSizeParam } = await searchParams
   const today = todayISO()
-  const globalLimit = await getGlobalLimit()
-
   const pageSize = PAGE_SIZES.includes(Number(pageSizeParam)) ? Number(pageSizeParam) : DEFAULT_PAGE_SIZE
 
-  const [{ c: totalUsers }] = await db.select({ c: count() }).from(users)
+  const [globalLimit, [{ c: totalUsers }]] = await Promise.all([
+    getGlobalLimit(),
+    db.select({ c: count() }).from(users),
+  ])
   const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize))
   const page = Math.min(Math.max(1, parseInt(pageParam ?? '1', 10) || 1), totalPages)
   const offset = (page - 1) * pageSize
@@ -78,15 +79,21 @@ export default async function UsersPage({
     mustChangePassword: users.mustChangePassword,
   }).from(users).orderBy(desc(users.createdAt)).limit(pageSize).offset(offset)
 
-  // Stats bounded to the current page (≤50 users), not the whole table.
-  const usersWithStats = await Promise.all(pagedUsers.map(async u => {
-    const [td] = await db.select({ cnt: sql<number>`coalesce(sum(${dailyUsage.count}), 0)` })
-      .from(dailyUsage)
-      .where(sql`${dailyUsage.userId} = ${u.id} AND ${dailyUsage.date} = ${today}`)
-    return { ...u, todayUsage: Number(td.cnt ?? 0) }
-  }))
+  // Satu query untuk seluruh halaman (bukan satu per user): sebelumnya sampai 50 query paralel per render
+  // menghabiskan koneksi pooler dan membuat respons RSC lambat/terputus saat navigasi client-side.
+  const pageIds = pagedUsers.map(u => u.id)
+  const [usageRows, deviceInfo] = await Promise.all([
+    pageIds.length === 0
+      ? Promise.resolve([] as { userId: string; cnt: number }[])
+      : db.select({ userId: dailyUsage.userId, cnt: sql<number>`coalesce(sum(${dailyUsage.count}), 0)` })
+          .from(dailyUsage)
+          .where(and(inArray(dailyUsage.userId, pageIds), eq(dailyUsage.date, today)))
+          .groupBy(dailyUsage.userId),
+    getDeviceInfo(pageIds),
+  ])
+  const usageByUser = new Map(usageRows.map(r => [r.userId, Number(r.cnt ?? 0)]))
+  const usersWithStats = pagedUsers.map(u => ({ ...u, todayUsage: usageByUser.get(u.id) ?? 0 }))
 
-  const deviceInfo = await getDeviceInfo(usersWithStats.map(u => u.id))
   const rows = usersWithStats.map(u => {
     const info = deviceInfo.get(u.id) ?? emptyInfo()
     return { ...u, platform: platformSummary(info), appVersion: latestAppClient(info)?.appVersion ?? null, language: primaryLanguage(info), lastActive: lastActivity(u.lastLoginAt, info) }
@@ -101,7 +108,7 @@ export default async function UsersPage({
       <span className="inline-flex items-center gap-1.5"><Lock size={13} className="text-honey-500" aria-hidden />Wajib ganti password saat login berikutnya</span>
       <span className="inline-flex items-center gap-1.5"><Check size={14} className="text-brand" aria-hidden />Email terverifikasi</span>
       <span>Platform: dari perangkat dengan push token aktif (FCM = app 1.2.0+, Expo = app lama); &ldquo;riwayat&rdquo; = dari riwayat makanan.</span>
-      <span>Aktif Terakhir: login, catat makanan, atau token push terdaftar (membuka app saja belum tercatat).</span>
+      <span>Aktif Terakhir: app dibuka (app 1.2.1+), login, catat makanan, atau token push terdaftar. App lama belum melapor saat dibuka.</span>
     </p>
   )
 

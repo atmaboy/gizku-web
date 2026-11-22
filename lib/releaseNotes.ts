@@ -129,6 +129,7 @@ export const RELEASES: Record<Platform, Release[]> = {
         { type: 'feat', text: 'Versi app mobile yang dipakai user kini tercatat presisi: app mengirim header X-App-Version / X-App-Platform / X-App-Build di setiap request dan heartbeat baru POST /api/auth?action=ping saat app dibuka. Disimpan di tabel user_app_clients (satu baris per user, platform, dan versi; tulis ke DB maksimal sekali per 5 menit per baris). Request tanpa header (app lama, web, Telegram) tidak dicatat.' },
         { type: 'feat', text: 'Detail User › Perangkat & Aktivitas: baris baru Versi app (platform, versi, build, waktu terakhir terlihat) dan daftar versi app yang pernah dipakai bila user sudah pernah memperbarui app.' },
         { type: 'improve', text: 'Manajemen User: kolom Platform menampilkan versi app terakhir (mis. Android FCM v1.2.1), dan Aktif Terakhir kini ikut menghitung kapan app dibuka, tidak lagi hanya login, catat makanan, atau registrasi token push.' },
+        { type: 'fix', text: 'Manajemen User tidak lagi sesekali menampilkan "Application error" saat dibuka lewat navigasi menu (butuh refresh): query pemakaian harian kini satu query untuk seluruh halaman (sebelumnya sampai 50 query paralel per render yang membuat respons lambat/terputus), dan halaman admin punya batas error yang mencoba memuat ulang otomatis serta menampilkan tombol Coba lagi alih-alih layar putih.' },
         { type: 'chore', text: 'CORS: header X-App-Version, X-App-Platform, dan X-App-Build diizinkan di semua /api/*.' },
       ],
     },
