@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { users, meals, reports, reportMessages, reportAttachments, dailyUsage, maintenanceConfig, pushTokens } from '@/drizzle/schema'
 import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMaintenance, requireAdmin, assertAdminPassword } from '@/lib/admin'
 import { signAdminToken } from '@/lib/auth'
-import { ok, err, setCors, todayISO } from '@/lib/utils'
+import { ok, err, setCors, todayISO, wibDayStart, wibDayEnd } from '@/lib/utils'
 import { invalidateMaintenanceCache } from '@/lib/maintenance'
 import { sendVerificationEmailInBackground, clampExpiryHours, getVerificationExpiryHours } from '@/lib/emailVerification'
 import { sendReportReplyEmail } from '@/lib/reportReplyEmail'
@@ -366,14 +366,14 @@ export async function GET(req: NextRequest) {
 
       const conditions = [eq(meals.userId, userId)]
       if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-        conditions.push(gte(meals.loggedAt, new Date(`${dateParam}T00:00:00.000Z`)))
-        conditions.push(lte(meals.loggedAt, new Date(`${dateParam}T23:59:59.999Z`)))
+        conditions.push(gte(meals.loggedAt, wibDayStart(dateParam)))
+        conditions.push(lte(meals.loggedAt, wibDayEnd(dateParam)))
       }
       if (fromParam && /^\d{4}-\d{2}-\d{2}$/.test(fromParam)) {
-        conditions.push(gte(meals.loggedAt, new Date(`${fromParam}T00:00:00.000Z`)))
+        conditions.push(gte(meals.loggedAt, wibDayStart(fromParam)))
       }
       if (toParam && /^\d{4}-\d{2}-\d{2}$/.test(toParam)) {
-        conditions.push(lte(meals.loggedAt, new Date(`${toParam}T23:59:59.999Z`)))
+        conditions.push(lte(meals.loggedAt, wibDayEnd(toParam)))
       }
       const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions)
 

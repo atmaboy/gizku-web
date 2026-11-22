@@ -15,7 +15,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { limitRequests, limitTiers, users } from '@/drizzle/schema'
 import { requireAdmin, getGlobalLimit } from '@/lib/admin'
-import { ok, err, setCors } from '@/lib/utils'
+import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { REJECT_REASONS, getLimitBankConfig, setLimitConfig, isLimitFeatureEnabled, listTiers, getUserFloor } from '@/lib/limit'
 import { getApprovedPeriods, computeUserLedger, computeEffectiveLimit } from '@/lib/limitLedger'
 import { eq, and, desc, count, sum, gte, lt, ilike, sql, notInArray } from 'drizzle-orm'
@@ -46,9 +46,12 @@ async function handleGet(req: NextRequest) {
   const action = req.nextUrl.searchParams.get('action')
 
   if (action === 'stats') {
-    const now = new Date()
-    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-    const monthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
+    // Awal/akhir bulan menurut WIB (UTC+7).
+    const [wy, wm] = todayISO().split('-').map(Number)
+    const monthStart = new Date(`${wy}-${String(wm).padStart(2, '0')}-01T00:00:00.000+07:00`)
+    const monthEnd = wm === 12
+      ? new Date(`${wy + 1}-01-01T00:00:00.000+07:00`)
+      : new Date(`${wy}-${String(wm + 1).padStart(2, '0')}-01T00:00:00.000+07:00`)
 
     const [[pending], [approvedThisMonth]] = await Promise.all([
       db.select({ c: count() }).from(limitRequests).where(eq(limitRequests.status, 'pending')),

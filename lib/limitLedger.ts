@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { limitRequests, dailyUsage } from '@/drizzle/schema'
 import { eq, and, asc, gte, lt } from 'drizzle-orm'
 import { getUserFloor } from '@/lib/limit'
-import { todayISO } from '@/lib/utils'
+import { todayISO, wibDateISO } from '@/lib/utils'
 
 /**
  * Single shared implementation of the limit ledger algorithm — used by both
@@ -54,8 +54,9 @@ export type Period = {
 
 export type ActiveTierInfo = { label: string; totalPerDay: number; expiresAt: string }
 
+/** Tanggal kalender WIB (UTC+7) dari sebuah instan: hari persetujuan/berakhir paket mengikuti WIB. */
 function dateOnly(d: Date): string {
-  return d.toISOString().split('T')[0]
+  return wibDateISO(d)
 }
 
 function addDays(d: Date, days: number): Date {

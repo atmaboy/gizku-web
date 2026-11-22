@@ -8,7 +8,7 @@ import {
 import {
   Button, Card, DataTable, EmptyState, Input, Modal, Pagination, Skeleton, Timeline, TimelineEnd, TimelineItem, TimelineLabel,
 } from '@/components/admin/ui'
-import { cn } from '@/lib/utils'
+import { cn, todayISO, addDaysISO } from '@/lib/utils'
 
 type MenuItem = {
   name?: string
@@ -53,17 +53,17 @@ const SOURCE_META: Record<string, { label: string; dot: string; icon: LucideIcon
 }
 
 function isoDaysAgo(n: number) {
-  return new Date(Date.now() - n * DAY_MS).toISOString().split('T')[0]
+  return addDaysISO(todayISO(), -n)
 }
 function todayStr() {
-  return new Date().toISOString().split('T')[0]
+  return todayISO()
 }
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
 }
 function fmtDayLabel(iso: string) {
-  return new Date(iso).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 function fmtDateStr(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })

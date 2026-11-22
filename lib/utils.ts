@@ -3,18 +3,48 @@ import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }
 
-export function todayISO() { return new Date().toISOString().split('T')[0] }
+/**
+ * Zona waktu backoffice. Server Vercel berjalan di UTC, sedangkan komponen client memakai zona browser: tanpa
+ * zona eksplisit, halaman server menampilkan 13.16 untuk waktu yang di browser 20.16. Semua format tanggal/jam
+ * di backoffice dikunci ke WIB supaya konsisten di server maupun client.
+ */
+export const ADMIN_TIME_ZONE = 'Asia/Jakarta'
+
+/**
+ * Semua batas "hari" di Gizku mengacu ke WIB (UTC+7, tanpa DST), sesuai Syarat & Ketentuan: kuota harian, "hari ini",
+ * filter tanggal riwayat, dan statistik harian berganti pukul 00.00 WIB, bukan 00.00 UTC.
+ */
+export const WIB_OFFSET_MS = 7 * 3600_000
+
+/** Tanggal kalender WIB (YYYY-MM-DD) dari sebuah instan. */
+export function wibDateISO(d: Date | number | string = new Date()): string {
+  return new Date(new Date(d).getTime() + WIB_OFFSET_MS).toISOString().slice(0, 10)
+}
+
+/** "Hari ini" menurut WIB (YYYY-MM-DD). */
+export function todayISO() { return wibDateISO() }
+
+/** Awal hari WIB (00:00:00.000 WIB) untuk tanggal YYYY-MM-DD. */
+export function wibDayStart(dateStr: string): Date { return new Date(`${dateStr}T00:00:00.000+07:00`) }
+
+/** Akhir hari WIB (23:59:59.999 WIB) untuk tanggal YYYY-MM-DD. */
+export function wibDayEnd(dateStr: string): Date { return new Date(`${dateStr}T23:59:59.999+07:00`) }
+
+/** Geser tanggal kalender YYYY-MM-DD sebanyak n hari (aritmetika tanggal murni, tidak bergantung zona waktu). */
+export function addDaysISO(dateStr: string, n: number): string {
+  return new Date(new Date(`${dateStr}T00:00:00.000Z`).getTime() + n * 86_400_000).toISOString().slice(0, 10)
+}
 
 export function fmtDate(d: Date | string | null) {
   if (!d) return '-'
-  return new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, day: '2-digit', month: 'short', year: 'numeric' })
     .format(new Date(d))
 }
 
 export function fmtDateTime(d: Date | string | null) {
   if (!d) return '-'
   return new Intl.DateTimeFormat('id-ID', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: ADMIN_TIME_ZONE, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(new Date(d))
 }
 
@@ -43,15 +73,15 @@ export function fmtRelativeID(d: Date | string | null) {
 export function fmtDateTimePrecise(d: Date | string | null) {
   if (!d) return '-'
   const date = new Date(d)
-  const datePart = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(date)
-  const timePart = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
+  const datePart = new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, day: 'numeric', month: 'long', year: 'numeric' }).format(date)
+  const timePart = new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
   return `${datePart} ${timePart}`
 }
 
 /** "8 Agustus 2026" */
 export function fmtDateLongID(d: Date | string | null) {
   if (!d) return '-'
-  return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(d))
+  return new Intl.DateTimeFormat('id-ID', { timeZone: ADMIN_TIME_ZONE, day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(d))
 }
 
 export function setCors(h: Headers) {

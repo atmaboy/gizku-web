@@ -23,6 +23,7 @@ import { getCfg } from '@/lib/admin'
 import { telegramUsers, meals } from '@/drizzle/schema'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
 import Anthropic from '@anthropic-ai/sdk'
+import { wibDateISO, wibDayStart, wibDayEnd } from '@/lib/utils'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -97,8 +98,9 @@ async function replyBlocked(ctx: Context): Promise<void> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+// Hari = WIB (UTC+7), sama dengan API (lib/utils.ts).
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+  return wibDateISO()
 }
 
 /** Get or create a telegram_user row, reset daily count if it's a new day. */
@@ -341,8 +343,8 @@ export function createBot(token: string): Bot {
       }
 
       const today      = todayISO()
-      const startOfDay = `${today}T00:00:00.000Z`
-      const endOfDay   = `${today}T23:59:59.999Z`
+      const startOfDay = wibDayStart(today).toISOString()
+      const endOfDay   = wibDayEnd(today).toISOString()
 
       const todayMeals = await db
         .select()

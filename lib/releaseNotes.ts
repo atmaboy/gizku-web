@@ -123,6 +123,23 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
     {
+      version: '1.15.0',
+      date: '2026-11-22',
+      note: 'Perubahan perilaku: batas hari kini WIB (UTC+7), sebelumnya UTC. Saat deploy, di jendela 00.00 sampai 07.00 WIB user bisa mendapat kuota harian baru satu kali karena tanggal pemakaian bergeser dari tanggal UTC ke tanggal WIB. Tidak perlu migrasi SQL.',
+      changes: [
+        { type: 'improve', text: 'Semua batas hari mengacu ke WIB (UTC+7, tanpa DST): kuota harian user berganti pukul 00.00 WIB (sebelumnya 07.00 WIB), "hari ini" di ringkasan dan Telegram, filter tanggal dan jendela N hari di Riwayat (app dan backoffice), statistik harian dan mingguan Telegram, serta hitungan bulan di Review Request Limit. Catatan makan antara 00.00 dan 07.00 WIB kini muncul di hari yang benar saat difilter.' },
+        { type: 'improve', text: 'Hari persetujuan dan akhir periode paket limit di ledger Riwayat Limit dihitung menurut tanggal WIB.' },
+        { type: 'chore', text: 'Helper tanggal WIB terpusat di lib/utils (wibDateISO, wibDayStart, wibDayEnd, addDaysISO) lengkap dengan tes batas hari yang tidak bergantung zona waktu mesin.' },
+      ],
+    },
+    {
+      version: '1.14.1',
+      date: '2026-11-22',
+      changes: [
+        { type: 'fix', text: 'Backoffice: waktu di halaman server (detail user, daftar user, dan lainnya) tampil 7 jam lebih awal dari riwayat makanan (mis. 13.16 padahal 20.16 WIB) karena server berjalan di UTC. Semua format tanggal dan jam backoffice kini dikunci ke WIB (Asia/Jakarta) sehingga konsisten di server maupun browser.' },
+      ],
+    },
+    {
       version: '1.14.0',
       date: '2026-11-22',
       note: 'Jalankan sql/023_user_devices.sql sebelum deploy (staging dulu, lalu production). Tanpa migrasi, pendaftaran push tetap jalan tapi pengelompokan perangkat tidak aktif. Perangkat baru terisi setelah user memperbarui app mobile ke 1.2.1 atau lebih baru.',
@@ -301,8 +318,8 @@ export const RELEASES: Record<Platform, Release[]> = {
     {
       version: '1.2.1',
       date: '2026-11-22',
-      status: 'unreleased',
-      note: 'Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (sql/021), ubah tanggal makan butuh backend web ≥ 1.13.0 (sql/022), pengelompokan perangkat butuh backend web ≥ 1.14.0 (sql/023). Di backend lama app tetap berjalan normal, fitur terkait saja yang tidak muncul.',
+      status: 'released',
+      note: 'Dirilis ke Google Play. Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (sql/021), ubah tanggal makan butuh backend web ≥ 1.13.0 (sql/022), pengelompokan perangkat butuh backend web ≥ 1.14.0 (sql/023). Di backend lama app tetap berjalan normal, fitur terkait saja yang tidak muncul.',
       changes: [
         { type: 'feat', text: 'Ubah menu & kalori dari Riwayat: detail catatan kini punya tombol Ubah menu (nama, porsi, kalori, protein, karbo, lemak, tambah/hapus menu) dengan total kalori yang dihitung ulang dan selisihnya terhadap hasil AI. Bisa kapan saja, tanpa batas waktu.' },
         { type: 'feat', text: 'Layar Ubah menu baru menggantikan editor manual di layar hasil analisa: kartu per menu yang bisa dibuka, penanda menu yang sudah diubah, Kembalikan ke hasil AI, validasi nama menu, dan konfirmasi sebelum membuang perubahan.' },
@@ -311,6 +328,7 @@ export const RELEASES: Record<Platform, Release[]> = {
         { type: 'feat', text: 'Versi app, platform, dan waktu terakhir terlihat dikirim ke backend (header X-App-Version / X-App-Platform / X-App-Build dan heartbeat saat app dibuka) supaya tampil presisi di backoffice. Butuh backend web ≥ 1.12.0.' },
         { type: 'feat', text: 'ID instalasi acak (disimpan aman di perangkat, bukan pengenal hardware) dikirim di header X-Device-Id supaya backoffice menampilkan satu kartu per perangkat dan menonaktifkan token push lama perangkat yang sama. Install ulang di Android membuat ID baru. Butuh backend web ≥ 1.14.0.' },
         { type: 'feat', text: 'Ubah tanggal & jam makan dari detail Riwayat atau layar hasil analisa: pilih hari ini sampai 6 hari lalu plus jam makan, hanya dalam 24 jam setelah scan (setelahnya muncul toast penjelasan). Tidak bisa memilih waktu di masa depan. Butuh backend web ≥ 1.13.0; di backend lama tombolnya tidak muncul.' },
+        { type: 'chore', text: 'Android: fitur layar portrait dideklarasikan opsional di manifest sehingga Play Console tidak lagi membatasi perangkat yang bisa memasang (tablet, desktop, Android XR). App tetap dikunci portrait.' },
         { type: 'fix', text: 'Hasil analisa tidak lagi hilang saat gagal tersimpan ke Riwayat (foto/thumbnail atau request simpan gagal): otomatis disimpan sebagai Draft beserta hasil analisanya, dan dari detail Draft bisa langsung Simpan ke Riwayat tanpa analisa ulang (kuota harian tidak terpakai lagi). Berhasil di-retry dari layar hasil → draft otomatis dihapus.' },
         { type: 'fix', text: 'Menekan Kembali/X saat layar analisa dalam kondisi error, atau analisa yang gagal setelah layar ditutup, kini menyimpan foto sebagai Draft alih-alih membuangnya.' },
       ],

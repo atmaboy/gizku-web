@@ -9,7 +9,7 @@ import AdminPage from '@/components/admin/shell/AdminPage'
 import {
   Button, Card, FormField, Input, Modal, Progress, SectionNumber, SegmentedControl, Select, Skeleton, Tabs, Textarea,
 } from '@/components/admin/ui'
-import { cn } from '@/lib/utils'
+import { cn, todayISO } from '@/lib/utils'
 import { EmailBodyPreview, TelegramBodyPreview } from '@/components/admin/blast/BlastBodyPreview'
 import { compressBanner } from '@/lib/clientImage'
 import { BANNER_MAX_BYTES, fmtMB } from '@/lib/pushImage'
@@ -438,7 +438,7 @@ export default function BlastComposePage() {
     }
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayISO()
 
   const CHANNELS: { value: Channel; label: string; icon: LucideIcon }[] = [
     { value: 'push', label: 'Push Notifikasi', icon: Bell },

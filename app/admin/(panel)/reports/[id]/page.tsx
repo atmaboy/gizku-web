@@ -25,7 +25,7 @@ const QUICK_REPLIES = [
 ]
 
 function fmtClock(iso: string) {
-  return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function ReportDetailPage() {

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { telegramLinkTokens, telegramUsers } from '@/drizzle/schema'
 import { eq, and, gt } from 'drizzle-orm'
+import { todayISO } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   // Validate internal secret so only the bot server can call this
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
         firstName,
         username,
         dailyCount:   0,
-        lastUsedDate: new Date().toISOString().slice(0, 10),
+        lastUsedDate: todayISO(),
       })
       .onConflictDoUpdate({
         target: telegramUsers.telegramId,
