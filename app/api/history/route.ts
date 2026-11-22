@@ -4,6 +4,7 @@ import { meals, dailyUsage } from '@/drizzle/schema'
 import { verifyToken, extractToken } from '@/lib/auth'
 import { getGlobalLimit } from '@/lib/admin'
 import { computeEffectiveLimit } from '@/lib/limitLedger'
+import { checkLoggedAtChange } from '@/lib/mealDate'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
 import { eq, and, desc, count, gte, lte } from 'drizzle-orm'
 
@@ -186,6 +187,9 @@ export async function POST(req: NextRequest) {
     // Guard against a wildly-wrong device clock claiming a future capture time.
     if (parsed.getTime() <= Date.now() + 5 * 60 * 1000) {
       values.loggedAt = parsed
+      // Backdated save (draft saved later / retry): the original scan time is the capture time, so the
+      // 24h date-edit window counts from it. Otherwise scanned_at defaults to now.
+      values.scannedAt = parsed
     }
   }
 
@@ -202,23 +206,35 @@ export async function PATCH(req: NextRequest) {
   if (!id) return err('Meal ID diperlukan')
 
   const body = await req.json()
-  const { analysis } = body
-  if (!analysis) return err('Data analisis diperlukan')
+  const { analysis, loggedAt } = body
+  const hasAnalysis = !!analysis
+  const hasLoggedAt = loggedAt !== undefined
+  if (!hasAnalysis && !hasLoggedAt) return err('Data analisis atau tanggal diperlukan')
 
   const [existing] = await db.select().from(meals)
     .where(and(eq(meals.id, id), eq(meals.userId, user.userId))).limit(1)
   if (!existing) return err('Data tidak ditemukan', 404)
 
-  const [updated] = await db.update(meals).set({
-    dishNames:     analysis.dishes?.map((d: MealDish) => d.name) ?? [],
-    totalCalories: Math.round(analysis.total?.calories ?? 0),
-    totalProtein:  String(analysis.total?.protein ?? 0),
-    totalCarbs:    String(analysis.total?.carbs ?? 0),
-    totalFat:      String(analysis.total?.fat ?? 0),
-    rawAnalysis:   analysis,
-  })
-  .where(and(eq(meals.id, id), eq(meals.userId, user.userId)))
-  .returning()
+  const changes: Partial<typeof meals.$inferInsert> = {}
+
+  if (hasLoggedAt) {
+    const check = checkLoggedAtChange({ loggedAt, scannedAt: new Date(existing.scannedAt) })
+    if (!check.ok) return err(check.error, check.status, check.code)
+    changes.loggedAt = check.date
+  }
+
+  if (hasAnalysis) {
+    changes.dishNames     = analysis.dishes?.map((d: MealDish) => d.name) ?? []
+    changes.totalCalories = Math.round(analysis.total?.calories ?? 0)
+    changes.totalProtein  = String(analysis.total?.protein ?? 0)
+    changes.totalCarbs    = String(analysis.total?.carbs ?? 0)
+    changes.totalFat      = String(analysis.total?.fat ?? 0)
+    changes.rawAnalysis   = analysis
+  }
+
+  const [updated] = await db.update(meals).set(changes)
+    .where(and(eq(meals.id, id), eq(meals.userId, user.userId)))
+    .returning()
 
   return ok({ meal: updated })
 }

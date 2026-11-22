@@ -46,6 +46,8 @@ export const meals = pgTable('meals', {
   rawAnalysis:   jsonb('raw_analysis'),
   source:        text('source').notNull().default('web'), // 'web' | 'telegram' | 'app-ios' | 'app-android'
   loggedAt:      timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
+  // Waktu scan asli; tidak pernah diubah. logged_at bisa dipindah user (maks. 24 jam setelah scan, lihat lib/mealDate.ts).
+  scannedAt:     timestamp('scanned_at', { withTimezone: true }).defaultNow().notNull(),
 }, t => ({
   userIdx:   index('idx_meals_user_id').on(t.userId),
   loggedIdx: index('idx_meals_logged_at').on(t.loggedAt),

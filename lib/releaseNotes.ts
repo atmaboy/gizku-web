@@ -113,6 +113,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Dokumen legal & Tentang Aplikasi', description: 'Syarat & Ketentuan, Kebijakan Privasi, dokumen custom dari backoffice.' },
         { name: 'Kirim laporan / masukan', description: 'Dari Pengaturan, masuk ke Laporan & Helpdesk backoffice.' },
         { name: 'Analytics', description: 'Google Analytics 4 (Measurement Protocol) dengan parameter platform android/ios.' },
+        { name: 'Ubah tanggal makan', description: 'Dalam 24 jam setelah scan: pindahkan catatan ke hari ini sampai 6 hari lalu dan ubah jam makan. Tidak bisa ke masa depan. Setelah 24 jam tombol tetap terlihat tetapi hanya menampilkan penjelasan. Butuh backend web ≥ 1.13.0.' },
         { name: 'Versi app ke backoffice', description: 'App mengirim versi, platform, dan build di setiap request plus heartbeat saat dibuka, sehingga backoffice menampilkan versi app dan waktu terakhir terlihat user dengan presisi.' },
       ],
     },
@@ -121,6 +122,15 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.13.0',
+      date: '2026-11-22',
+      note: 'Jalankan sql/022_meals_scanned_at.sql SEBELUM deploy (staging dulu, lalu production). Kode baru membaca kolom scanned_at di setiap query meals, jadi deploy tanpa migrasi membuat API riwayat error. Butuh juga sql/021 dari 1.12.0 bila belum.',
+      changes: [
+        { type: 'feat', text: 'Ubah tanggal & jam makan dari app mobile: PATCH /api/history?id= kini menerima { analysis?, loggedAt? } (minimal salah satu). loggedAt harus tanggal valid, tidak lebih dari 5 menit di depan, tidak lebih lama dari 7 hari ke belakang. Ditolak 409 { code: "DATE_LOCKED" } bila sudah lewat 24 jam sejak scan.' },
+        { type: 'feat', text: 'Kolom baru meals.scanned_at (waktu scan asli, tidak pernah diubah) sebagai patokan 24 jam; data lama diisi dari logged_at. Simpan mundur (draft yang disimpan belakangan) memakai loggedAt asli sebagai scanned_at. Semua respons meal kini memuat scannedAt. Mobile butuh ini untuk menampilkan tombol Ubah tanggal.' },
+      ],
+    },
     {
       version: '1.12.0',
       date: '2026-11-22',
@@ -281,14 +291,14 @@ export const RELEASES: Record<Platform, Release[]> = {
       version: '1.2.1',
       date: '2026-11-22',
       status: 'unreleased',
-      note: 'Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (jalankan sql/021_user_app_clients.sql). Tanpa itu app tetap berjalan normal. Ubah tanggal makan sudah disiapkan tapi belum aktif sampai backend mendukungnya.',
+      note: 'Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (sql/021), ubah tanggal makan butuh backend web ≥ 1.13.0 (sql/022). Di backend lama app tetap berjalan normal, fitur terkait saja yang tidak muncul.',
       changes: [
         { type: 'feat', text: 'Ubah menu & kalori dari Riwayat: detail catatan kini punya tombol Ubah menu (nama, porsi, kalori, protein, karbo, lemak, tambah/hapus menu) dengan total kalori yang dihitung ulang dan selisihnya terhadap hasil AI. Bisa kapan saja, tanpa batas waktu.' },
         { type: 'feat', text: 'Layar Ubah menu baru menggantikan editor manual di layar hasil analisa: kartu per menu yang bisa dibuka, penanda menu yang sudah diubah, Kembalikan ke hasil AI, validasi nama menu, dan konfirmasi sebelum membuang perubahan.' },
         { type: 'improve', text: 'Layar hasil analisa dirombak: tanggal & jam makan, total kalori dengan skor gizi, bar asal kalori (protein/karbo/lemak), daftar menu yang bisa diketuk untuk diubah, dan koreksi dengan AI lewat lembar bawah. Notifikasi simpan/gagal kini lewat toast singkat, angka mengikuti pemisah desimal bahasa (20,9 g / 20.9 g).' },
         { type: 'improve', text: 'Warna teks bahaya dan toast error dibuat lebih kontras (lolos 4.5:1), area ketuk minimal 44 px di layar baru.' },
         { type: 'feat', text: 'Versi app, platform, dan waktu terakhir terlihat dikirim ke backend (header X-App-Version / X-App-Platform / X-App-Build dan heartbeat saat app dibuka) supaya tampil presisi di backoffice. Butuh backend web ≥ 1.12.0.' },
-        { type: 'chore', text: 'Disiapkan, belum aktif: ubah tanggal & jam makan dalam 24 jam setelah scan (rentang hari ini sampai 6 hari lalu). Aktif setelah backend mengirim scannedAt dan menerima loggedAt di PATCH /api/history; catatan rilis berikutnya akan menyebut versi backend minimum.' },
+        { type: 'feat', text: 'Ubah tanggal & jam makan dari detail Riwayat atau layar hasil analisa: pilih hari ini sampai 6 hari lalu plus jam makan, hanya dalam 24 jam setelah scan (setelahnya muncul toast penjelasan). Tidak bisa memilih waktu di masa depan. Butuh backend web ≥ 1.13.0; di backend lama tombolnya tidak muncul.' },
         { type: 'fix', text: 'Hasil analisa tidak lagi hilang saat gagal tersimpan ke Riwayat (foto/thumbnail atau request simpan gagal): otomatis disimpan sebagai Draft beserta hasil analisanya, dan dari detail Draft bisa langsung Simpan ke Riwayat tanpa analisa ulang (kuota harian tidak terpakai lagi). Berhasil di-retry dari layar hasil → draft otomatis dihapus.' },
         { type: 'fix', text: 'Menekan Kembali/X saat layar analisa dalam kondisi error, atau analisa yang gagal setelah layar ditutup, kini menyimpan foto sebagai Draft alih-alih membuangnya.' },
       ],
