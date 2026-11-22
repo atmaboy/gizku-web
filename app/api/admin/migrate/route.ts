@@ -322,6 +322,7 @@ export async function POST(req: NextRequest) {
           imageUrl:      null,
           rawAnalysis,
           loggedAt,
+          scannedAt:     loggedAt,
         }).onConflictDoNothing({ target: meals.id })
 
         migratedMeals++

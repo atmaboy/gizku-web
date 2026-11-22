@@ -54,7 +54,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       group: 'Backoffice',
       items: [
         { name: 'Dashboard admin', description: 'Statistik ringkasan, status sistem, recent users, badge laporan open & request limit.' },
-        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform, bahasa, dan aktivitas terakhir; detail user menampilkan perangkat terdaftar.' },
+        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform + versi app, bahasa, dan aktivitas terakhir; detail user menampilkan versi app (terakhir terlihat), riwayat versi, dan satu kartu per perangkat (versi app, status push, terakhir terlihat).' },
         { name: 'Riwayat analisa user', description: 'Lihat riwayat makanan per user.' },
         { name: 'Landing Builder', description: 'Atur 9 section landing + pengaturan global tanpa deploy; drag urutan, pratinjau desktop/mobile, alur Draf → Terbitkan, riwayat terbitan.' },
         { name: 'Dokumen legal', description: 'Rich text editor dwibahasa untuk Syarat & Ketentuan, Kebijakan Privasi, dan tipe custom.' },
@@ -91,7 +91,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       group: 'Analisa & Riwayat',
       items: [
         { name: 'Scan makanan', description: 'Kamera atau galeri, dianalisa AI (Claude lewat API gizku-web).' },
-        { name: 'Edit hasil analisa', description: 'Koreksi teks untuk re-analisa, atau edit manual per menu.' },
+        { name: 'Edit hasil analisa', description: 'Layar hasil analisa dengan ringkasan kalori & skor gizi, bar asal kalori, dan daftar menu. Koreksi dengan AI (lembar bawah) untuk re-analisa, atau Ubah menu (nama, porsi, kalori, makro, tambah/hapus menu, kembalikan ke hasil AI) langsung setelah scan maupun dari detail Riwayat, kapan saja.' },
         { name: 'Auto-save ke riwayat', description: 'Dengan status tersimpan yang jujur (Menyimpan / Tersimpan / Gagal, ketuk untuk coba lagi). Tanggal riwayat mengikuti waktu foto diambil.' },
         { name: 'Simpan sebagai Draft', description: 'Analisa gagal karena koneksi/server: foto disimpan di perangkat (maks. 3, yang terlama diganti) dan bisa dianalisa ulang dari Riwayat tanpa foto ulang.' },
         { name: 'Riwayat', description: 'Filter Semua/Draft, kalender pilih tanggal, mode 10 hari terakhir, pagination 10 per halaman, shimmer loading, sumber (app/web/Telegram).' },
@@ -113,6 +113,8 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Dokumen legal & Tentang Aplikasi', description: 'Syarat & Ketentuan, Kebijakan Privasi, dokumen custom dari backoffice.' },
         { name: 'Kirim laporan / masukan', description: 'Dari Pengaturan, masuk ke Laporan & Helpdesk backoffice.' },
         { name: 'Analytics', description: 'Google Analytics 4 (Measurement Protocol) dengan parameter platform android/ios.' },
+        { name: 'Ubah tanggal makan', description: 'Dalam 24 jam setelah scan: pindahkan catatan ke hari ini sampai 6 hari lalu dan ubah jam makan. Tidak bisa ke masa depan. Setelah 24 jam tombol tetap terlihat tetapi hanya menampilkan penjelasan. Butuh backend web ≥ 1.13.0.' },
+        { name: 'Versi app & perangkat ke backoffice', description: 'App mengirim versi, platform, build, dan ID instalasi acak di setiap request plus heartbeat saat dibuka, sehingga backoffice menampilkan versi app, waktu terakhir terlihat, dan satu kartu per perangkat dengan presisi.' },
       ],
     },
   ],
@@ -120,6 +122,38 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.14.0',
+      date: '2026-11-22',
+      note: 'Jalankan sql/023_user_devices.sql sebelum deploy (staging dulu, lalu production). Tanpa migrasi, pendaftaran push tetap jalan tapi pengelompokan perangkat tidak aktif. Perangkat baru terisi setelah user memperbarui app mobile ke 1.2.1 atau lebih baru.',
+      changes: [
+        { type: 'feat', text: 'Detail User › Perangkat kini satu kartu per perangkat fisik (bukan satu baris per token push): versi app terbaru, status push, bahasa, pertama/terakhir terlihat, dan jumlah token. Update app tidak membuat perangkat baru. Perangkat lama tanpa ID tidak ditampilkan (kartu muncul setelah user memperbarui app); query user hanya memuat token push aktif sehingga lebih ringan.' },
+        { type: 'improve', text: 'ID perangkat di detail user disensor secara default dengan tombol tampilkan/sembunyikan satu klik. Daftar Manajemen User dibuat lebih ringan: kolom Email, Last Login, Platform, dan Bahasa dipindah ke halaman Detail; Aktif Terakhir dihitung dari satu query ringkas per sumber tanpa memuat daftar perangkat. Teks penjelasan panjang di kartu perangkat dan banner "wajib konfirmasi password admin" di tab Konfigurasi akun user dihapus.' },
+        { type: 'improve', text: 'Pendaftaran push token: bila app mengirim ID perangkat (header X-Device-Id), token itu ditautkan ke perangkatnya dan token aktif lain milik perangkat yang sama otomatis dinonaktifkan (token lama dari install ulang, rotasi, atau pindah Expo ke FCM), sehingga tidak ada notifikasi ganda. Tabel baru user_devices, kolom baru push_tokens.device_id.' },
+        { type: 'chore', text: 'CORS: header X-Device-Id diizinkan di semua /api/*.' },
+      ],
+    },
+    {
+      version: '1.13.0',
+      date: '2026-11-22',
+      note: 'Jalankan sql/022_meals_scanned_at.sql SEBELUM deploy (staging dulu, lalu production). Kode baru membaca kolom scanned_at di setiap query meals, jadi deploy tanpa migrasi membuat API riwayat error. Butuh juga sql/021 dari 1.12.0 bila belum.',
+      changes: [
+        { type: 'feat', text: 'Ubah tanggal & jam makan dari app mobile: PATCH /api/history?id= kini menerima { analysis?, loggedAt? } (minimal salah satu). loggedAt harus tanggal valid, tidak lebih dari 5 menit di depan, tidak lebih lama dari 7 hari ke belakang. Ditolak 409 { code: "DATE_LOCKED" } bila sudah lewat 24 jam sejak scan.' },
+        { type: 'feat', text: 'Kolom baru meals.scanned_at (waktu scan asli, tidak pernah diubah) sebagai patokan 24 jam; data lama diisi dari logged_at. Simpan mundur (draft yang disimpan belakangan) memakai loggedAt asli sebagai scanned_at. Semua respons meal kini memuat scannedAt. Mobile butuh ini untuk menampilkan tombol Ubah tanggal.' },
+      ],
+    },
+    {
+      version: '1.12.0',
+      date: '2026-11-22',
+      note: 'Jalankan sql/021_user_app_clients.sql sebelum deploy. Tanpa migrasi, info versi app tidak tampil tapi halaman user tetap normal. Data versi mulai terisi setelah user memperbarui app mobile ke 1.2.1 atau lebih baru.',
+      changes: [
+        { type: 'feat', text: 'Versi app mobile yang dipakai user kini tercatat presisi: app mengirim header X-App-Version / X-App-Platform / X-App-Build di setiap request dan heartbeat baru POST /api/auth?action=ping saat app dibuka. Disimpan di tabel user_app_clients (satu baris per user, platform, dan versi; tulis ke DB maksimal sekali per 5 menit per baris). Request tanpa header (app lama, web, Telegram) tidak dicatat.' },
+        { type: 'feat', text: 'Detail User › Perangkat & Aktivitas: baris baru Versi app (platform, versi, build, waktu terakhir terlihat) dan daftar versi app yang pernah dipakai bila user sudah pernah memperbarui app.' },
+        { type: 'improve', text: 'Manajemen User: kolom Platform menampilkan versi app terakhir (mis. Android FCM v1.2.1), dan Aktif Terakhir kini ikut menghitung kapan app dibuka, tidak lagi hanya login, catat makanan, atau registrasi token push.' },
+        { type: 'fix', text: 'Manajemen User tidak lagi sesekali menampilkan "Application error" saat dibuka lewat navigasi menu (butuh refresh): query pemakaian harian kini satu query untuk seluruh halaman (sebelumnya sampai 50 query paralel per render yang membuat respons lambat/terputus), dan halaman admin punya batas error yang mencoba memuat ulang otomatis serta menampilkan tombol Coba lagi alih-alih layar putih.' },
+        { type: 'chore', text: 'CORS: header X-App-Version, X-App-Platform, dan X-App-Build diizinkan di semua /api/*.' },
+      ],
+    },
     {
       version: '1.11.0',
       date: '2026-11-17',
@@ -266,9 +300,17 @@ export const RELEASES: Record<Platform, Release[]> = {
   mobile: [
     {
       version: '1.2.1',
-      date: '2026-11-21',
+      date: '2026-11-22',
       status: 'unreleased',
+      note: 'Versi app terkirim ke backoffice butuh backend web ≥ 1.12.0 (sql/021), ubah tanggal makan butuh backend web ≥ 1.13.0 (sql/022), pengelompokan perangkat butuh backend web ≥ 1.14.0 (sql/023). Di backend lama app tetap berjalan normal, fitur terkait saja yang tidak muncul.',
       changes: [
+        { type: 'feat', text: 'Ubah menu & kalori dari Riwayat: detail catatan kini punya tombol Ubah menu (nama, porsi, kalori, protein, karbo, lemak, tambah/hapus menu) dengan total kalori yang dihitung ulang dan selisihnya terhadap hasil AI. Bisa kapan saja, tanpa batas waktu.' },
+        { type: 'feat', text: 'Layar Ubah menu baru menggantikan editor manual di layar hasil analisa: kartu per menu yang bisa dibuka, penanda menu yang sudah diubah, Kembalikan ke hasil AI, validasi nama menu, dan konfirmasi sebelum membuang perubahan.' },
+        { type: 'improve', text: 'Layar hasil analisa dirombak: tanggal & jam makan, total kalori dengan skor gizi, bar asal kalori (protein/karbo/lemak), daftar menu yang bisa diketuk untuk diubah, dan koreksi dengan AI lewat lembar bawah. Notifikasi simpan/gagal kini lewat toast singkat, angka mengikuti pemisah desimal bahasa (20,9 g / 20.9 g).' },
+        { type: 'improve', text: 'Warna teks bahaya dan toast error dibuat lebih kontras (lolos 4.5:1), area ketuk minimal 44 px di layar baru.' },
+        { type: 'feat', text: 'Versi app, platform, dan waktu terakhir terlihat dikirim ke backend (header X-App-Version / X-App-Platform / X-App-Build dan heartbeat saat app dibuka) supaya tampil presisi di backoffice. Butuh backend web ≥ 1.12.0.' },
+        { type: 'feat', text: 'ID instalasi acak (disimpan aman di perangkat, bukan pengenal hardware) dikirim di header X-Device-Id supaya backoffice menampilkan satu kartu per perangkat dan menonaktifkan token push lama perangkat yang sama. Install ulang di Android membuat ID baru. Butuh backend web ≥ 1.14.0.' },
+        { type: 'feat', text: 'Ubah tanggal & jam makan dari detail Riwayat atau layar hasil analisa: pilih hari ini sampai 6 hari lalu plus jam makan, hanya dalam 24 jam setelah scan (setelahnya muncul toast penjelasan). Tidak bisa memilih waktu di masa depan. Butuh backend web ≥ 1.13.0; di backend lama tombolnya tidak muncul.' },
         { type: 'fix', text: 'Hasil analisa tidak lagi hilang saat gagal tersimpan ke Riwayat (foto/thumbnail atau request simpan gagal): otomatis disimpan sebagai Draft beserta hasil analisanya, dan dari detail Draft bisa langsung Simpan ke Riwayat tanpa analisa ulang (kuota harian tidak terpakai lagi). Berhasil di-retry dari layar hasil → draft otomatis dihapus.' },
         { type: 'fix', text: 'Menekan Kembali/X saat layar analisa dalam kondisi error, atau analisa yang gagal setelah layar ditutup, kini menyimpan foto sebagai Draft alih-alih membuangnya.' },
       ],

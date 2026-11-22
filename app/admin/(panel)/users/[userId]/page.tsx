@@ -5,8 +5,9 @@ import { fmtDateTime, fmtNum, todayISO } from '@/lib/utils'
 import { eq, count, sql } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { Activity, CalendarPlus, ChevronLeft, History, LogIn, Mail, Smartphone, User } from 'lucide-react'
-import { getDeviceInfo, deviceLabel, lastActivity, platformSummary, emptyInfo } from '@/lib/userDevices'
+import { getDeviceInfo, deviceLabel, lastActivity, platformSummary, latestAppClient, appClientLabel, activeToken, platformName, emptyInfo } from '@/lib/userDevices'
 import UserDetailTabs from '@/components/admin/UserDetailTabs'
+import MaskedId from '@/components/admin/MaskedId'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import { Avatar, Badge, Button, Card, KeyValue } from '@/components/admin/ui'
 export const dynamic = 'force-dynamic'
@@ -42,6 +43,7 @@ export default async function UserDetailPage({
   const devInfo = (await getDeviceInfo([userId])).get(userId) ?? emptyInfo()
   const platform = platformSummary(devInfo)
   const lastActive = lastActivity(user.lastLoginAt, devInfo)
+  const appNow = latestAppClient(devInfo)
   const totalMeals = Number(mealsRow.cnt ?? 0)
   const todayUsage = Number(usageRow.cnt ?? 0)
 
@@ -115,23 +117,50 @@ export default async function UserDetailPage({
                     {platform.fromHistory && <span className="text-xs text-secondary">dari riwayat makanan</span>}
                   </span>}
             </AboutRow>
-            {devInfo.devices.length > 0 && (
+            <AboutRow icon={Smartphone} title="Versi app">
+              {appNow
+                ? <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <Badge variant="soft" size="sm">{appClientLabel(appNow)}</Badge>
+                    {appNow.appBuild && <span className="text-xs text-secondary tabular-nums">build {appNow.appBuild}</span>}
+                    <span className="text-sm text-secondary tabular-nums">terakhir terlihat {fmtDateTime(appNow.lastSeenAt)}</span>
+                  </span>
+                : <span className="text-secondary">Belum melapor. App user belum diperbarui ke versi yang mengirim versi app.</span>}
+            </AboutRow>
+            {devInfo.deviceGroups.length > 0 && (
               <div className="px-0 pt-2">
-                <p className="text-sm font-semibold text-primary mb-1.5">Perangkat terdaftar</p>
+                <p className="text-sm font-semibold text-primary mb-1.5">Perangkat ({devInfo.deviceGroups.length})</p>
                 <ul className="flex flex-col gap-2 list-none m-0 p-0">
-                  {devInfo.devices.map((d, i) => (
-                    <li key={i} className={`rounded-sm border border-border px-3 py-2 text-sm ${d.isActive ? '' : 'opacity-60'}`}>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-primary">{deviceLabel(d)}</span>
-                        <Badge variant={d.isActive ? 'success' : 'secondary'} size="sm">{d.isActive ? 'Aktif' : 'Nonaktif'}</Badge>
-                        <span className="text-secondary">Bahasa {d.language === 'en' ? 'EN' : 'ID'}</span>
-                      </div>
-                      <p className="text-secondary mt-0.5 tabular-nums">Terdaftar {fmtDateTime(d.createdAt)} · Terakhir terlihat {fmtDateTime(d.lastSeenAt)}</p>
+                  {devInfo.deviceGroups.map(g => {
+                    const tok = activeToken(g)
+                    return (
+                      <li key={g.deviceId} className={`rounded-sm border border-border px-3 py-2 text-sm ${tok ? '' : 'opacity-70'}`}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-primary">{tok ? deviceLabel(tok) : platformName(g.platform)}</span>
+                          <Badge variant="soft" size="sm">v{g.appVersion}{g.appBuild ? ` (${g.appBuild})` : ''}</Badge>
+                          <Badge variant={tok ? 'success' : 'secondary'} size="sm">{tok ? 'Push aktif' : 'Tanpa push aktif'}</Badge>
+                          {tok && <span className="text-secondary">Bahasa {tok.language === 'en' ? 'EN' : 'ID'}</span>}
+                        </div>
+                        <p className="text-secondary mt-0.5 tabular-nums">Pertama terlihat {fmtDateTime(g.firstSeenAt)} · Terakhir terlihat {fmtDateTime(g.lastSeenAt)}</p>
+                        <p className="mt-0.5"><MaskedId value={g.deviceId} /></p>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+            {devInfo.appClients.length > 1 && (
+              <details className="pt-2">
+                <summary className="text-sm font-semibold text-primary cursor-pointer select-none">Riwayat versi app ({devInfo.appClients.length})</summary>
+                <ul className="flex flex-col gap-2 list-none m-0 mt-1.5 p-0">
+                  {devInfo.appClients.map(c => (
+                    <li key={`${c.platform}-${c.appVersion}`} className="rounded-sm border border-border px-3 py-2 text-sm">
+                      <span className="font-semibold text-primary">{appClientLabel(c)}</span>
+                      {c.appBuild && <span className="text-secondary tabular-nums"> · build {c.appBuild}</span>}
+                      <p className="text-secondary mt-0.5 tabular-nums">Pertama terlihat {fmtDateTime(c.firstSeenAt)} · Terakhir terlihat {fmtDateTime(c.lastSeenAt)}</p>
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-secondary mt-2 leading-normal">Perangkat nonaktif = user logout atau token sudah tidak valid. &ldquo;Terakhir terlihat&rdquo; = terakhir token didaftarkan, bukan terakhir app dibuka.</p>
-              </div>
+              </details>
             )}
           </Card>
 

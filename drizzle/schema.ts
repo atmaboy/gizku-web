@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, text, integer, numeric, boolean,
-  serial, date, jsonb, timestamp, bigint, index, primaryKey, char,
+  serial, date, jsonb, timestamp, bigint, index, uniqueIndex, primaryKey, char,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -46,6 +46,8 @@ export const meals = pgTable('meals', {
   rawAnalysis:   jsonb('raw_analysis'),
   source:        text('source').notNull().default('web'), // 'web' | 'telegram' | 'app-ios' | 'app-android'
   loggedAt:      timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
+  // Waktu scan asli; tidak pernah diubah. logged_at bisa dipindah user (maks. 24 jam setelah scan, lihat lib/mealDate.ts).
+  scannedAt:     timestamp('scanned_at', { withTimezone: true }).defaultNow().notNull(),
 }, t => ({
   userIdx:   index('idx_meals_user_id').on(t.userId),
   loggedIdx: index('idx_meals_logged_at').on(t.loggedAt),
@@ -225,6 +227,7 @@ export const pushTokens = pgTable('push_tokens', {
   platform:   text('platform').notNull(), // 'ios' | 'android'
   provider:   text('provider').notNull().default('expo'), // 'expo' (Expo push token) | 'fcm' (native FCM token, Android only)
   language:   text('language').notNull().default('id'), // 'id' | 'en' — app language on this device, picks push title/body
+  deviceId:   text('device_id'), // ID instalasi dari app (X-Device-Id); null = app lama / belum teridentifikasi
   isActive:   boolean('is_active').notNull().default(true),
   createdAt:  timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt:  timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -232,6 +235,37 @@ export const pushTokens = pgTable('push_tokens', {
 }, t => ({
   userIdx:   index('idx_push_tokens_user_id').on(t.userId),
   activeIdx: index('idx_push_tokens_active').on(t.isActive),
+}))
+
+// ── App Clients ──────────────────────────────────────────────────────────────
+// Versi app mobile yang dipakai user, dilaporkan app lewat header X-App-* (lihat lib/appClient.ts).
+// Satu baris per (user, platform, versi); last_seen_at = terakhir app versi itu terlihat.
+export const userAppClients = pgTable('user_app_clients', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  platform:    text('platform').notNull(), // 'android' | 'ios'
+  appVersion:  text('app_version').notNull(),
+  appBuild:    text('app_build'),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt:  timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  uniq:        uniqueIndex('uq_user_app_clients_user_platform_version').on(t.userId, t.platform, t.appVersion),
+  userSeenIdx: index('idx_user_app_clients_user_last_seen').on(t.userId, t.lastSeenAt),
+}))
+
+// Satu baris per perangkat (ID instalasi acak dari app mobile), dengan versi app terbaru di perangkat itu.
+export const userDevices = pgTable('user_devices', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  userId:      uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  deviceId:    text('device_id').notNull(),
+  platform:    text('platform').notNull(), // 'android' | 'ios'
+  appVersion:  text('app_version').notNull(),
+  appBuild:    text('app_build'),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt:  timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  uniq:        uniqueIndex('uq_user_devices_user_device').on(t.userId, t.deviceId),
+  userSeenIdx: index('idx_user_devices_user_last_seen').on(t.userId, t.lastSeenAt),
 }))
 
 // ── Notification Blasts ──────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import { ok, err, setCors } from '@/lib/utils'
 import { checkMaintenance, maintenanceResponse } from '@/lib/maintenance'
 import { sendVerificationEmailInBackground } from '@/lib/emailVerification'
 import { getBetaOptinConfig } from '@/lib/betaOptinConfig'
+import { parseAppClient, recordAppClient } from '@/lib/appClient'
 import { eq } from 'drizzle-orm'
 
 function isValidEmail(email: string) {
@@ -87,6 +88,9 @@ export async function POST(req: NextRequest) {
       .where(eq(users.id, user.id))
       .catch(e => console.error('[auth] failed to update lastLoginAt', e))
 
+    // Versi app + platform dari header X-App-* (hanya app mobile 1.2.1+); tidak pernah menggagalkan login.
+    await recordAppClient(user.id, parseAppClient(req.headers))
+
     const token = await signUserToken({ userId: user.id, username: user.username })
     return ok({
       token,
@@ -111,10 +115,26 @@ export async function POST(req: NextRequest) {
         mustChangePassword: users.mustChangePassword,
       }).from(users).where(eq(users.id, payload.userId!)).limit(1)
       if (!user || !user.isActive) return err('Akun tidak ditemukan atau tidak aktif', 401)
+      await recordAppClient(user.id, parseAppClient(req.headers))
       return ok({ valid: true, user })
     } catch {
       return err('Token tidak valid atau kadaluarsa', 401)
     }
+  }
+
+  // PING — heartbeat dari app mobile (saat dibuka / kembali ke foreground): catat versi app + terakhir terlihat.
+  if (action === 'ping') {
+    const token = extractToken(req.headers.get('Authorization'))
+    if (!token) return err('Token diperlukan', 401)
+    let userId: string | undefined
+    try {
+      userId = (await verifyToken(token)).userId
+    } catch {
+      return err('Token tidak valid atau kadaluarsa', 401)
+    }
+    if (!userId) return err('Token tidak valid atau kadaluarsa', 401)
+    await recordAppClient(userId, parseAppClient(req.headers))
+    return ok({ ok: true })
   }
 
   // CHANGE PASSWORD (user sudah login — Entry Point 1: Profile & Force-change pasca admin reset)

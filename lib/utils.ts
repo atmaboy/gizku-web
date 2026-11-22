@@ -57,14 +57,14 @@ export function fmtDateLongID(d: Date | string | null) {
 export function setCors(h: Headers) {
   h.set('Access-Control-Allow-Origin', '*')
   h.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
-  h.set('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  h.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-App-Version,X-App-Platform,X-App-Build,X-Device-Id')
 }
 
 function corsHeaders(): HeadersInit {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-App-Version,X-App-Platform,X-App-Build,X-Device-Id',
   }
 }
 
