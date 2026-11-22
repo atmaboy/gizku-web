@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation'
 import { Activity, CalendarPlus, ChevronLeft, History, LogIn, Mail, Smartphone, User } from 'lucide-react'
 import { getDeviceInfo, deviceLabel, lastActivity, platformSummary, latestAppClient, appClientLabel, activeToken, platformName, emptyInfo } from '@/lib/userDevices'
 import UserDetailTabs from '@/components/admin/UserDetailTabs'
+import MaskedId from '@/components/admin/MaskedId'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import { Avatar, Badge, Button, Card, KeyValue } from '@/components/admin/ui'
 export const dynamic = 'force-dynamic'
@@ -140,12 +141,11 @@ export default async function UserDetailPage({
                           {tok && <span className="text-secondary">Bahasa {tok.language === 'en' ? 'EN' : 'ID'}</span>}
                         </div>
                         <p className="text-secondary mt-0.5 tabular-nums">Pertama terlihat {fmtDateTime(g.firstSeenAt)} · Terakhir terlihat {fmtDateTime(g.lastSeenAt)}</p>
-                        <p className="text-xs text-secondary mt-0.5">ID perangkat ...{g.deviceId.slice(-6)}</p>
+                        <p className="mt-0.5"><MaskedId value={g.deviceId} /></p>
                       </li>
                     )
                   })}
                 </ul>
-                <p className="text-xs text-secondary mt-2 leading-normal">Satu kartu = satu instalasi app (ID acak dari app). Update app tidak membuat perangkat baru; install ulang di Android membuat perangkat baru. Terakhir terlihat = app terakhir dibuka. User yang belum memperbarui app belum punya kartu perangkat.</p>
               </div>
             )}
             {devInfo.appClients.length > 1 && (

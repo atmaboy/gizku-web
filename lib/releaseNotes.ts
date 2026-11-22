@@ -128,6 +128,7 @@ export const RELEASES: Record<Platform, Release[]> = {
       note: 'Jalankan sql/023_user_devices.sql sebelum deploy (staging dulu, lalu production). Tanpa migrasi, pendaftaran push tetap jalan tapi pengelompokan perangkat tidak aktif. Perangkat baru terisi setelah user memperbarui app mobile ke 1.2.1 atau lebih baru.',
       changes: [
         { type: 'feat', text: 'Detail User › Perangkat kini satu kartu per perangkat fisik (bukan satu baris per token push): versi app terbaru, status push, bahasa, pertama/terakhir terlihat, dan jumlah token. Update app tidak membuat perangkat baru. Perangkat lama tanpa ID tidak ditampilkan (kartu muncul setelah user memperbarui app); query user hanya memuat token push aktif sehingga lebih ringan.' },
+        { type: 'improve', text: 'ID perangkat di detail user disensor secara default dengan tombol tampilkan/sembunyikan satu klik. Teks penjelasan panjang di kartu perangkat dan banner "wajib konfirmasi password admin" di tab Konfigurasi akun user dihapus.' },
         { type: 'improve', text: 'Pendaftaran push token: bila app mengirim ID perangkat (header X-Device-Id), token itu ditautkan ke perangkatnya dan token aktif lain milik perangkat yang sama otomatis dinonaktifkan (token lama dari install ulang, rotasi, atau pindah Expo ke FCM), sehingga tidak ada notifikasi ganda. Tabel baru user_devices, kolom baru push_tokens.device_id.' },
         { type: 'chore', text: 'CORS: header X-Device-Id diizinkan di semua /api/*.' },
       ],

@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Eye, EyeOff, KeyRound, Lock, RotateCcw, Settings2, Shield, ShieldCheck, Smartphone, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, Lock, RotateCcw, Settings2, ShieldCheck, Smartphone, Trash2 } from 'lucide-react'
 import {
   AddonButton, Alert, Badge, Button, Card, FormField, Input, InputGroup, KeyValue, Tabs,
 } from '@/components/admin/ui'
@@ -155,10 +155,6 @@ export default function UserDetailTabs({ user, globalLimit }: { user: U; globalL
     >
       {activeTab === 'config' && (
         <div role="tabpanel" id="user-tabs-panel-config" aria-labelledby="user-tabs-tab-config" className="flex flex-col gap-5">
-          <Alert variant="light" icon={Shield}>
-            Setiap perubahan pada akun user wajib dikonfirmasi dengan password admin.
-          </Alert>
-
           <div className="bg-sunken border border-border rounded-md p-3.5">
             <p className="flex items-center gap-2 text-base font-semibold text-primary">
               <Smartphone size={16} className="text-secondary" aria-hidden />Closed Beta Tester Android
