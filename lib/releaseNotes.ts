@@ -123,6 +123,16 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
     {
+      version: '1.15.0',
+      date: '2026-11-22',
+      note: 'Perubahan perilaku: batas hari kini WIB (UTC+7), sebelumnya UTC. Saat deploy, di jendela 00.00 sampai 07.00 WIB user bisa mendapat kuota harian baru satu kali karena tanggal pemakaian bergeser dari tanggal UTC ke tanggal WIB. Tidak perlu migrasi SQL.',
+      changes: [
+        { type: 'improve', text: 'Semua batas hari mengacu ke WIB (UTC+7, tanpa DST): kuota harian user berganti pukul 00.00 WIB (sebelumnya 07.00 WIB), "hari ini" di ringkasan dan Telegram, filter tanggal dan jendela N hari di Riwayat (app dan backoffice), statistik harian dan mingguan Telegram, serta hitungan bulan di Review Request Limit. Catatan makan antara 00.00 dan 07.00 WIB kini muncul di hari yang benar saat difilter.' },
+        { type: 'improve', text: 'Hari persetujuan dan akhir periode paket limit di ledger Riwayat Limit dihitung menurut tanggal WIB.' },
+        { type: 'chore', text: 'Helper tanggal WIB terpusat di lib/utils (wibDateISO, wibDayStart, wibDayEnd, addDaysISO) lengkap dengan tes batas hari yang tidak bergantung zona waktu mesin.' },
+      ],
+    },
+    {
       version: '1.14.1',
       date: '2026-11-22',
       changes: [

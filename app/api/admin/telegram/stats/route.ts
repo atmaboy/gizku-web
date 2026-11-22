@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { telegramUsers, meals, users } from '@/drizzle/schema'
 import { desc, eq, count, and, gte, isNotNull } from 'drizzle-orm'
 import { verifyToken } from '@/lib/auth'
+import { todayISO, addDaysISO, wibDayStart } from '@/lib/utils'
 
 async function requireAdmin(req: NextRequest) {
   // Admin login stores token in nl_admin_token (set by POST /api/admin?action=login)
@@ -36,9 +37,9 @@ export async function GET(req: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const today    = new Date().toISOString().slice(0, 10)
-    const weekAgo  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const today    = todayISO()
+    const weekAgo  = addDaysISO(today, -7)
+    const monthAgo = addDaysISO(today, -30)
 
     // Total telegram users — guard: table may not exist yet if migration not run
     let totalTgUsers = 0
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(meals.source, 'telegram'),
-          gte(meals.loggedAt, new Date(`${weekAgo}T00:00:00Z`)),
+          gte(meals.loggedAt, wibDayStart(weekAgo)),
         ),
       )
 
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(meals.source, 'telegram'),
-          gte(meals.loggedAt, new Date(`${monthAgo}T00:00:00Z`)),
+          gte(meals.loggedAt, wibDayStart(monthAgo)),
         ),
       )
 

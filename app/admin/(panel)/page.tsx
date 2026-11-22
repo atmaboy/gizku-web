@@ -7,7 +7,7 @@ import {
 import { getMaintenance } from '@/lib/admin'
 import { getPublishedLanding } from '@/lib/landing/repo'
 import { buildRenderModel } from '@/lib/landing/render'
-import { fmtNum, fmtDateTime, todayISO, cn } from '@/lib/utils'
+import { fmtNum, fmtDateTime, todayISO, wibDayStart, wibDayEnd, cn } from '@/lib/utils'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import {
   Alert, Avatar, Badge, Button, Card, Code, DataTable, KeyValue, ListRow, ResponsiveStat, SmallBox, TrackedLink,
@@ -42,8 +42,8 @@ export default async function AdminDashboard() {
       (SELECT count(*) FROM users)::int                                   AS tot_users,
       (SELECT count(*) FROM meals)::int                                   AS tot_meals,
       (SELECT coalesce(sum(total_calories), 0) FROM meals)::bigint        AS tot_cal,
-      (SELECT count(*) FROM meals WHERE logged_at >= ${today}::date
-                                    AND logged_at <  ${today}::date + 1)::int AS today_meals,
+      (SELECT count(*) FROM meals WHERE logged_at >= ${wibDayStart(today).toISOString()}::timestamptz
+                                    AND logged_at <= ${wibDayEnd(today).toISOString()}::timestamptz)::int AS today_meals,
       (SELECT count(*) FROM reports WHERE status = 'open')::int           AS open_reports,
       (SELECT count(*) FROM limit_requests WHERE status = 'pending')::int AS pending_limit
   `)

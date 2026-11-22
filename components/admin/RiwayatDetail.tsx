@@ -8,7 +8,7 @@ import {
 import {
   Button, Card, DataTable, EmptyState, Input, Modal, Pagination, Skeleton, Timeline, TimelineEnd, TimelineItem, TimelineLabel,
 } from '@/components/admin/ui'
-import { cn } from '@/lib/utils'
+import { cn, todayISO, addDaysISO } from '@/lib/utils'
 
 type MenuItem = {
   name?: string
@@ -53,10 +53,10 @@ const SOURCE_META: Record<string, { label: string; dot: string; icon: LucideIcon
 }
 
 function isoDaysAgo(n: number) {
-  return new Date(Date.now() - n * DAY_MS).toISOString().split('T')[0]
+  return addDaysISO(todayISO(), -n)
 }
 function todayStr() {
-  return new Date().toISOString().split('T')[0]
+  return todayISO()
 }
 
 function fmtTime(iso: string) {

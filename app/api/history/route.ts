@@ -5,7 +5,7 @@ import { verifyToken, extractToken } from '@/lib/auth'
 import { getGlobalLimit } from '@/lib/admin'
 import { computeEffectiveLimit } from '@/lib/limitLedger'
 import { checkLoggedAtChange } from '@/lib/mealDate'
-import { ok, err, setCors, todayISO } from '@/lib/utils'
+import { ok, err, setCors, todayISO, wibDateISO, wibDayStart, wibDayEnd, addDaysISO } from '@/lib/utils'
 import { eq, and, desc, count, gte, lte } from 'drizzle-orm'
 
 type MealDish = { name: string }
@@ -40,14 +40,13 @@ export async function GET(req: NextRequest) {
 
     const conditions = [eq(meals.userId, user.userId)]
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      const dayStart = new Date(`${dateParam}T00:00:00.000Z`)
-      const dayEnd   = new Date(`${dateParam}T23:59:59.999Z`)
+      const dayStart = wibDayStart(dateParam)
+      const dayEnd   = wibDayEnd(dateParam)
       conditions.push(gte(meals.loggedAt, dayStart))
       conditions.push(lte(meals.loggedAt, dayEnd))
     } else if (daysParam && /^\d+$/.test(daysParam) && parseInt(daysParam) > 0) {
       // Rolling window ending today, e.g. days=10 -> today and the 9 days before it.
-      const windowStart = new Date(`${todayISO()}T00:00:00.000Z`)
-      windowStart.setUTCDate(windowStart.getUTCDate() - (parseInt(daysParam) - 1))
+      const windowStart = wibDayStart(addDaysISO(todayISO(), -(parseInt(daysParam) - 1)))
       conditions.push(gte(meals.loggedAt, windowStart))
     }
 
@@ -71,7 +70,7 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(meals.loggedAt))
 
     const filtered = todayMeals.filter(m =>
-      new Date(m.loggedAt).toISOString().split('T')[0] === today
+      wibDateISO(m.loggedAt) === today
     )
 
     const totalCals    = filtered.reduce((s, m) => s + m.totalCalories, 0)
