@@ -57,7 +57,9 @@ async function loadDeviceInfo(userIds: string[]): Promise<Map<string, UserDevice
     db.select({
       userId: userAppClients.userId, platform: userAppClients.platform, appVersion: userAppClients.appVersion,
       appBuild: userAppClients.appBuild, firstSeenAt: userAppClients.firstSeenAt, lastSeenAt: userAppClients.lastSeenAt,
-    }).from(userAppClients).where(inArray(userAppClients.userId, userIds)).orderBy(desc(userAppClients.lastSeenAt)),
+    }).from(userAppClients).where(inArray(userAppClients.userId, userIds)).orderBy(desc(userAppClients.lastSeenAt))
+      // Migrasi 021 belum jalan: versi app saja yang kosong, platform/bahasa/aktivitas tetap tampil.
+      .catch(e => { console.error('[userDevices] user_app_clients', e); return [] as AppClientRow[] & { userId: string }[] }),
   ])
 
   for (const t of tokens) out.get(t.userId)?.devices.push(t)
