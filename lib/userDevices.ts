@@ -186,3 +186,27 @@ export function lastActivity(lastLoginAt: Date | null, info: UserDeviceInfo): Da
     .filter((t): t is Date => t instanceof Date)
   return times.length ? new Date(Math.max(...times.map(t => t.getTime()))) : null
 }
+
+/**
+ * Aktif terakhir untuk daftar user, versi ringan: hanya tanggal terbaru per user (satu baris per user per sumber),
+ * tanpa memuat daftar token/perangkat. Sumber sama dengan lastActivity(): login, makanan terakhir, app terlihat
+ * (app 1.2.1+), dan token push aktif terakhir. Sumber yang gagal dimuat (mis. migrasi belum jalan) dilewati.
+ */
+export async function getLastActiveMap(userIds: string[], lastLoginAt: Map<string, Date | null>): Promise<Map<string, Date | null>> {
+  const best = new Map<string, Date | null>(userIds.map(id => [id, lastLoginAt.get(id) ?? null]))
+  if (userIds.length === 0) return best
+  const bump = (rows: { userId: string; at: Date | null }[]) => {
+    for (const r of rows) {
+      const cur = best.get(r.userId) ?? null
+      if (r.at && (!cur || r.at > cur)) best.set(r.userId, r.at)
+    }
+  }
+  const safe = <T,>(p: Promise<T[]>, name: string) => p.catch(e => { console.error('[userDevices] last active', name, e); return [] as T[] })
+  const [meal, app, push] = await Promise.all([
+    safe(db.select({ userId: meals.userId, at: max(meals.loggedAt) }).from(meals).where(inArray(meals.userId, userIds)).groupBy(meals.userId), 'meals'),
+    safe(db.select({ userId: userAppClients.userId, at: max(userAppClients.lastSeenAt) }).from(userAppClients).where(inArray(userAppClients.userId, userIds)).groupBy(userAppClients.userId), 'app'),
+    safe(db.select({ userId: pushTokens.userId, at: max(pushTokens.lastSeenAt) }).from(pushTokens).where(and(inArray(pushTokens.userId, userIds), eq(pushTokens.isActive, true))).groupBy(pushTokens.userId), 'push'),
+  ])
+  bump(meal); bump(app); bump(push)
+  return best
+}
