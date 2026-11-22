@@ -65,30 +65,28 @@ describe('groupDevices (one card per physical install)', () => {
   })
   const tk = (deviceId: string | null, o: Partial<DeviceRow> = {}) => ({ ...dev(o), deviceId })
 
-  it('puts every token of the same device under one group, newest device first', () => {
-    const { groups, legacyTokens } = groupDevices(
+  it('puts the active tokens of the same device under one group, newest device first', () => {
+    const groups = groupDevices(
       [d('a', { lastSeenAt: new Date('2026-11-10') }), d('b', { lastSeenAt: new Date('2026-11-22') })],
-      [tk('a', { provider: 'expo', isActive: false }), tk('a', { provider: 'fcm' }), tk('b')],
+      [tk('a', { provider: 'fcm' }), tk('b')],
     )
     expect(groups.map(g => g.deviceId)).toEqual(['b', 'a'])
-    expect(groups.find(g => g.deviceId === 'a')?.tokens).toHaveLength(2)
-    expect(legacyTokens).toEqual([])
+    expect(groups.find(g => g.deviceId === 'a')?.tokens).toHaveLength(1)
   })
-  it('keeps tokens without a device id (or with an unknown one) as legacy', () => {
-    const { groups, legacyTokens } = groupDevices([d('a')], [tk(null), tk('zzz'), tk('a')])
+  it('does not surface tokens without a (known) device id as devices', () => {
+    const groups = groupDevices([d('a')], [tk(null), tk('zzz'), tk('a')])
+    expect(groups).toHaveLength(1)
     expect(groups[0].tokens).toHaveLength(1)
-    expect(legacyTokens).toHaveLength(2)
   })
-  it('lists a device that has no push token at all', () => {
-    const { groups } = groupDevices([d('a')], [])
+  it('lists a device that has no active push token at all', () => {
+    const groups = groupDevices([d('a')], [])
     expect(groups).toHaveLength(1)
     expect(activeToken(groups[0])).toBeNull()
   })
   it('activeToken picks the most recently seen active token', () => {
-    const { groups } = groupDevices([d('a')], [
+    const groups = groupDevices([d('a')], [
       tk('a', { provider: 'expo', lastSeenAt: new Date('2026-11-12') }),
       tk('a', { provider: 'fcm', lastSeenAt: new Date('2026-11-18') }),
-      tk('a', { provider: 'expo', isActive: false, lastSeenAt: new Date('2026-11-21') }),
     ])
     expect(activeToken(groups[0])?.provider).toBe('fcm')
   })

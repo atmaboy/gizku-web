@@ -131,7 +131,6 @@ export default async function UserDetailPage({
                 <ul className="flex flex-col gap-2 list-none m-0 p-0">
                   {devInfo.deviceGroups.map(g => {
                     const tok = activeToken(g)
-                    const activeCount = g.tokens.filter(t => t.isActive).length
                     return (
                       <li key={g.deviceId} className={`rounded-sm border border-border px-3 py-2 text-sm ${tok ? '' : 'opacity-70'}`}>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -141,35 +140,13 @@ export default async function UserDetailPage({
                           {tok && <span className="text-secondary">Bahasa {tok.language === 'en' ? 'EN' : 'ID'}</span>}
                         </div>
                         <p className="text-secondary mt-0.5 tabular-nums">Pertama terlihat {fmtDateTime(g.firstSeenAt)} · Terakhir terlihat {fmtDateTime(g.lastSeenAt)}</p>
-                        <p className="text-xs text-secondary mt-0.5">
-                          {g.tokens.length} token push ({activeCount} aktif) · ID perangkat ...{g.deviceId.slice(-6)}
-                        </p>
+                        <p className="text-xs text-secondary mt-0.5">ID perangkat ...{g.deviceId.slice(-6)}</p>
                       </li>
                     )
                   })}
                 </ul>
-                <p className="text-xs text-secondary mt-2 leading-normal">Satu kartu = satu instalasi app (ID acak dari app). Update app tidak membuat perangkat baru; install ulang di Android membuat perangkat baru. Waktu terakhir terlihat = app terakhir dibuka.</p>
+                <p className="text-xs text-secondary mt-2 leading-normal">Satu kartu = satu instalasi app (ID acak dari app). Update app tidak membuat perangkat baru; install ulang di Android membuat perangkat baru. Terakhir terlihat = app terakhir dibuka. User yang belum memperbarui app belum punya kartu perangkat.</p>
               </div>
-            )}
-            {devInfo.legacyTokens.length > 0 && (
-              <details className="pt-2 group">
-                <summary className="text-sm font-semibold text-primary cursor-pointer select-none">
-                  Perangkat lama, belum teridentifikasi ({devInfo.legacyTokens.length} token)
-                </summary>
-                <ul className="flex flex-col gap-2 list-none m-0 mt-1.5 p-0">
-                  {devInfo.legacyTokens.map((d, i) => (
-                    <li key={i} className={`rounded-sm border border-border px-3 py-2 text-sm ${d.isActive ? '' : 'opacity-60'}`}>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-primary">{deviceLabel(d)}</span>
-                        <Badge variant={d.isActive ? 'success' : 'secondary'} size="sm">{d.isActive ? 'Aktif' : 'Nonaktif'}</Badge>
-                        <span className="text-secondary">Bahasa {d.language === 'en' ? 'EN' : 'ID'}</span>
-                      </div>
-                      <p className="text-secondary mt-0.5 tabular-nums">Terdaftar {fmtDateTime(d.createdAt)} · Terakhir didaftarkan {fmtDateTime(d.lastSeenAt)}</p>
-                    </li>
-                  ))}
-                </ul>
-                <p className="text-xs text-secondary mt-2 leading-normal">Token dari app lama atau yang belum didaftarkan ulang setelah user memperbarui app. Token baru otomatis masuk ke kartu perangkat di atas, dan token lama perangkat yang sama dinonaktifkan.</p>
-              </details>
             )}
             {devInfo.appClients.length > 1 && (
               <details className="pt-2">
