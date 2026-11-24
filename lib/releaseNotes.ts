@@ -47,7 +47,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Integrasi Telegram Bot', description: 'Hubungkan akun via OTP 6 digit, kirim foto ke bot untuk dianalisa dan tercatat ke riwayat.' },
         { name: 'Halaman legal publik', description: '/legal/[slug] — Syarat & Ketentuan, Kebijakan Privasi, dokumen custom, dwibahasa.' },
         { name: 'Landing page', description: 'Landing publik 9 section (Hero, Statistik, Cara Kerja, Fitur, Testimoni, FAQ, CTA & Download, Footer) dengan SEO.' },
-        { name: 'Maintenance mode aware', description: 'Saat mode pemeliharaan aktif, semua API user dijawab 503 (kecuali backoffice, cron, webhook, Telegram, konten publik); user web/mobile otomatis logout & diarahkan ke halaman maintenance.' },
+        { name: 'Maintenance mode aware', description: 'Saat mode pemeliharaan aktif, semua API user dijawab 503 (kecuali backoffice, cron, webhook, webhook bot Telegram, konten publik; bot membalas pesan maintenance); user web/mobile otomatis logout & diarahkan ke halaman maintenance.' },
       ],
     },
     {
@@ -61,7 +61,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Review Request Limit', description: 'Approve/reject pengajuan (alasan reject terstruktur), konfigurasi tier & rekening tujuan.' },
         { name: 'Blast Notifikasi', description: 'Broadcast via push (Expo), Telegram, atau email ke semua/user tertentu; terjadwal; tracking per penerima; duplikat blast & kirim ulang yang gagal. Push dwibahasa dengan gambar banner, ikon, tujuan ketuk (detail/halaman/tautan web), dan mode senyap; selalu masuk inbox user.' },
         { name: 'Whitelist Domain', description: 'Daftar domain yang boleh dibuka sebagai tautan web di blast push (gizku.com default). Divalidasi di form, server, dan saat blast terjadwal dikirim.' },
-        { name: 'Telegram Bot', description: 'Konfigurasi & statistik bot dari backoffice.' },
+        { name: 'Telegram Bot', description: 'Konfigurasi & statistik bot dari backoffice, termasuk pesan bot saat maintenance (bisa diedit).' },
         { name: 'Laporan & Helpdesk', description: 'Satu inbox untuk laporan in-app dan email masuk; balas dari backoffice, pipeline 4 status.' },
         { name: 'Pengaturan sistem', description: 'Limit global, API key, model AI, verifikasi email, maintenance, Closed Beta — setiap simpan wajib konfirmasi password admin.' },
         { name: 'Rilis & Fitur', description: 'Daftar fitur dan release notes web + mobile beserta versinya (halaman ini).' },
@@ -122,6 +122,15 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.18.0',
+      date: '2026-11-24',
+      note: 'Tidak ada migrasi SQL. Mobile tidak terpengaruh.',
+      changes: [
+        { type: 'feat', text: 'Bot Telegram kini ikut maintenance: saat Mode Maintenance aktif, semua pesan dan foto dijawab pesan maintenance dan tidak diproses (kuota tidak terpotong). Teks pesan bisa diedit di backoffice Telegram Bot → "Pesan Maintenance" dengan variabel {title} dan {description}; kosongkan untuk memakai default.' },
+        { type: 'fix', text: 'Maintenance mode kini juga memblokir /api/telegram/link dan /api/telegram/verify (hubungkan akun Telegram dari app); hanya webhook bot yang dikecualikan.' },
+      ],
+    },
     {
       version: '1.17.1',
       date: '2026-11-24',

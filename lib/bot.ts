@@ -20,6 +20,8 @@
 import { Bot, Context } from 'grammy'
 import { db } from '@/lib/db'
 import { getCfg } from '@/lib/admin'
+import { checkMaintenance } from '@/lib/maintenance'
+import { renderTelegramMaintenanceMessage } from '@/lib/telegramMaintenance'
 import { telegramUsers, meals } from '@/drizzle/schema'
 import { liveMeal } from '@/lib/mealQuery'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
@@ -266,6 +268,23 @@ export function createBot(token: string): Bot {
       return
     }
     return next()
+  })
+
+  // ── Maintenance ─────────────────────────────────────────────────────────
+  // Saat Mode Maintenance aktif, semua perintah/foto dijawab pesan maintenance (bisa diedit di backoffice
+  // Telegram Bot → "Pesan Maintenance") dan tidak diproses. Fail-open bila status tidak bisa dibaca.
+  bot.use(async (ctx, next) => {
+    let m: { enabled: boolean; title: string; description: string }
+    try { m = await checkMaintenance() } catch { return next() }
+    if (!m.enabled) return next()
+    if (ctx.message) {
+      try {
+        let template: string | null = null
+        try { template = await getCfg('telegram_maintenance_message') } catch {}
+        await ctx.reply(renderTelegramMaintenanceMessage(template, m))
+      } catch (e) { console.error('[bot] maintenance reply failed:', e) }
+    }
+    // Tidak memanggil next(): update tidak diproses saat maintenance.
   })
 
   // ── /start ──────────────────────────────────────────────────────────────

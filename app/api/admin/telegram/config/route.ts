@@ -9,6 +9,7 @@
  *   telegram_help_message            (text)
  *   telegram_limit_reached_message   (text)
  *   telegram_after_analysis_cta      (text)
+ *   telegram_maintenance_message     (text, variabel {title} {description}; kosong = default)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -23,6 +24,7 @@ const TELEGRAM_KEYS = [
   'telegram_help_message',
   'telegram_limit_reached_message',
   'telegram_after_analysis_cta',
+  'telegram_maintenance_message',
 ] as const
 
 async function requireAdmin(req: NextRequest) {

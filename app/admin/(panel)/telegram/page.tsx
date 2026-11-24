@@ -58,6 +58,7 @@ type Config = {
   telegram_help_message: string | null
   telegram_limit_reached_message: string | null
   telegram_after_analysis_cta: string | null
+  telegram_maintenance_message: string | null
 }
 
 export default function TelegramAdminPage() {
@@ -84,6 +85,7 @@ export default function TelegramAdminPage() {
   const [helpMsg, setHelpMsg]         = useState('')
   const [limitMsg, setLimitMsg]       = useState('')
   const [ctaMsg, setCtaMsg]           = useState('')
+  const [maintMsg, setMaintMsg]       = useState('')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -109,6 +111,7 @@ export default function TelegramAdminPage() {
       setHelpMsg(cfgData.config.telegram_help_message ?? '')
       setLimitMsg(cfgData.config.telegram_limit_reached_message ?? '')
       setCtaMsg(cfgData.config.telegram_after_analysis_cta ?? '')
+      setMaintMsg(cfgData.config.telegram_maintenance_message ?? '')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
     } finally {
@@ -149,6 +152,7 @@ export default function TelegramAdminPage() {
           telegram_help_message:           helpMsg,
           telegram_limit_reached_message:  limitMsg,
           telegram_after_analysis_cta:     ctaMsg,
+          telegram_maintenance_message:    maintMsg,
         }),
       })
       if (!res.ok) throw new Error('Gagal menyimpan')
@@ -214,6 +218,7 @@ export default function TelegramAdminPage() {
     { id: 'tg-help', label: 'Pesan Bantuan (/help)', help: 'Kosongkan untuk menggunakan teks default.', value: helpMsg, setter: setHelpMsg, rows: 4 },
     { id: 'tg-limit', label: 'Pesan Batas Tercapai', help: <>Gunakan <Code>{'{used}'}</Code> dan <Code>{'{limit}'}</Code> sebagai variabel.</>, value: limitMsg, setter: setLimitMsg, rows: 3 },
     { id: 'tg-cta', label: 'CTA Setelah Analisa (untuk user belum login)', help: 'Ditampilkan di bawah hasil analisa untuk mendorong user login.', value: ctaMsg, setter: setCtaMsg, rows: 3 },
+    { id: 'tg-maint', label: 'Pesan Maintenance', help: <>Dikirim bot ke semua pesan saat Mode Maintenance aktif. Variabel: <Code>{'{title}'}</Code> dan <Code>{'{description}'}</Code> (dari pengaturan Mode Maintenance). Teks biasa, tanpa format Markdown. Kosongkan untuk default.</>, value: maintMsg, setter: setMaintMsg, rows: 4 },
   ]
 
   return (

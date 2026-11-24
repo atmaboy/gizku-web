@@ -5,12 +5,12 @@ const json = (body: unknown, ok = true) => ({ ok, json: async () => body }) as R
 
 describe('isMaintenanceExempt', () => {
   it('menjaga API user', () => {
-    for (const p of ['/api/history', '/api/user', '/api/auth', '/api/analyze', '/api/limit/new', '/api/report', '/api/notifications', '/api/push/register', '/api/beta-optin']) {
+    for (const p of ['/api/history', '/api/user', '/api/auth', '/api/analyze', '/api/limit/new', '/api/report', '/api/notifications', '/api/push/register', '/api/beta-optin', '/api/telegram/link', '/api/telegram/verify']) {
       expect(isMaintenanceExempt(p), p).toBe(false)
     }
   })
   it('melewatkan endpoint yang harus tetap hidup', () => {
-    for (const p of ['/api/maintenance', '/api/admin', '/api/admin/users/1/meals', '/api/cron/prune-old-usage', '/api/webhooks/email', '/api/telegram', '/api/legal-content']) {
+    for (const p of ['/api/maintenance', '/api/admin', '/api/admin/users/1/meals', '/api/cron/prune-old-usage', '/api/webhooks/email', '/api/telegram/webhook', '/api/legal-content']) {
       expect(isMaintenanceExempt(p), p).toBe(true)
     }
   })

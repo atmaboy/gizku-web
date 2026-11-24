@@ -14,7 +14,7 @@ const EXEMPT_PREFIXES = [
   '/api/admin',          // backoffice punya auth sendiri; admin harus bisa mematikan maintenance
   '/api/cron',           // dilindungi CRON_SECRET
   '/api/webhooks',       // callback pihak ketiga (mis. email masuk)
-  '/api/telegram',       // webhook Telegram: 503 membuat Telegram mengulang kirim terus
+  '/api/telegram/webhook', // 503 membuat Telegram mengulang kirim terus; bot menjawab sendiri dengan pesan maintenance (lib/bot.ts)
   '/api/landing-content', '/api/footer-content', '/api/legal-content', '/api/announcement', // konten publik
 ]
 
