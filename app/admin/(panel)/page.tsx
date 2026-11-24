@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { users, meals, adminConfig } from '@/drizzle/schema'
+import { liveMeal } from '@/lib/mealQuery'
 import { desc, eq, inArray, sql } from 'drizzle-orm'
 import {
   Camera, ChevronRight, Database, Flame, Gauge, KeyRound, LayoutTemplate, MessageSquare, Settings, UtensilsCrossed, Users,
@@ -40,9 +41,9 @@ export default async function AdminDashboard() {
   }>(sql`
     SELECT
       (SELECT count(*) FROM users)::int                                   AS tot_users,
-      (SELECT count(*) FROM meals)::int                                   AS tot_meals,
-      (SELECT coalesce(sum(total_calories), 0) FROM meals)::bigint        AS tot_cal,
-      (SELECT count(*) FROM meals WHERE logged_at >= ${wibDayStart(today).toISOString()}::timestamptz
+      (SELECT count(*) FROM meals WHERE deleted_at IS NULL)::int           AS tot_meals,
+      (SELECT coalesce(sum(total_calories), 0) FROM meals WHERE deleted_at IS NULL)::bigint AS tot_cal,
+      (SELECT count(*) FROM meals WHERE deleted_at IS NULL AND logged_at >= ${wibDayStart(today).toISOString()}::timestamptz
                                     AND logged_at <= ${wibDayEnd(today).toISOString()}::timestamptz)::int AS today_meals,
       (SELECT count(*) FROM reports WHERE status = 'open')::int           AS open_reports,
       (SELECT count(*) FROM limit_requests WHERE status = 'pending')::int AS pending_limit
@@ -71,7 +72,7 @@ export default async function AdminDashboard() {
   const recentMeals = await db.select({
     id: meals.id, dishNames: meals.dishNames, totalCalories: meals.totalCalories, loggedAt: meals.loggedAt,
     userId: users.id, username: users.username,
-  }).from(meals).leftJoin(users, eq(meals.userId, users.id)).orderBy(desc(meals.loggedAt)).limit(5)
+  }).from(meals).leftJoin(users, eq(meals.userId, users.id)).where(liveMeal).orderBy(desc(meals.loggedAt)).limit(5)
   const menuLabel = (names: string[] | null) => names && names.length ? names.join(', ') : 'Tidak terdeteksi'
 
   const statusBadge = (active: boolean) => active

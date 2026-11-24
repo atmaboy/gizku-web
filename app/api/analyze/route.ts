@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createHash } from 'crypto'
 import { db } from '@/lib/db'
 import { dailyUsage, meals } from '@/drizzle/schema'
+import { liveMeal } from '@/lib/mealQuery'
 import { verifyToken, extractToken } from '@/lib/auth'
 import { getCfg, getGlobalLimit } from '@/lib/admin'
 import { computeEffectiveLimit } from '@/lib/limitLedger'
@@ -156,6 +157,7 @@ export async function POST(req: NextRequest) {
       .where(and(
         eq(meals.userId, payload.userId),
         eq(meals.imageHash, imageHash),
+        liveMeal,
         gte(meals.loggedAt, new Date(Date.now() - DEDUP_WINDOW_MS)),
       ))
       .orderBy(desc(meals.loggedAt))

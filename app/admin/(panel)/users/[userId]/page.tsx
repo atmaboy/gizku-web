@@ -1,8 +1,9 @@
 import { db } from '@/lib/db'
 import { users, meals, dailyUsage } from '@/drizzle/schema'
+import { liveMeal } from '@/lib/mealQuery'
 import { getGlobalLimit } from '@/lib/admin'
 import { fmtDateTime, fmtNum, todayISO } from '@/lib/utils'
-import { eq, count, sql } from 'drizzle-orm'
+import { eq, and, count, sql } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import { Activity, CalendarPlus, ChevronLeft, History, LogIn, Mail, Smartphone, User } from 'lucide-react'
 import { getDeviceInfo, deviceLabel, lastActivity, platformSummary, latestAppClient, appClientLabel, activeToken, platformName, emptyInfo } from '@/lib/userDevices'
@@ -36,7 +37,7 @@ export default async function UserDetailPage({
 
   const today = todayISO()
   const [[mealsRow], [usageRow]] = await Promise.all([
-    db.select({ cnt: count() }).from(meals).where(eq(meals.userId, userId)),
+    db.select({ cnt: count() }).from(meals).where(and(eq(meals.userId, userId), liveMeal)),
     db.select({ cnt: sql<number>`coalesce(sum(${dailyUsage.count}), 0)` }).from(dailyUsage)
       .where(sql`${dailyUsage.userId} = ${userId} AND ${dailyUsage.date} = ${today}`),
   ])

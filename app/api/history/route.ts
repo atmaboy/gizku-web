@@ -7,6 +7,7 @@ import { computeEffectiveLimit } from '@/lib/limitLedger'
 import { checkLoggedAtChange } from '@/lib/mealDate'
 import { ok, err, setCors, todayISO, wibDateISO, wibDayStart, wibDayEnd, addDaysISO } from '@/lib/utils'
 import { eq, and, desc, count, gte, lte } from 'drizzle-orm'
+import { liveMeal } from '@/lib/mealQuery'
 
 type MealDish = { name: string }
 
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     const dateParam = req.nextUrl.searchParams.get('date')
     const daysParam = req.nextUrl.searchParams.get('days')
 
-    const conditions = [eq(meals.userId, user.userId)]
+    const conditions = [eq(meals.userId, user.userId), liveMeal]
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       const dayStart = wibDayStart(dateParam)
       const dayEnd   = wibDayEnd(dateParam)
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
   if (action === 'today') {
     const today = todayISO()
     const todayMeals = await db.select().from(meals)
-      .where(eq(meals.userId, user.userId))
+      .where(and(eq(meals.userId, user.userId), liveMeal))
       .orderBy(desc(meals.loggedAt))
 
     const filtered = todayMeals.filter(m =>
@@ -105,9 +106,9 @@ export async function GET(req: NextRequest) {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return err('Meal ID diperlukan')
     const [meal] = await db.select().from(meals)
-      .where(and(eq(meals.id, id), eq(meals.userId, user.userId))).limit(1)
+      .where(and(eq(meals.id, id), eq(meals.userId, user.userId), liveMeal)).limit(1)
     if (!meal) return err('Data tidak ditemukan', 404)
-    await db.delete(meals).where(eq(meals.id, id))
+    await db.update(meals).set({ deletedAt: new Date() }).where(eq(meals.id, id))
     return ok({ message: 'Data berhasil dihapus' })
   }
 
@@ -120,9 +121,9 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return err('Meal ID diperlukan')
   const [meal] = await db.select().from(meals)
-    .where(and(eq(meals.id, id), eq(meals.userId, user.userId))).limit(1)
+    .where(and(eq(meals.id, id), eq(meals.userId, user.userId), liveMeal)).limit(1)
   if (!meal) return err('Data tidak ditemukan', 404)
-  await db.delete(meals).where(eq(meals.id, id))
+  await db.update(meals).set({ deletedAt: new Date() }).where(eq(meals.id, id))
   return ok({ message: 'Data berhasil dihapus' })
 }
 
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
   const explicitLoggedAt = typeof loggedAt === 'string' && !isNaN(new Date(loggedAt).getTime())
 
   if (imageHash) {
-    const dedupConditions = [eq(meals.userId, user.userId), eq(meals.imageHash, imageHash)]
+    const dedupConditions = [eq(meals.userId, user.userId), eq(meals.imageHash, imageHash), liveMeal]
     if (!explicitLoggedAt) {
       dedupConditions.push(gte(meals.loggedAt, new Date(Date.now() - HISTORY_DEDUP_WINDOW_MS)))
     }
@@ -211,7 +212,7 @@ export async function PATCH(req: NextRequest) {
   if (!hasAnalysis && !hasLoggedAt) return err('Data analisis atau tanggal diperlukan')
 
   const [existing] = await db.select().from(meals)
-    .where(and(eq(meals.id, id), eq(meals.userId, user.userId))).limit(1)
+    .where(and(eq(meals.id, id), eq(meals.userId, user.userId), liveMeal)).limit(1)
   if (!existing) return err('Data tidak ditemukan', 404)
 
   const changes: Partial<typeof meals.$inferInsert> = {}
@@ -232,7 +233,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const [updated] = await db.update(meals).set(changes)
-    .where(and(eq(meals.id, id), eq(meals.userId, user.userId)))
+    .where(and(eq(meals.id, id), eq(meals.userId, user.userId), liveMeal))
     .returning()
 
   return ok({ meal: updated })

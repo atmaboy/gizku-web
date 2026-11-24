@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { users, meals, reports, reportMessages, reportAttachments, dailyUsage, maintenanceConfig, pushTokens } from '@/drizzle/schema'
+import { liveMeal } from '@/lib/mealQuery'
 import { verifyAdminPwd, setAdminPwd, getCfg, setCfg, getGlobalLimit, getMaintenance, requireAdmin, assertAdminPassword } from '@/lib/admin'
 import { signAdminToken } from '@/lib/auth'
 import { ok, err, setCors, todayISO, wibDayStart, wibDayEnd } from '@/lib/utils'
@@ -388,6 +389,8 @@ export async function GET(req: NextRequest) {
         rawAnalysis:   meals.rawAnalysis,
         loggedAt:      meals.loggedAt,
         source:        meals.source,
+        // Backoffice menampilkan riwayat yang dihapus user (ditandai), tapi klien tidak boleh menghitungnya.
+        deletedAt:     meals.deletedAt,
       })
         .from(meals)
         .where(whereClause)
@@ -428,7 +431,7 @@ export async function GET(req: NextRequest) {
 
     if (action === 'stats') {
       const [userCount]   = await db.select({ total: count() }).from(users)
-      const [mealCount]   = await db.select({ total: count() }).from(meals)
+      const [mealCount]   = await db.select({ total: count() }).from(meals).where(liveMeal)
       const [reportCount] = await db.select({ total: count() }).from(reports)
       return ok({ users: userCount.total, meals: mealCount.total, reports: reportCount.total })
     }

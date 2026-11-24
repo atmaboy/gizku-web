@@ -16,7 +16,7 @@ export async function computeMetrics(): Promise<MetricValues> {
     SELECT
       (SELECT count(*) FROM users WHERE is_active)::int                                         AS users_active,
       (SELECT count(*) FROM users WHERE last_login_at > now() - interval '30 days')::int         AS users_login_30d,
-      (SELECT count(*) FROM meals)::int                                                          AS meals_total
+      (SELECT count(*) FROM meals WHERE deleted_at IS NULL)::int                                                       AS meals_total
   `)
   const r = rows[0] ?? { users_active: 0, users_login_30d: 0, meals_total: 0 }
   return {

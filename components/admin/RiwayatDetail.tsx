@@ -37,6 +37,8 @@ type Meal = {
     [key: string]: unknown
   } | null
   loggedAt: string
+  /** Diisi bila user menghapus riwayat ini. Tampil bertanda, tidak boleh masuk hitungan kalori. */
+  deletedAt?: string | null
 }
 
 type PageData = { meals: Meal[]; total: number; page: number; totalPages: number }
@@ -61,6 +63,9 @@ function todayStr() {
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
+}
+function fmtDateTime(iso: string) {
+  return new Date(iso).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 function fmtDayLabel(iso: string) {
   return new Date(iso).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -310,6 +315,7 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
                 const isExpanded = expanded === meal.id
                 const dishLabel  = meal.dishNames.length > 0 ? meal.dishNames.join(', ') : 'Tidak terdeteksi'
                 const sm = SOURCE_META[meal.source] ?? SOURCE_META.web
+                const isDeleted = !!meal.deletedAt
                 const kcal = `${meal.totalCalories}`
                 const p = `${Number(meal.totalProtein).toFixed(1)}g`
                 const c = `${Number(meal.totalCarbs).toFixed(1)}g`
@@ -319,12 +325,19 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
                 const expandLabel = isExpanded ? 'Tutup menu' : menuItems.length > 0 ? `Lihat ${menuItems.length} menu` : 'Detail'
 
                 return (
-                  <TimelineItem key={meal.id} icon={sm.icon}>
+                  <TimelineItem key={meal.id} icon={isDeleted ? Trash2 : sm.icon}>
+                    <div className={cn(isDeleted && 'opacity-70')} data-deleted={isDeleted || undefined}>
+                    {isDeleted && (
+                      <div className="px-4 py-2 max-lg:px-3 bg-rose-50 border-b border-rose-200 text-sm text-rose-700 flex items-center gap-2" role="status">
+                        <Trash2 size={14} aria-hidden />
+                        <span><strong>Dihapus user</strong> · {fmtDateTime(meal.deletedAt!)} · tidak dihitung di total kalori</span>
+                      </div>
+                    )}
                     {/* Header */}
                     <div className="px-4 py-3 border-b border-border flex items-start gap-3 max-lg:px-3">
                       <Thumb meal={meal} label={dishLabel} onOpen={openLightbox} className="w-[76px] h-[76px] lg:hidden" />
                       <div className="min-w-0 flex-1 flex items-start gap-3 max-lg:flex-col max-lg:gap-1">
-                        <h3 className={cn('text-[15px] font-semibold flex-1 min-w-0 leading-snug', meal.dishNames.length ? 'text-primary' : 'text-secondary italic')}>
+                        <h3 className={cn('text-[15px] font-semibold flex-1 min-w-0 leading-snug', meal.dishNames.length ? 'text-primary' : 'text-secondary italic', isDeleted && 'line-through')}>
                           {dishLabel}
                         </h3>
                         <div className="flex items-center gap-3 text-sm text-secondary shrink-0">
@@ -405,7 +418,7 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
                           {expandLabel}
                         </Button>
                       )}
-                      <Button
+                      {!isDeleted && <Button
                         variant="outline-danger" size="sm" icon={Trash2}
                         loading={deleting === meal.id}
                         onClick={() => setPendingDelete(meal)}
@@ -413,7 +426,8 @@ export default function RiwayatDetail({ userId }: { userId: string }) {
                         className="lg:ml-0 max-lg:ml-auto max-lg:px-3"
                       >
                         <span className="max-lg:hidden">Hapus</span>
-                      </Button>
+                      </Button>}
+                    </div>
                     </div>
                   </TimelineItem>
                 )

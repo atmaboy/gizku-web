@@ -48,6 +48,10 @@ export const meals = pgTable('meals', {
   loggedAt:      timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
   // Waktu scan asli; tidak pernah diubah. logged_at bisa dipindah user (maks. 24 jam setelah scan, lihat lib/mealDate.ts).
   scannedAt:     timestamp('scanned_at', { withTimezone: true }).defaultNow().notNull(),
+  // Soft delete: diisi saat user menghapus riwayat. Baris tetap ada supaya backoffice bisa menampilkannya
+  // (ditandai "dihapus"), tapi TIDAK boleh ikut hitungan user mana pun — selalu filter dengan `liveMeal`
+  // (lib/mealQuery.ts). Dihapus permanen oleh cron prune-deleted-meals setelah MEAL_DELETED_RETENTION_DAYS.
+  deletedAt:     timestamp('deleted_at', { withTimezone: true }),
 }, t => ({
   userIdx:   index('idx_meals_user_id').on(t.userId),
   loggedIdx: index('idx_meals_logged_at').on(t.loggedAt),

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/prune-notifications",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/prune-deleted-meals",
+      "schedule": "30 3 * * *"
     }
   ]
 }

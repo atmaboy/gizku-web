@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { telegramUsers, meals, users } from '@/drizzle/schema'
+import { liveMeal } from '@/lib/mealQuery'
 import { desc, eq, count, and, gte, isNotNull } from 'drizzle-orm'
 import { verifyToken } from '@/lib/auth'
 import { todayISO, addDaysISO, wibDayStart } from '@/lib/utils'
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(meals.source, 'telegram'),
+          liveMeal,
           gte(meals.loggedAt, wibDayStart(weekAgo)),
         ),
       )
@@ -109,6 +111,7 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(meals.source, 'telegram'),
+          liveMeal,
           gte(meals.loggedAt, wibDayStart(monthAgo)),
         ),
       )

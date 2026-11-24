@@ -21,6 +21,7 @@ import { Bot, Context } from 'grammy'
 import { db } from '@/lib/db'
 import { getCfg } from '@/lib/admin'
 import { telegramUsers, meals } from '@/drizzle/schema'
+import { liveMeal } from '@/lib/mealQuery'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
 import Anthropic from '@anthropic-ai/sdk'
 import { wibDateISO, wibDayStart, wibDayEnd } from '@/lib/utils'
@@ -352,6 +353,7 @@ export function createBot(token: string): Bot {
         .where(
           and(
             eq(meals.userId, tgUser.userId),
+            liveMeal,
             gte(meals.loggedAt, new Date(startOfDay)),
             lte(meals.loggedAt, new Date(endOfDay)),
           ),

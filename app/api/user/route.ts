@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { sendVerificationEmailInBackground, resendVerification } from '@/lib/emailVerification'
 import { db } from '@/lib/db'
 import { users, meals, dailyUsage, telegramUsers } from '@/drizzle/schema'
+import { liveMeal } from '@/lib/mealQuery'
 import { verifyToken, extractToken, hashPassword } from '@/lib/auth'
 import { getGlobalLimit } from '@/lib/admin'
 import { isFakeEmail } from '@/lib/emailDomain.server'
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
 
     const [mealStats] = await db.select({
       total: count(), totalCals: sum(meals.totalCalories),
-    }).from(meals).where(eq(meals.userId, user.userId))
+    }).from(meals).where(and(eq(meals.userId, user.userId), liveMeal))
 
     return ok({
       user: {

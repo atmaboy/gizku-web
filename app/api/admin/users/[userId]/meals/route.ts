@@ -3,7 +3,8 @@ import { db } from '@/lib/db'
 import { meals } from '@/drizzle/schema'
 import { verifyToken } from '@/lib/auth'
 import { ok, err, setCors } from '@/lib/utils'
-import { eq, desc } from 'drizzle-orm'
+import { eq, and, desc } from 'drizzle-orm'
+import { liveMeal } from '@/lib/mealQuery'
 
 export async function OPTIONS() {
   const h = new Headers(); setCors(h)
@@ -52,7 +53,7 @@ export async function GET(
       rawAnalysis:   meals.rawAnalysis,
     })
     .from(meals)
-    .where(eq(meals.userId, userId))
+    .where(and(eq(meals.userId, userId), liveMeal))
     .orderBy(desc(meals.loggedAt))
     .limit(100)
 

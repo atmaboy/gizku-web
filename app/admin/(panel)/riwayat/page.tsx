@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { users, meals } from '@/drizzle/schema'
-import { ilike, eq, count } from 'drizzle-orm'
+import { liveMeal } from '@/lib/mealQuery'
+import { ilike, eq, and, count } from 'drizzle-orm'
 import { ChevronRight, Search, SearchX } from 'lucide-react'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import { Avatar, Button, Card, DataTable, EmptyState, Input, InputGroup, ListRow } from '@/components/admin/ui'
@@ -23,7 +24,7 @@ export default async function RiwayatSearchPage({
     const rows = await db.select({ id: users.id, username: users.username, email: users.email })
       .from(users).where(ilike(users.username, `%${query}%`)).limit(20)
     results = await Promise.all(rows.map(async u => {
-      const [{ c }] = await db.select({ c: count() }).from(meals).where(eq(meals.userId, u.id))
+      const [{ c }] = await db.select({ c: count() }).from(meals).where(and(eq(meals.userId, u.id), liveMeal))
       return { ...u, totalMeals: c }
     }))
   }

@@ -55,7 +55,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       items: [
         { name: 'Dashboard admin', description: 'Statistik ringkasan, status sistem, recent users, badge laporan open & request limit.' },
         { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform + versi app, bahasa, dan aktivitas terakhir; detail user menampilkan versi app (terakhir terlihat), riwayat versi, dan satu kartu per perangkat (versi app, status push, terakhir terlihat).' },
-        { name: 'Riwayat analisa user', description: 'Lihat riwayat makanan per user.' },
+        { name: 'Riwayat analisa user', description: 'Lihat riwayat makanan per user, termasuk entri yang dihapus user (bertanda "Dihapus user", tidak dihitung di total). Entri terhapus disimpan 90 hari.' },
         { name: 'Landing Builder', description: 'Atur 9 section landing + pengaturan global tanpa deploy; drag urutan, pratinjau desktop/mobile, alur Draf → Terbitkan, riwayat terbitan.' },
         { name: 'Dokumen legal', description: 'Rich text editor dwibahasa untuk Syarat & Ketentuan, Kebijakan Privasi, dan tipe custom.' },
         { name: 'Review Request Limit', description: 'Approve/reject pengajuan (alasan reject terstruktur), konfigurasi tier & rekening tujuan.' },
@@ -122,6 +122,16 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.17.0',
+      date: '2026-11-24',
+      note: 'Jalankan sql/024_meals_deleted_at.sql SEBELUM deploy (staging dulu, lalu production). Kode baru memfilter kolom deleted_at di setiap query meals, jadi deploy tanpa migrasi membuat API riwayat, dashboard admin, dan bot Telegram error. Riwayat yang sudah dihapus user sebelum rilis ini sudah hilang permanen dan tidak bisa ditampilkan. Mobile tidak perlu diubah.',
+      changes: [
+        { type: 'feat', text: 'Backoffice Riwayat user kini menampilkan makanan yang dihapus user: kartu diberi banner "Dihapus user" beserta waktu hapusnya, judul dicoret, dan tombol Hapus admin disembunyikan. Hanya yang dihapus setelah rilis ini yang muncul.' },
+        { type: 'improve', text: 'Riwayat yang dihapus user tidak dihitung di mana pun: total kalori dan jumlah makanan user, ringkasan hari ini, statistik dashboard admin, statistik Telegram, metrik landing, dan deteksi duplikat foto. User tidak bisa melihat atau mengubah entri yang sudah dihapus.' },
+        { type: 'chore', text: 'Hapus riwayat oleh user kini soft-delete (kolom meals.deleted_at). Cron baru prune-deleted-meals menghapus permanen entri yang dihapus lebih dari 90 hari, setiap hari pukul 03.30 UTC.' },
+      ],
+    },
     {
       version: '1.16.0',
       date: '2026-11-24',
