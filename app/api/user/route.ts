@@ -1,14 +1,18 @@
 import { NextRequest } from 'next/server'
 import { sendVerificationEmailInBackground, resendVerification } from '@/lib/emailVerification'
 import { db } from '@/lib/db'
-import { users, meals, dailyUsage, telegramUsers } from '@/drizzle/schema'
+import { users, meals, dailyUsage, telegramUsers, userGoals, premiumInterestEvents } from '@/drizzle/schema'
 import { liveMeal } from '@/lib/mealQuery'
 import { verifyToken, extractToken, hashPassword } from '@/lib/auth'
 import { getGlobalLimit } from '@/lib/admin'
 import { isFakeEmail } from '@/lib/emailDomain.server'
 import { EMAIL_NOT_ALLOWED_CODE, EMAIL_NOT_ALLOWED_MESSAGE } from '@/lib/emailDomain'
 import { ok, err, setCors, todayISO } from '@/lib/utils'
-import { eq, and, count, sum } from 'drizzle-orm'
+import { eq, and, count, sum, gt, sql } from 'drizzle-orm'
+import { getGoalsConfig } from '@/lib/goalsConfig.server'
+import { featureAccess } from '@/lib/goalsConfig'
+import { resolveGoal, isPremiumNow } from '@/lib/goals.server'
+import { validateProfile } from '@/lib/akg'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
@@ -44,6 +48,10 @@ export async function GET(req: NextRequest) {
       dailyLimit:      users.dailyLimit,
       createdAt:       users.createdAt,
       emailVerifiedAt: users.emailVerifiedAt,
+      gender:          users.gender,
+      birthDate:       users.birthDate,
+      statsSeenAt:     users.statsSeenAt,
+      premiumUntil:    users.premiumUntil,
     }).from(users).where(eq(users.id, user.userId)).limit(1)
 
     if (!userData) return err('User tidak ditemukan', 404)
@@ -68,9 +76,11 @@ export async function GET(req: NextRequest) {
       total: count(), totalCals: sum(meals.totalCalories),
     }).from(meals).where(and(eq(meals.userId, user.userId), liveMeal))
 
+    const { premiumUntil, ...publicUser } = userData
     return ok({
       user: {
-        ...userData,
+        ...publicUser,
+        isPremium:     isPremiumNow(premiumUntil),
         emailVerified: userData.emailVerifiedAt !== null,
         dailyLimit:    limit,
         todayUsage:    usageRow?.count ?? 0,
@@ -83,6 +93,11 @@ export async function GET(req: NextRequest) {
         telegramFirstName: tgRow?.telegramFirstName ?? null,
       },
     })
+  }
+
+  if (action === 'goals') {
+    const cfg = await getGoalsConfig()
+    return ok(await resolveGoal(user.userId, cfg))
   }
 
   return err('Action tidak dikenal')
@@ -146,6 +161,63 @@ export async function POST(req: NextRequest) {
       return err('Batas 3x pengiriman dalam 24 jam tercapai, coba lagi nanti', 429)
 
     return ok({ message: 'Email verifikasi telah dikirim ulang' })
+  }
+
+  if (action === 'update_profile') {
+    const body = await req.json().catch(() => null)
+    const { gender, birthDate } = body ?? {}
+    const msg = validateProfile(gender, birthDate)
+    if (msg) return err(msg)
+    await db.update(users).set({ gender, birthDate, updatedAt: new Date() }).where(eq(users.id, user.userId))
+    return ok({ message: 'Profil berhasil diperbarui', gender, birthDate })
+  }
+
+  if (action === 'stats_seen') {
+    await db.update(users).set({ statsSeenAt: new Date() })
+      .where(and(eq(users.id, user.userId), sql`${users.statsSeenAt} IS NULL`))
+    return ok({ ok: true })
+  }
+
+  if (action === 'update_goals') {
+    const cfg = await getGoalsConfig()
+    if (!cfg.allowEdit) return err('Target tidak bisa diubah', 403, 'edit_disabled')
+    const body = await req.json().catch(() => null)
+    const kcal = body?.kcal
+    const { minKcal, maxKcal } = cfg.target
+    if (!Number.isInteger(kcal) || kcal < minKcal || kcal > maxKcal) {
+      return err(`Isi angka antara ${minKcal.toLocaleString('id-ID')} dan ${maxKcal.toLocaleString('id-ID')} kkal.`)
+    }
+    const hasMacro = ['protein', 'carbs', 'fat'].some(k => body?.[k] !== undefined && body?.[k] !== null)
+    let macro: { proteinG: number | null; carbsG: number | null; fatG: number | null } = { proteinG: null, carbsG: null, fatG: null }
+    if (hasMacro) {
+      const [u] = await db.select({ premiumUntil: users.premiumUntil }).from(users).where(eq(users.id, user.userId)).limit(1)
+      if (featureAccess(cfg, 'macro', isPremiumNow(u?.premiumUntil)).locked || !cfg.features.macro.on) {
+        return err('Target makro hanya untuk Premium', 403, 'premium_required')
+      }
+      const g = [body.protein, body.carbs, body.fat]
+      if (!g.every(v => Number.isInteger(v) && v >= 0 && v <= 2000)) return err('Gram makro harus bilangan bulat ≥ 0')
+      macro = { proteinG: body.protein, carbsG: body.carbs, fatG: body.fat }
+    }
+    // Makro tidak dikirim → hapus makro custom lama supaya kembali ke pembagian default dari kalori baru.
+    await db.insert(userGoals).values({ userId: user.userId, kcal, ...macro })
+      .onConflictDoUpdate({ target: userGoals.userId, set: { kcal, ...macro, updatedAt: new Date() } })
+    return ok({ ...(await resolveGoal(user.userId, cfg)) })
+  }
+
+  if (action === 'premium_interest') {
+    const body = await req.json().catch(() => null)
+    const event = body?.event
+    const source = body?.source ?? null
+    if (!['cta_click', 'remind_yes', 'remind_no', 'macro_tab_locked'].includes(event)) return err('Event tidak valid')
+    if (source !== null && !['weekly', 'monthly', 'goal_macro', 'goal'].includes(source)) return err('Source tidak valid')
+    // Rate-limit ringan: maks 20 event per user per menit.
+    const [{ n }] = await db.select({ n: count() }).from(premiumInterestEvents).where(and(
+      eq(premiumInterestEvents.userId, user.userId),
+      gt(premiumInterestEvents.createdAt, new Date(Date.now() - 60_000)),
+    ))
+    if (Number(n) >= 20) return err('Terlalu banyak permintaan, coba lagi nanti', 429)
+    await db.insert(premiumInterestEvents).values({ userId: user.userId, event, source })
+    return ok({ ok: true })
   }
 
   return err('Action tidak dikenal')

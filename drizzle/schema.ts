@@ -31,6 +31,12 @@ export const users = pgTable('users', {
 
   betaOptinAndroid:   boolean('beta_optin_android').default(false).notNull(),
   betaOptinAndroidAt: timestamp('beta_optin_android_at', { withTimezone: true }),
+
+  // Goals & Statistik (sql/025)
+  gender:         text('gender'), // 'm' | 'f'
+  birthDate:      date('birth_date', { mode: 'string' }),
+  statsSeenAt:    timestamp('stats_seen_at', { withTimezone: true }),
+  premiumUntil:   timestamp('premium_until', { withTimezone: true }), // null = belum Premium
 }, t => ({ usernameIdx: index('idx_users_username').on(t.username) }))
 
 export const meals = pgTable('meals', {
@@ -580,3 +586,25 @@ export type AboutContent               = typeof aboutContent.$inferSelect
 export type BetaOptinConfig            = typeof betaOptinConfig.$inferSelect
 export type EmailVerificationToken     = typeof emailVerificationTokens.$inferSelect
 export type NewEmailVerificationToken  = typeof emailVerificationTokens.$inferInsert
+
+
+// Goals & Statistik (sql/025)
+export const userGoals = pgTable('user_goals', {
+  userId:    uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  kcal:      integer('kcal').notNull(),
+  proteinG:  integer('protein_g'), // null = pakai pembagian default
+  carbsG:    integer('carbs_g'),
+  fatG:      integer('fat_g'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
+export const premiumInterestEvents = pgTable('premium_interest_events', {
+  id:        serial('id').primaryKey(),
+  userId:    uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  event:     text('event').notNull(), // cta_click | remind_yes | remind_no | macro_tab_locked
+  source:    text('source'),          // weekly | monthly | goal_macro | goal
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  userIdx:  index('idx_pie_user').on(t.userId, t.createdAt),
+  eventIdx: index('idx_pie_event').on(t.event, t.createdAt),
+}))

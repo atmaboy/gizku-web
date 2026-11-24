@@ -5,10 +5,15 @@ import { getGlobalLimit } from '@/lib/admin'
 import { fmtDateTime, fmtNum, todayISO } from '@/lib/utils'
 import { eq, and, count, sql } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
-import { Activity, CalendarPlus, ChevronLeft, History, LogIn, Mail, Smartphone, User } from 'lucide-react'
+import { Activity, Cake, CalendarPlus, ChevronLeft, History, LogIn, Mail, Smartphone, Target, User, UserRound } from 'lucide-react'
 import { getDeviceInfo, deviceLabel, lastActivity, platformSummary, latestAppClient, appClientLabel, activeToken, platformName, emptyInfo } from '@/lib/userDevices'
 import UserDetailTabs from '@/components/admin/UserDetailTabs'
 import MaskedId from '@/components/admin/MaskedId'
+import MaskedValue from '@/components/admin/MaskedValue'
+import { getGoalsConfig } from '@/lib/goalsConfig.server'
+import { resolveGoal, isPremiumNow } from '@/lib/goals.server'
+import { getUserPremiumInfo } from '@/lib/goalsStats.server'
+import { ageOn } from '@/lib/akg'
 import AdminPage from '@/components/admin/shell/AdminPage'
 import { Avatar, Badge, Button, Card, KeyValue } from '@/components/admin/ui'
 export const dynamic = 'force-dynamic'
@@ -47,6 +52,14 @@ export default async function UserDetailPage({
   const appNow = latestAppClient(devInfo)
   const totalMeals = Number(mealsRow.cnt ?? 0)
   const todayUsage = Number(usageRow.cnt ?? 0)
+
+  const [goalCfg, goalsInfo] = await Promise.all([getGoalsConfig(), getUserPremiumInfo(userId)])
+  const goal = await resolveGoal(userId, goalCfg)
+  const premium = isPremiumNow(user.premiumUntil)
+  const age = user.birthDate ? ageOn(user.birthDate) : null
+  const birthLabel = user.birthDate
+    ? `${user.birthDate.split('-').reverse().join('/')}${age !== null ? ` (${age} tahun)` : ''}`
+    : null
 
   const statusBadge = user.isActive ? <Badge variant="success">Aktif</Badge> : <Badge variant="secondary">Nonaktif</Badge>
   const betaBadge = user.betaOptinAndroid ? <Badge variant="soft">Closed Beta Android</Badge> : null
@@ -175,6 +188,16 @@ export default async function UserDetailPage({
               ) : <span className="text-secondary">—</span>}
             </AboutRow>
             <AboutRow icon={CalendarPlus} title="Bergabung">{fmtDateTime(user.createdAt)}</AboutRow>
+            <AboutRow icon={UserRound} title="Gender">
+              {user.gender
+                ? <MaskedValue value={user.gender === 'm' ? 'Laki-laki' : 'Perempuan'} mask="••••••••" label="gender" />
+                : <span className="text-secondary">Belum diisi</span>}
+            </AboutRow>
+            <AboutRow icon={Cake} title="Tanggal lahir">
+              {birthLabel
+                ? <MaskedValue value={birthLabel} mask="••/••/••••" label="tanggal lahir" />
+                : <span className="text-secondary">Belum diisi</span>}
+            </AboutRow>
             <AboutRow icon={LogIn} title="Login terakhir">
               {user.lastLoginAt ? fmtDateTime(user.lastLoginAt) : <span className="italic text-clay-600">Belum pernah</span>}
             </AboutRow>
@@ -186,7 +209,7 @@ export default async function UserDetailPage({
           </Card>
         </div>
 
-        <div className="xl:col-span-8 min-w-0 max-xl:order-2">
+        <div className="xl:col-span-8 min-w-0 max-xl:order-2 flex flex-col gap-5 max-lg:gap-4">
           <UserDetailTabs
             user={{
               id: user.id,
@@ -202,6 +225,36 @@ export default async function UserDetailPage({
             }}
             globalLimit={globalLimit}
           />
+
+          <Card title="Statistik & Premium" icon={Target} subtitle="Target harian dan status Premium user ini">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-md border border-border p-3">
+                <p className="text-sm font-semibold text-primary mb-1">Premium</p>
+                <KeyValue dense items={[
+                  { label: 'Status', value: premium ? <Badge variant="success">Premium aktif</Badge> : <Badge variant="light">Belum Premium</Badge> },
+                  ...(premium && user.premiumUntil ? [{ label: 'Berlaku', value: `s/d ${fmtDateTime(user.premiumUntil)}` }] : []),
+                  ...(goalsInfo.remindAt ? [{ label: 'Ingatkan saya', value: fmtDateTime(goalsInfo.remindAt) }] : []),
+                  ...(goalsInfo.remindSource ? [{ label: 'Sumber', value: goalsInfo.remindSource }] : []),
+                  ...(goalsInfo.cta7d > 0 ? [{ label: 'Klik CTA (7 hari)', value: `${goalsInfo.cta7d}×` }] : []),
+                ]} />
+              </div>
+              <div className="rounded-md border border-border p-3">
+                <p className="text-sm font-semibold text-primary mb-1">Target harian</p>
+                <KeyValue dense items={[
+                  { label: 'Kalori harian', value: `${fmtNum(goal.kcal)} kkal` },
+                  { label: 'Sumber', value: goal.source === 'user'
+                    ? <Badge variant="soft">Diset user</Badge>
+                    : <Badge variant="light">{`Default (belum set)`}</Badge> },
+                  { label: 'Makro (P / K / L)', value: `${goal.protein} / ${goal.carbs} / ${goal.fat} g` },
+                ]} />
+                <p className="text-xs text-secondary mt-2">
+                  {goal.macroSource === 'user'
+                    ? 'Makro diatur sendiri lewat tab Makro (Premium).'
+                    : `Makro memakai pembagian default ${goalCfg.macroDefault.proteinPct} / ${goalCfg.macroDefault.carbsPct} / ${goalCfg.macroDefault.fatPct}% dari target kalori.`}
+                </p>
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
     </AdminPage>

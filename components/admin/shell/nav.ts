@@ -1,5 +1,5 @@
 import {
-  LayoutGrid, Users, History, Gauge, MessageSquare, Bell, Send, Globe, Settings, Rocket, type LucideIcon,
+  LayoutGrid, Users, History, Gauge, MessageSquare, Bell, Target, Send, Globe, Settings, Rocket, type LucideIcon,
 } from 'lucide-react'
 import type { AdminNavCounts } from '@/lib/adminCounts'
 
@@ -14,6 +14,7 @@ export const ADMIN_NAV: NavEntry[] = [
   { type: 'item',   label: 'Manajemen User',     icon: Users,         href: '/admin/users' },
   { type: 'item',   label: 'Riwayat Analisa',    icon: History,       href: '/admin/riwayat' },
   { type: 'item',   label: 'Request Limit',      icon: Gauge,         href: '/admin/limit',   badge: 'pendingLimit' },
+  { type: 'item',   label: 'Goals & Tracker',    icon: Target,        href: '/admin/goals' },
   { type: 'header', label: 'Komunikasi' },
   { type: 'item',   label: 'Laporan & Helpdesk', icon: MessageSquare, href: '/admin/reports', badge: 'openReports' },
   { type: 'tree',   label: 'Blast Notifikasi',   icon: Bell, children: [
