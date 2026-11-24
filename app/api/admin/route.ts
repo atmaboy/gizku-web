@@ -327,6 +327,9 @@ export async function DELETE(req: NextRequest) {
   try {
     const action = req.nextUrl.searchParams.get('action')
     if (action === 'delete_meal') {
+      const authError = await requireAdmin(req)
+      if (authError) return authError
+
       const { id } = await req.json()
       if (!id) return err('meal id diperlukan')
       await db.delete(meals).where(eq(meals.id, id))

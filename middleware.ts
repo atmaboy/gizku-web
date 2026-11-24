@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
+import { isMaintenanceExempt, readMaintenanceState, maintenanceBody } from '@/lib/maintenanceGate'
 
 const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || 'fallback-change-in-production-32ch'
@@ -46,6 +47,17 @@ export async function middleware(req: NextRequest) {
   if (isPageRoute && maintenanceCookie === '1') {
     if (pathname !== '/maintenance') {
       return NextResponse.redirect(new URL('/maintenance', req.url))
+    }
+  }
+
+  // ── Maintenance: blok semua API user (503 + field `maintenance`) ──────────
+  if (pathname.startsWith('/api/') && !isMaintenanceExempt(pathname)) {
+    const m = await readMaintenanceState(req.nextUrl.origin)
+    if (m.enabled) {
+      return Response.json(maintenanceBody(m), {
+        status: 503,
+        headers: { ...CORS_HEADERS, 'Retry-After': '300', 'Cache-Control': 'no-store' },
+      })
     }
   }
 

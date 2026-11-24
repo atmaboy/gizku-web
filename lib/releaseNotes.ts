@@ -47,7 +47,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
         { name: 'Integrasi Telegram Bot', description: 'Hubungkan akun via OTP 6 digit, kirim foto ke bot untuk dianalisa dan tercatat ke riwayat.' },
         { name: 'Halaman legal publik', description: '/legal/[slug] — Syarat & Ketentuan, Kebijakan Privasi, dokumen custom, dwibahasa.' },
         { name: 'Landing page', description: 'Landing publik 9 section (Hero, Statistik, Cara Kerja, Fitur, Testimoni, FAQ, CTA & Download, Footer) dengan SEO.' },
-        { name: 'Maintenance mode aware', description: 'User aktif otomatis logout & diarahkan ke halaman maintenance saat mode pemeliharaan aktif.' },
+        { name: 'Maintenance mode aware', description: 'Saat mode pemeliharaan aktif, semua API user dijawab 503 (kecuali backoffice, cron, webhook, Telegram, konten publik); user web/mobile otomatis logout & diarahkan ke halaman maintenance.' },
       ],
     },
     {
@@ -122,6 +122,15 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
+    {
+      version: '1.17.1',
+      date: '2026-11-24',
+      note: 'Tidak ada migrasi SQL. Mobile tidak perlu update: app yang sudah rilis sudah logout otomatis dan membuka halaman maintenance begitu menerima respons 503 dengan field maintenance.',
+      changes: [
+        { type: 'fix', text: 'Maintenance mode kini memblokir seluruh API user (riwayat, profil, limit, laporan, notifikasi, push, dll.), bukan hanya login/register dan scan. Sebelumnya user yang sudah login tetap bisa beraktivitas; kini setiap request mereka dijawab 503 sehingga app mobile otomatis logout dan menampilkan halaman maintenance. Backoffice, cron, webhook, bot Telegram, dan konten publik tetap berjalan.' },
+        { type: 'fix', text: 'Keamanan: hapus riwayat makanan dari backoffice (delete_meal) kini wajib login admin; sebelumnya endpoint ini tidak memeriksa autentikasi.' },
+      ],
+    },
     {
       version: '1.17.0',
       date: '2026-11-24',

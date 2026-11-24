@@ -174,7 +174,7 @@ gizku-web/
 ├── sql/                              # Migration SQL berurutan (referensi, dijalankan manual di Supabase)
 ├── public/                           # Static assets (favicon, manifest.json, icons)
 │
-├── middleware.ts                     # Edge middleware — guard admin, redirect maintenance, inject CORS
+├── middleware.ts                     # Edge middleware — guard admin, blok API saat maintenance (lib/maintenanceGate.ts), inject CORS
 ├── vercel.json                       # Referensi jadwal cron (send-scheduled-blasts, prune-old-usage) — pemicu aktual: cron-job.org
 ├── drizzle.config.ts                 # Konfigurasi Drizzle Kit
 ├── next.config.ts                    # Konfigurasi Next.js
