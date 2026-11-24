@@ -185,12 +185,17 @@ export default function ConfigPage() {
               help={<>Ganti ke model lebih ringan jika muncul error “Server AI sedang sibuk”. Sistem akan otomatis retry 3x sebelum menyerah.</>}
             >
               <Select id="cfg-model" value={aiModel} onChange={e => setAiModel(e.target.value)}>
-                <optgroup label="Model Aktif (Recommended)">
+                <optgroup label="Model Terbaru (Recommended)">
+                  <option value="claude-haiku-5-5">claude-haiku-5-5 — Cepat &amp; Hemat</option>
+                  <option value="claude-sonnet-5-5">claude-sonnet-5-5 — Best Balance</option>
+                  <option value="claude-opus-5-5">claude-opus-5-5 — Paling Canggih</option>
+                </optgroup>
+                <optgroup label="Generasi Sebelumnya">
                   <option value="claude-haiku-4-5">claude-haiku-4-5 — Cepat &amp; Hemat</option>
                   <option value="claude-sonnet-5">claude-sonnet-5 — Best Balance</option>
                   <option value="claude-opus-5">claude-opus-5 — Paling Canggih</option>
                 </optgroup>
-                <optgroup label="Legacy (versi sebelumnya, mungkin tidak stabil)">
+                <optgroup label="Legacy (versi lama, mungkin tidak stabil)">
                   <option value="claude-sonnet-4-6">claude-sonnet-4-6 — Legacy</option>
                   <option value="claude-opus-4-7">claude-opus-4-7 — Legacy</option>
                   <option value="claude-sonnet-4-5">claude-sonnet-4-5 — Legacy</option>

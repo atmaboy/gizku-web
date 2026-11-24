@@ -123,6 +123,13 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
 export const RELEASES: Record<Platform, Release[]> = {
   web: [
     {
+      version: '1.16.0',
+      date: '2026-11-24',
+      changes: [
+        { type: 'feat', text: 'Pengaturan sistem: pilihan model AI kini mencakup generasi terbaru Claude Haiku 5.5, Sonnet 5.5, dan Opus 5.5. Admin bisa beralih ke Haiku 5.5 (lebih cepat dan hemat biaya) tanpa deploy. Model sebelumnya tetap tersedia di grup "Generasi Sebelumnya" dan model yang sedang aktif tidak berubah sampai admin menyimpannya.' },
+      ],
+    },
+    {
       version: '1.15.0',
       date: '2026-11-22',
       note: 'Perubahan perilaku: batas hari kini WIB (UTC+7), sebelumnya UTC. Saat deploy, di jendela 00.00 sampai 07.00 WIB user bisa mendapat kuota harian baru satu kali karena tanggal pemakaian bergeser dari tanggal UTC ke tanggal WIB. Tidak perlu migrasi SQL.',
