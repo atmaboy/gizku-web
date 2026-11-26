@@ -26,12 +26,13 @@ export async function getWaitlist(): Promise<WaitlistRow[]> {
 
 export async function getGoalsAdminStats() {
   const since7 = new Date(Date.now() - 7 * 86_400_000)
+  const since7Iso = since7.toISOString()
   const [countsRow] = await db.execute<{ with_goal: number; premium_active: number; cta7: number; macro7: number }>(sql`
     SELECT
       (SELECT count(*) FROM user_goals)::int AS with_goal,
       (SELECT count(*) FROM users WHERE premium_until > now())::int AS premium_active,
-      (SELECT count(*) FROM premium_interest_events WHERE event = 'cta_click' AND created_at >= ${since7})::int AS cta7,
-      (SELECT count(*) FROM premium_interest_events WHERE event = 'macro_tab_locked' AND created_at >= ${since7})::int AS macro7`) as unknown as { with_goal: number; premium_active: number; cta7: number; macro7: number }[]
+      (SELECT count(*) FROM premium_interest_events WHERE event = 'cta_click' AND created_at >= ${since7Iso}::timestamptz)::int AS cta7,
+      (SELECT count(*) FROM premium_interest_events WHERE event = 'macro_tab_locked' AND created_at >= ${since7Iso}::timestamptz)::int AS macro7`) as unknown as { with_goal: number; premium_active: number; cta7: number; macro7: number }[]
 
   const sources = await db.execute<{ source: string | null; n: number }>(sql`
     SELECT source, count(*)::int AS n FROM premium_interest_events WHERE event = 'cta_click' GROUP BY source`) as unknown as { source: string | null; n: number }[]
@@ -69,9 +70,10 @@ export async function getGoalsAdminStats() {
 /** Data per user untuk kartu "Progres & Premium" di Detail User. */
 export async function getUserPremiumInfo(userId: string) {
   const since7 = new Date(Date.now() - 7 * 86_400_000)
+  const since7Iso = since7.toISOString()
   const [row] = await db.execute<{ cta7: number; remind_at: Date | string | null; remind_source: string | null; remind_event: string | null }>(sql`
     SELECT
-      (SELECT count(*) FROM premium_interest_events WHERE user_id = ${userId} AND event = 'cta_click' AND created_at >= ${since7})::int AS cta7,
+      (SELECT count(*) FROM premium_interest_events WHERE user_id = ${userId} AND event = 'cta_click' AND created_at >= ${since7Iso}::timestamptz)::int AS cta7,
       l.created_at AS remind_at, l.source AS remind_source, l.event AS remind_event
     FROM (SELECT 1) x
     LEFT JOIN LATERAL (
