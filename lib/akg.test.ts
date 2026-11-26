@@ -40,7 +40,7 @@ describe('validateProfile', () => {
     expect(validateProfile(null, '', today)).toBe('Pilih gender dulu.')
     expect(validateProfile('f', '', today)).toBe('Isi tanggal lahir dulu.')
     expect(validateProfile('f', '1994-13-40', today)).toBe('Tanggal belum lengkap.')
-    expect(validateProfile('f', '2020-01-01', today)).toBe('Statistik ini untuk usia 10 tahun ke atas.')
+    expect(validateProfile('f', '2020-01-01', today)).toBe('Progres ini untuk usia 10 tahun ke atas.')
     expect(validateProfile('f', '1890-01-01', today)).toBe('Cek lagi tahun lahirmu.')
     expect(validateProfile('m', '1994-05-17', today)).toBeNull()
   })

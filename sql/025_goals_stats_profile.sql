@@ -1,11 +1,11 @@
--- Migration 025: Goals & Statistik Nutrisi (profil gender/tanggal lahir, target harian, minat Premium)
+-- Migration 025: Goals & Progres Nutrisi (profil gender/tanggal lahir, target harian, minat Premium)
 -- Jalankan sekali di database SEBELUM deploy (staging dulu, lalu production). Idempoten: aman dijalankan dua kali.
 -- PENTING: GET /api/user?action=profile dan /api/stats membaca kolom baru di bawah, jadi deploy tanpa
 -- migrasi ini membuat endpoint tersebut error.
 --
 -- Perubahan:
 --   * users.gender ('m'|'f'), users.birth_date: dipakai untuk rata-rata kalori terbakar (AKG Kemenkes 2019).
---   * users.stats_seen_at: badge NEW di tab Statistik app, tersinkron lintas perangkat.
+--   * users.stats_seen_at: badge NEW di tab Progres app, tersinkron lintas perangkat.
 --   * users.premium_until: null = belum Premium. Pembelian belum ada; untuk QA isi manual:
 --       UPDATE users SET premium_until = now() + interval '30 days' WHERE username = '...';
 --   * user_goals: target kalori & makro harian per user (makro null = pembagian default dari backoffice).

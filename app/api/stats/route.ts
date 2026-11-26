@@ -1,5 +1,5 @@
 /**
- * Statistik nutrisi & target (app mobile). Semua batas hari memakai WIB dan hanya meal yang belum dihapus (liveMeal).
+ * Progres nutrisi & target (app mobile). Semua batas hari memakai WIB dan hanya meal yang belum dihapus (liveMeal).
  *   GET ?action=config
  *   GET ?action=summary&period=daily|weekly|monthly&date=YYYY-MM-DD
  */

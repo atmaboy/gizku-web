@@ -1,5 +1,5 @@
 /**
- * Kalkulasi statistik (murni, tanpa db): pembagian minggu/bulan, status ±toleransi, hari tercatat, rata-rata.
+ * Kalkulasi progres (murni, tanpa db): pembagian minggu/bulan, status ±toleransi, hari tercatat, rata-rata.
  * Semua tanggal adalah kalender WIB (YYYY-MM-DD). Minggu = Senin–Minggu.
  */
 import { addDaysISO, wibDateISO } from '@/lib/utils'

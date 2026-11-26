@@ -1,6 +1,6 @@
 /**
  * Rata-rata kebutuhan energi per hari menurut AKG Kemenkes 2019 (PMK No. 28 Tahun 2019), dipakai untuk kartu
- * "Rata-rata kalori terbakar" di Statistik. Dihitung di server supaya app dan backoffice konsisten.
+ * "Rata-rata kalori terbakar" di Progres. Dihitung di server supaya app dan backoffice konsisten.
  */
 import { todayISO } from '@/lib/utils'
 
@@ -61,7 +61,7 @@ export function validateProfile(gender: unknown, birthDate: unknown, onDate?: st
   if (birthDate === undefined || birthDate === null || birthDate === '') return 'Isi tanggal lahir dulu.'
   if (!isValidISODate(birthDate)) return 'Tanggal belum lengkap.'
   const age = ageOn(birthDate, onDate)
-  if (age === null || age < MIN_AGE) return 'Statistik ini untuk usia 10 tahun ke atas.'
+  if (age === null || age < MIN_AGE) return 'Progres ini untuk usia 10 tahun ke atas.'
   if (age > MAX_AGE) return 'Cek lagi tahun lahirmu.'
   return null
 }

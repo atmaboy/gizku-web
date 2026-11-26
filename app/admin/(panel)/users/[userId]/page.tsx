@@ -226,7 +226,7 @@ export default async function UserDetailPage({
             globalLimit={globalLimit}
           />
 
-          <Card title="Statistik & Premium" icon={Target} subtitle="Target harian dan status Premium user ini">
+          <Card title="Progres & Premium" icon={Target} subtitle="Target harian dan status Premium user ini">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-md border border-border p-3">
                 <p className="text-sm font-semibold text-primary mb-1">Premium</p>

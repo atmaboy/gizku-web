@@ -38,7 +38,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
     {
       group: 'Pengguna',
       items: [
-        { name: 'Statistik & target harian (API)', description: 'API statistik harian/mingguan/bulanan (batas hari WIB, meal terhapus diabaikan), target kalori & makro per user, rata-rata kalori terbakar dari gender + umur (AKG Kemenkes 2019), dan profil gender/tanggal lahir. Mingguan, bulanan, dan target makro bisa dikunci untuk Premium; user gratis mendapat 403 premium_required.' },
+        { name: 'Progres & target harian (API)', description: 'API progres harian/mingguan/bulanan (batas hari WIB, meal terhapus diabaikan), target kalori & makro per user, rata-rata kalori terbakar dari gender + umur (AKG Kemenkes 2019), dan profil gender/tanggal lahir. Mingguan, bulanan, dan target makro bisa dikunci untuk Premium; user gratis mendapat 403 premium_required.' },
         { name: 'Analisa foto makanan', description: 'Upload/kamera, AI (Anthropic Claude) mendeteksi makanan beserta kalori, protein, karbo, dan lemak. Kuota harian hanya terpotong jika analisa berhasil.' },
         { name: 'Riwayat & statistik', description: 'Rekap harian/mingguan, ringkasan nutrisi per hari, edit hasil analisa. Filter per tanggal atau jendela N hari terakhir.' },
         { name: 'Autentikasi', description: 'Login/register JWT custom; wajib setuju Syarat & Ketentuan + Kebijakan Privasi saat register; email palsu/sementara (example.com, mailinator, dll.) ditolak saat daftar & ganti email.' },
@@ -56,7 +56,7 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       items: [
         { name: 'Dashboard admin', description: 'Statistik ringkasan, status sistem, recent users, badge laporan open & request limit.' },
         { name: 'Goals & Tracker', description: 'Menu Pengguna → Goals & Tracker: aktif/nonaktifkan fitur tanpa rilis ulang app, akses Gratis/Premium per fitur, target harian default, makro default, teks sheet Premium, ringkasan minat Premium, dan waitlist "Ingatkan saya" (Export CSV). Setiap simpan wajib password admin.' },
-        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform + versi app, bahasa, dan aktivitas terakhir; detail user menampilkan versi app (terakhir terlihat), riwayat versi, satu kartu per perangkat (versi app, status push, terakhir terlihat), gender & tanggal lahir (disamarkan, ikon mata untuk membuka), serta kartu Statistik & Premium (target harian, status Premium, minat Premium).' },
+        { name: 'Manajemen user', description: 'CRUD, aktif/nonaktif, ubah daily limit, reset password (audit trail). Daftar menampilkan platform + versi app, bahasa, dan aktivitas terakhir; detail user menampilkan versi app (terakhir terlihat), riwayat versi, satu kartu per perangkat (versi app, status push, terakhir terlihat), gender & tanggal lahir (disamarkan, ikon mata untuk membuka), serta kartu Progres & Premium (target harian, status Premium, minat Premium).' },
         { name: 'Riwayat analisa user', description: 'Lihat riwayat makanan per user, termasuk entri yang dihapus user (bertanda "Dihapus user", tidak dihitung di total). Entri terhapus disimpan 90 hari.' },
         { name: 'Landing Builder', description: 'Atur 9 section landing + pengaturan global tanpa deploy; drag urutan, pratinjau desktop/mobile, alur Draf → Terbitkan, riwayat terbitan.' },
         { name: 'Dokumen legal', description: 'Rich text editor dwibahasa untuk Syarat & Ketentuan, Kebijakan Privasi, dan tipe custom.' },
@@ -101,11 +101,11 @@ export const FEATURES: Record<Platform, FeatureGroup[]> = {
       ],
     },
     {
-      group: 'Statistik & Target',
+      group: 'Progres & Target',
       items: [
-        { name: 'Statistik', description: 'Tab Statistik di bottom nav (menggantikan Pengaturan, yang pindah ke ikon gear di header) dengan badge NEW sampai dibuka. Harian gratis: ring progres vs target, komposisi makro, per waktu makan. Mingguan dan Bulanan (grafik, kalender asupan) untuk Premium; user gratis melihat tampilan terkunci. Butuh backend web ≥ 1.19.0.' },
+        { name: 'Progres', description: 'Tab Progres di bottom nav (menggantikan Pengaturan, yang pindah ke ikon gear di header) dengan badge NEW sampai dibuka. Harian gratis: ring progres vs target, komposisi makro, per waktu makan. Mingguan dan Bulanan (grafik, kalender asupan) untuk Premium; user gratis melihat tampilan terkunci. Butuh backend web ≥ 1.19.0.' },
         { name: 'Target harian', description: 'Atur target kalori (gratis) dan makro protein/karbo/lemak (Premium); target mingguan dan bulanan mengikuti.' },
-        { name: 'Rata-rata kalori terbakar', description: 'Dari gender dan umur memakai acuan AKG Kemenkes 2019, dibandingkan dengan asupan hari ini. Gender dan tanggal lahir wajib diisi sebelum membuka Statistik.' },
+        { name: 'Rata-rata kalori terbakar', description: 'Dari gender dan umur memakai acuan AKG Kemenkes 2019, dibandingkan dengan asupan hari ini. Gender dan tanggal lahir wajib diisi sebelum membuka Progres.' },
         { name: 'Gizku Premium (segera hadir)', description: 'Sheet info "Segera hadir" dengan "Ingatkan saya saat tersedia"; pilihan user tercatat di backoffice. Pembelian belum dibuka.' },
       ],
     },
@@ -137,12 +137,12 @@ export const RELEASES: Record<Platform, Release[]> = {
     {
       version: '1.19.0',
       date: '2026-11-24',
-      note: 'Jalankan sql/025 sebelum deploy (staging dulu, lalu production). Dibutuhkan app mobile ≥ 1.3.0 untuk fitur Statistik; app lama tetap berjalan (semua field baru bersifat tambahan). Untuk QA Premium sebelum pembelian dibuka, isi manual: UPDATE users SET premium_until = now() + interval \'30 days\' WHERE username = \'...\'.',
+      note: 'Jalankan sql/025 sebelum deploy (staging dulu, lalu production). Dibutuhkan app mobile ≥ 1.3.0 untuk fitur Progres; app lama tetap berjalan (semua field baru bersifat tambahan). Untuk QA Premium sebelum pembelian dibuka, isi manual: UPDATE users SET premium_until = now() + interval \'30 days\' WHERE username = \'...\'.',
       changes: [
-        { type: 'feat', text: 'API Statistik & target harian untuk app: ringkasan harian, mingguan (Senin–Minggu), dan bulanan (kalender + 7 minggu) dengan batas hari WIB dan meal terhapus diabaikan. Mingguan, bulanan, dan target makro bisa dikunci Premium (403 premium_required untuk user gratis).' },
+        { type: 'feat', text: 'API Progres & target harian untuk app: ringkasan harian, mingguan (Senin–Minggu), dan bulanan (kalender + 7 minggu) dengan batas hari WIB dan meal terhapus diabaikan. Mingguan, bulanan, dan target makro bisa dikunci Premium (403 premium_required untuk user gratis).' },
         { type: 'feat', text: 'Profil user kini menyimpan gender dan tanggal lahir; rata-rata kalori terbakar dihitung server dari tabel AKG Kemenkes 2019. Target kalori & makro disimpan per user, dengan batas dan makro default yang diatur dari backoffice.' },
         { type: 'feat', text: 'Menu baru Goals & Tracker di backoffice (grup Pengguna): aktif/nonaktifkan fitur tanpa rilis ulang app, akses Gratis/Premium per fitur, target default, makro default, teks sheet Premium, ringkasan minat Premium, dan waitlist "Ingatkan saya" dengan Export CSV. Setiap simpan wajib password admin.' },
-        { type: 'feat', text: 'Detail User menampilkan Gender dan Tanggal lahir (disamarkan, ikon mata untuk membuka) dan kartu baru "Statistik & Premium" (status Premium, minat Premium, target harian, makro).' },
+        { type: 'feat', text: 'Detail User menampilkan Gender dan Tanggal lahir (disamarkan, ikon mata untuk membuka) dan kartu baru "Progres & Premium" (status Premium, minat Premium, target harian, makro).' },
       ],
     },
     {
@@ -377,11 +377,11 @@ export const RELEASES: Record<Platform, Release[]> = {
       version: '1.3.0',
       date: '2026-11-24',
       status: 'unreleased',
-      note: 'Butuh backend web ≥ 1.19.0 (sql/025). Di backend lama tab Statistik tidak tampil dan app tetap berjalan normal.',
+      note: 'Butuh backend web ≥ 1.19.0 (sql/025). Di backend lama tab Progres tetap tampil tetapi halamannya menampilkan "belum tersedia"; app tetap berjalan normal.',
       changes: [
-        { type: 'feat', text: 'Tab Statistik di bottom nav (Riwayat · Kamera · Statistik) dengan badge NEW sampai dibuka pertama kali. Harian gratis: ring progres terhadap target, komposisi makro, dan daftar per waktu makan. Mingguan dan Bulanan (grafik per hari/minggu dan kalender asupan) untuk Premium; user gratis melihat tampilan terkunci.' },
+        { type: 'feat', text: 'Tab Progres di bottom nav (Riwayat · Kamera · Progres) dengan badge NEW sampai dibuka pertama kali. Harian gratis: ring progres terhadap target, komposisi makro, dan daftar per waktu makan. Mingguan dan Bulanan (grafik per hari/minggu dan kalender asupan) untuk Premium; user gratis melihat tampilan terkunci.' },
         { type: 'feat', text: 'Atur target harian: kalori (stepper, pilihan cepat, acuan rata-rata terbakar) untuk semua user, dan target protein/karbo/lemak untuk Premium. Target mingguan dan bulanan mengikuti.' },
-        { type: 'feat', text: 'Kartu "Rata-rata kalori terbakar" berdasarkan gender dan umur (AKG Kemenkes 2019), dibandingkan dengan asupan hari ini. Gender dan tanggal lahir wajib diisi saat pertama membuka Statistik.' },
+        { type: 'feat', text: 'Kartu "Rata-rata kalori terbakar" berdasarkan gender dan umur (AKG Kemenkes 2019), dibandingkan dengan asupan hari ini. Gender dan tanggal lahir wajib diisi saat pertama membuka Progres.' },
         { type: 'feat', text: 'Info "Gizku Premium segera hadir" dengan pilihan "Ingatkan saya saat tersedia". Pembelian belum dibuka.' },
         { type: 'improve', text: 'Pengaturan pindah ke ikon gear di header. Kartu profil membuka halaman Profil baru untuk mengubah email, gender, dan tanggal lahir; baris "Ubah Email" dihapus dari Pengaturan.' },
       ],

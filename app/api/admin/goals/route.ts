@@ -1,4 +1,4 @@
-/** Backoffice API Goals & Tracker: config (wajib password admin untuk menyimpan), statistik, export waitlist. */
+/** Backoffice API Goals & Tracker: config (wajib password admin untuk menyimpan), progres, export waitlist. */
 import { NextRequest } from 'next/server'
 import { requireAdmin, assertAdminPassword } from '@/lib/admin'
 import { getGoalsConfig, saveGoalsConfig } from '@/lib/goalsConfig.server'

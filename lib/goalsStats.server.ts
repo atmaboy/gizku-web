@@ -66,7 +66,7 @@ export async function getGoalsAdminStats() {
   }
 }
 
-/** Data per user untuk kartu "Statistik & Premium" di Detail User. */
+/** Data per user untuk kartu "Progres & Premium" di Detail User. */
 export async function getUserPremiumInfo(userId: string) {
   const since7 = new Date(Date.now() - 7 * 86_400_000)
   const [row] = await db.execute<{ cta7: number; remind_at: Date | string | null; remind_source: string | null; remind_event: string | null }>(sql`

@@ -19,9 +19,9 @@ type Stats = {
 type SaveResult = { ok: true; config?: GoalsConfig } | { ok: false; status: number; error: string }
 
 const FEATURE_LABEL: Record<FeatureKey, { name: string; desc: string }> = {
-  daily:   { name: 'Statistik Harian',  desc: 'Ring progres, makro, per waktu makan' },
-  weekly:  { name: 'Statistik Mingguan', desc: 'Grafik 7 hari, rata-rata, hari sesuai target' },
-  monthly: { name: 'Statistik Bulanan', desc: 'Kalender asupan, total vs target bulanan' },
+  daily:   { name: 'Progres Harian',  desc: 'Ring progres, makro, per waktu makan' },
+  weekly:  { name: 'Progres Mingguan', desc: 'Grafik 7 hari, rata-rata, hari sesuai target' },
+  monthly: { name: 'Progres Bulanan', desc: 'Kalender asupan, total vs target bulanan' },
   macro:   { name: 'Target makro',      desc: 'Tab Makro di sheet Atur target: protein, karbo, lemak' },
   recs:    { name: 'Rekomendasi bacaan & resep', desc: 'Paling bawah tab Mingguan & Bulanan · konten belum siap' },
 }
@@ -118,7 +118,7 @@ export default function GoalsPage() {
             <div className="flex flex-col gap-4">
               <Switch checked={cfg.enabled} onChange={v => set(c => { c.enabled = v })}
                 label="Goals & Tracker aktif"
-                description="Kalau dimatikan, tab Statistik hilang dari bottom nav semua user (tersisa Riwayat dan kamera). Berlaku tanpa rilis ulang app." />
+                description="Kalau dimatikan, tab Progres tetap ada di bottom nav tetapi halamannya menampilkan “Progres belum tersedia” untuk semua user. Berlaku tanpa rilis ulang app." />
               <Switch checked={cfg.allowEdit} onChange={v => set(c => { c.allowEdit = v })}
                 label="User boleh mengubah target sendiri"
                 description="Kalau dimatikan, semua user memakai target default." />
@@ -299,7 +299,7 @@ export default function GoalsPage() {
 
           <Card icon={Sparkles} title="Efek di Aplikasi">
             {!saved.enabled || !cfg.enabled ? (
-              <p className="text-base text-primary">Tab Statistik tidak tampil di bottom nav app.</p>
+              <p className="text-base text-primary">Halaman Progres di app menampilkan "belum tersedia".</p>
             ) : (
               <ul className="flex flex-col gap-2.5 list-none m-0 p-0 text-base text-primary">
                 {free.length > 0 && <li className="flex gap-2"><span className="mt-2 size-2 rounded-full bg-brand shrink-0" />Gratis untuk semua: {list(free)}</li>}
